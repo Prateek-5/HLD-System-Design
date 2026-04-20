@@ -13,6 +13,18 @@ The wire formats and protocols that carry your bytes. Interview focus: understan
 - **HTTP/1.1**: one request per connection (keep-alive reuses connection but serializes requests).
 - **HTTP/2**: multiplexed streams over one TCP connection. Solves per-resource handshake cost. Still HOL-blocked by TCP.
 - **HTTP/3 (QUIC)**: runs on UDP. Independent streams → no cross-stream HOL block. Faster handshake (0-RTT resumption). Integrated TLS 1.3.
+
+> **🪜 HOL blocking, step-by-step:**
+> 1. HTTP/2 multiplexes 10 parallel requests over 1 TCP connection. Good — no per-request handshake.
+> 2. TCP guarantees in-order delivery. Packet 47 of the TCP stream is lost.
+> 3. Packets 48–100 arrive safely, but TCP holds them in kernel buffer until 47 retransmits.
+> 4. Application (HTTP/2) can't receive ANY stream's data during the wait — *all 10 parallel requests* are frozen on one lost packet.
+> 5. **Head of line is blocked** — hence the name.
+>
+> **QUIC fix**: each stream is independent at the protocol level. Loss in stream A doesn't block stream B. Because QUIC runs over UDP, the OS doesn't enforce cross-stream ordering.
+>
+> **🔎 Quick Check** — Why doesn't HTTP/1.1 with 6 parallel connections suffer this?
+> **🎯 Recall** — Each parallel connection is its own TCP stream; a loss in one doesn't block the other 5.
 - **WebRTC**: p2p audio/video/data over UDP (via SRTP/DTLS). ICE/STUN/TURN for NAT traversal.
 - **WebSocket**: full-duplex over TCP, starts as HTTP upgrade. Used for chat, games, realtime.
 - **SSE (Server-Sent Events)**: unidirectional server→client HTTP stream. Auto-reconnects. Simpler than WS when only server-push needed.

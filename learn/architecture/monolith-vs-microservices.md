@@ -6,6 +6,23 @@
 
 Microservices are not "better". They trade simplicity for flexibility + team independence + fault isolation.
 
+### 🪜 Prerequisite investment ladder (you need ALL of these before going micro)
+
+| Capability | Why before going micro |
+|---|---|
+| CI/CD per service | Otherwise deploying 20 services means 20 hours of manual work |
+| Centralized logging with trace IDs | Without it, debugging a 5-service request is impossible |
+| Distributed tracing (Jaeger/Tempo) | See latency across services |
+| Service discovery + sidecars | Endpoints change dynamically |
+| Circuit breakers + timeouts | Cascade failures will happen |
+| Feature flags / gradual rollout | Deploy risky changes safely |
+| On-call rotation + runbooks | More moving parts = more pages |
+
+> **🧠 What if you skip this?** You end up with a **distributed monolith**: many services, all coupled, all deploy together, nothing easier to reason about. Worst of both worlds.
+>
+> **🔎 Quick Check** — Your team of 5 is arguing about splitting a 50k LOC app into 15 microservices. Your first question should be?
+> **🎯 Recall** — "Do we have CI/CD, tracing, discovery, and on-call set up?" If no to any, **don't split yet**.
+
 ## B. Mental Model
 - Start with a monolith. Split only when coupling or scaling forces it.
 - Each microservice owns its data; services communicate over network (HTTP/gRPC/events).

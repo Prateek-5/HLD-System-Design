@@ -43,6 +43,8 @@ The **only** thing the number fundamentally does is:
 
 That second property is the whole magic. A router looking at `74.125.224.72` doesn't need to know *that specific host* exists — it only needs to know "traffic for `74.125.0.0/16` goes out on interface 3". This is called **longest-prefix matching**, and it's how the entire internet scales.
 
+> **🧭 Pointer for beginners**: the notations `/16` and `/24` above are **CIDR** — don't worry if that's unfamiliar yet; there's a full walkthrough in Section F → CIDR below. Come back to this line afterward; it'll click.
+
 ---
 
 ## C. Internal Working — Packet Level
@@ -104,6 +106,23 @@ You type `google.com` in your browser. After DNS resolves it to, say, `142.250.7
 
 Note: at no point does any router in the middle know "this is Prateek's laptop". They only know prefixes.
 
+### 🪜 NAT return-path (the part most explanations skip)
+
+When Google replies to `49.207.44.100`, how does your home router know the reply belongs to *your* laptop (192.168.1.10) and not your phone (192.168.1.11), both of which are behind the same public IP?
+
+1. **Outbound**: your laptop's packet has `src = 192.168.1.10:54321 → dst = 142.250.72.206:443`.
+2. **At the router**: NAT picks an external port (say 61000) and rewrites to `src = 49.207.44.100:61000 → dst = 142.250.72.206:443`. It stores the mapping `(61000) → (192.168.1.10, 54321)` in its NAT table with a timer.
+3. **Google's reply** comes back to `49.207.44.100:61000`.
+4. **Router** looks up 61000 → finds `(192.168.1.10, 54321)` → rewrites destination → forwards to your laptop.
+5. **Timer resets** on each packet so the mapping stays alive.
+
+Because port 61000 is unique per flow, your laptop and phone can both use the same public IP without collision. This is why NAT needs a concept of **ports** — which is why the TCP/UDP layer matters even for NAT.
+
+> **🧠 What if NAT didn't exist?** Then every device in your house would need a globally unique public IPv4. We ran out in 2011 — the internet would have stalled or forced IPv6 adoption a decade earlier.
+
+> **🔎 Quick Check** — Can you answer in 10 seconds: why does removing a NAT entry from the router's table mid-download break the connection? (Hint: the return port no longer maps.)
+> **🎯 Recall** — NAT uses the external port as a lookup key to route replies back to the correct private host.
+
 ---
 
 ## D. Visual Representation
@@ -159,6 +178,100 @@ A packet's Source/Destination pair changes as it crosses NAT. Routers in the pub
 - "What's a /24?" (CIDR — see below.)
 
 ### CIDR (you will be asked this)
+
+> **❓ Why does CIDR even exist? (Read this *before* the definition.)**
+>
+> In the 1990s internet, addresses were handed out in rigid **classes** — Class A (~16M addresses each), Class B (~65k each), Class C (256 each). If you needed 1000 addresses, Class C (256) was too small, Class B (65k) wasted 64,000 addresses. Every organization was taking too much, and routers kept one entry **per network**. By 1993, routing tables were ballooning toward the point where routers would run out of memory. The internet was days away from collapse.
+>
+> **CIDR (1993) fixed this in two moves:**
+> 1. **Give each organization only the addresses it needs** — in any power-of-2 size (not just 256 / 65k / 16M). 1024 addresses? Use a `/22` (2¹⁰ = 1024). Problem solved.
+> 2. **Summarize many smaller networks into one "bigger" entry** in the routing table. Instead of 256 routes for `203.0.113.0/24` through `203.0.143.0/24`, advertise one `203.0.0.0/19`. Router tables shrank by an order of magnitude.
+>
+> Without CIDR, the internet as we know it simply couldn't scale.
+
+### 🧠 Intuition — the "range" way of thinking
+
+Forget the dots for a second. An IP address is a **number** (for IPv4, a 32-bit number). A CIDR block is an **interval of numbers**.
+
+Analogy: imagine house numbers 0 to 4 billion. A CIDR block is a contiguous stretch of that range. `/24` means "the stretch you get by fixing the first 24 bits and letting the last 8 vary" — exactly 256 consecutive addresses.
+
+Small prefix number = big range. `/8` = 16 million addresses. `/30` = 4 addresses.
+
+### 📐 Formal definition
+
+**CIDR** (Classless Inter-Domain Routing) notation: `A.B.C.D/N`.
+- The `/N` is the **prefix length** — how many leading bits are fixed ("the network part").
+- The remaining `32 − N` bits are free ("the host part").
+- Size of the block = 2^(32−N).
+
+| CIDR | Prefix bits | Host bits | # addresses |
+|---|---|---|---|
+| `/8` | 8 | 24 | 16,777,216 |
+| `/16` | 16 | 16 | 65,536 |
+| `/24` | 24 | 8 | 256 |
+| `/28` | 28 | 4 | 16 |
+| `/30` | 30 | 2 | 4 |
+
+### 🔬 Worked example — break down `192.168.1.42/24`
+
+```
+Address:   192 . 168 . 1 . 42
+Binary:    11000000.10101000.00000001.00101010
+           └───── 24 bits (prefix) ─────┘└host┘
+           
+Network:   192.168.1.0  (host bits zeroed)
+Broadcast: 192.168.1.255 (host bits all-ones)
+Usable:    192.168.1.1 — 192.168.1.254  (254 hosts; first and last are reserved)
+```
+
+Why "minus 2"? The first address (`.0`) is the network identifier (how routers name the whole range); the last (`.255`) is the broadcast address (send-to-all-on-this-network). Neither can be assigned to a host.
+
+### 🗺️ Where you actually use CIDR
+
+- **AWS VPC**: you pick a CIDR block when you create a VPC, e.g., `10.0.0.0/16` = 65,536 addresses. You then carve it into subnets (`10.0.1.0/24`, `10.0.2.0/24`, ...) — one per availability zone.
+- **Firewall / security-group rules**: "allow SSH from `10.0.0.0/8`" means allow the entire private 10.x.x.x range.
+- **Kubernetes**: pod networks use CIDR (e.g., pod CIDR `10.244.0.0/16`, service CIDR `10.96.0.0/12`).
+- **BGP advertisements**: ISPs announce CIDR blocks to the internet; `8.8.8.0/24` = Google's block.
+
+### 🧭 Longest-prefix matching — how routers actually use CIDR
+
+Here's the part that makes CIDR scale: **a router doesn't look up the full IP, it matches the longest CIDR prefix that contains it.**
+
+Imagine a routing table:
+```
+0.0.0.0/0        →  interface eth0 (default route — "internet")
+10.0.0.0/8       →  interface eth1 (the VPC)
+10.0.5.0/24      →  interface eth2 (a specific subnet)
+```
+
+An outgoing packet to `10.0.5.42`:
+- Matches `0.0.0.0/0` (everything does).
+- Matches `10.0.0.0/8` (first 8 bits match).
+- Matches `10.0.5.0/24` (first 24 bits match).
+- Router picks the **longest match** (`/24`) → sends out eth2.
+
+This is why the internet scales to billions of addresses with routers holding **only hundreds of thousands of entries** — each entry summarizes a whole range, and routers deterministically pick the most specific one.
+
+> **🧠 What breaks without longest-prefix matching?**
+> Routers would need an entry per individual address (4 billion for IPv4, infinity for IPv6). RAM alone wouldn't fit. The internet stops working at 1990s scale.
+
+### 🎤 Interview hook — CIDR traps
+
+- "How many usable hosts in a `/26`?" → 2⁶ − 2 = **62**.
+- "Design a VPC for 3 AZs × 4 subnets each with room to grow." → pick `/16` for VPC, `/20` per AZ, `/22` per subnet. Always leave headroom.
+- "If I advertise `10.0.0.0/8` and `10.0.5.0/24`, which wins?" → `/24` wins (longest prefix).
+- **Common trap**: confusing `/24` with 255 addresses. It's 256 *addresses*, 254 *usable hosts*.
+
+### 🔄 Micro reinforcement
+
+1. **Quick recall**: How many addresses in `/28`? How many usable hosts?  *(16; 14.)*
+2. **Quick recall**: Given `10.0.0.0/16` and `10.0.5.0/24`, which route wins for `10.0.5.12`?  *(The /24 — longest prefix.)*
+3. **What if** CIDR had a maximum of `/24` (i.e., you could never go smaller than 256 addresses)? *(You'd waste addresses on every tiny network — back to the 1990s IP-exhaustion crisis.)*
+
+---
+
+**(The original two-line CIDR note is preserved here as a quick restatement):**
+
 **CIDR** = Classless Inter-Domain Routing. Notation: `192.168.1.0/24`. The `/24` means the first 24 bits are the network prefix, the remaining 8 bits are host addresses. So `/24` = 256 addresses (2⁸), `/16` = 65,536 addresses, `/8` = 16 million.
 
 A senior will ask: "If I give you `10.0.0.0/16`, how many hosts can you put in it?" Answer: 2¹⁶ − 2 = 65,534 (subtract network and broadcast addresses).
@@ -186,20 +299,22 @@ A senior will ask: "If I give you `10.0.0.0/16`, how many hosts can you put in i
 
 ## H. Questions
 
-### Beginner
+> **📈 Depth markers** — 🟢 Beginner questions establish vocabulary; 🟡 Intermediate questions expect mechanism; 🔴 Advanced questions expect design tradeoffs.
+
+### Beginner 🟢
 1. What is an IP address, in one sentence?
 2. Why do we need IP addresses at all?
 3. What's the difference between IPv4 and IPv6?
 4. What's a private vs public IP?
 
-### Intermediate (Why / How)
+### Intermediate (Why / How) 🟡
 1. Why did IPv6 have to exist when NAT was already working?
 2. How does a router decide where to send a packet?
 3. What does TTL do in an IP header?
 4. How does NAT allow 50 devices in your house to share one public IP?
 5. What does `/24` mean in `192.168.1.0/24`?
 
-### Advanced (Interview)
+### Advanced (Interview) 🔴
 1. Walk me through the IP-level flow when your laptop in Bangalore requests `google.com`.
 2. Why is longest-prefix matching critical to internet scalability?
 3. How does anycast let Cloudflare serve `1.1.1.1` from 300 locations?

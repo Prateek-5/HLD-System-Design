@@ -22,6 +22,22 @@ Same as above but step 2 also waits for at least one replica to ack. Durability 
 ### Replication lag
 The time between primary commit and replica catching up. Usually ms; can blow up under load or network hiccup. Causes "read-after-write" anomalies: you posted a comment but it's not visible when you refresh (you're reading from a lagged replica).
 
+### 🪜 Read-after-write anomaly — the flow
+1. **T=0ms** — User posts comment → hits primary → commit.
+2. **T=5ms** — Primary acks.
+3. **T=10ms** — User's browser auto-refreshes.
+4. **T=12ms** — Refresh reads from a lagged replica which hasn't yet received the write.
+5. **User sees empty comment list** and thinks the post failed. They post again.
+6. **T=100ms** — Replica catches up. Now there are 2 duplicate comments. 😱
+
+**Fixes** (in order of simplicity):
+- Route the user's *own* reads to the primary for N seconds after their write (sticky-to-primary).
+- Route all reads of the user's own session to one replica and wait for its lag.
+- Client-side: keep the just-posted data in local state, merge on refresh.
+
+> **🔎 Quick Check** — In 10 seconds: what metric do you alert on for replication health?
+> **🎯 Recall** — Replication lag (seconds behind primary). Postgres: `pg_stat_replication.replay_lag`.
+
 ### Multi-master
 Two+ writers. Must resolve conflicts:
 - **Last-write-wins (LWW)**: simple, can lose data.

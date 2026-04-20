@@ -44,6 +44,34 @@ Netflix is a **video streaming** platform. The interesting parts: content ingest
 - Based on network throughput, player picks the best quality per segment.
 - Bad network → drop to lower bitrate instead of buffering.
 
+### 🪜 Concretely — what's in the manifest (HLS `.m3u8`)
+
+```
+#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360
+360p.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=2400000,RESOLUTION=1280x720
+720p.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080
+1080p.m3u8
+```
+
+Each sub-manifest (`720p.m3u8`) lists individual segments:
+```
+#EXTINF:6.0,
+seg_001.ts
+#EXTINF:6.0,
+seg_002.ts
+...
+```
+
+**Decision rule** (simplified): every N seconds, estimate throughput; if throughput × buffer > segment bitrate × N → upgrade. Else downgrade.
+
+> **🧠 What if segments weren't independently cacheable?** A viral show would force every CDN PoP to re-fetch a single huge file. Segmentation is what makes video CDN economical.
+>
+> **🔎 Quick Check** — Your 720p stream briefly drops to 480p mid-episode. What likely just happened?
+> **🎯 Recall** — Network throughput dropped; the ABR algorithm picked a lower bitrate for the next segment to avoid buffering.
+
 ### CDN — Open Connect
 - Netflix built its own CDN.
 - ISPs host Open Connect Appliances (OCAs) inside their networks; content pre-positioned at night.

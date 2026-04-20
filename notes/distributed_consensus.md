@@ -9,6 +9,9 @@ Protocols that let a group of nodes agree on a value (or a sequence of values) d
 
 ### 🔹 3. Core Concepts (High Signal)
 - **Quorum**: you need a **majority** (N/2+1) of nodes to commit. 3 nodes → tolerate 1 failure; 5 → tolerate 2.
+
+> **🔎 Quick Check** — 7 nodes. How many failures tolerated? What's quorum size?
+> **🎯 Recall** — Tolerates 3; quorum = 4 (⌊7/2⌋ + 1).
 - **Paxos**: original (Leslie Lamport, 1998). Roles: Proposer, Acceptor, Learner. Two phases (Prepare, Accept). Notoriously hard to understand; hard to implement correctly.
 - **Raft**: (Ongaro & Ousterhout, 2013). Designed for understandability. Leader-based; leader election + log replication + safety.
 - **Raft phases**:
@@ -20,10 +23,12 @@ Protocols that let a group of nodes agree on a value (or a sequence of values) d
 - **Byzantine fault tolerance (BFT)**: different problem — nodes may lie, not just crash. PBFT, Tendermint, blockchain. Overkill for trusted DC.
 
 ### 🔹 4. Internal Working (Raft leader election)
-1. Each follower has a random election timeout (150–300ms).
-2. If no heartbeat from leader → become candidate, increment term, vote for self, request votes.
-3. On majority votes → become leader, send heartbeats.
-4. On seeing higher term → step down.
+
+**🪜 Step-chunked with reasoning per step:**
+1. **Each follower has a random election timeout (150–300ms).** — *Why random?* So not all followers start an election at the same instant — prevents split vote storms.
+2. **If no heartbeat from leader → become candidate, increment term, vote for self, request votes.** — *Why increment term?* Terms are monotonic; messages from old terms are auto-rejected, avoiding zombie-leader chaos.
+3. **On majority votes → become leader, send heartbeats.** — *Why heartbeats?* They reset followers' election timers. No heartbeat = leader is dead → re-elect.
+4. **On seeing higher term → step down.** — *Why?* Someone else is a newer leader; old leader defers to new.
 
 **Log replication:** client sends cmd to leader → leader appends locally → replicates to followers → when majority ack → leader commits + notifies followers → client gets ack.
 

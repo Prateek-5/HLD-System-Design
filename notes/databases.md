@@ -22,6 +22,15 @@ Durable, queryable stores for structured (SQL) or flexible (NoSQL) data. The def
   - *Primary-replica (async)* — reads scale, writes to primary, risk of lag/data loss.
   - *Primary-replica (sync)* — no data loss, higher write latency.
   - *Multi-master* — high complexity, conflict resolution required.
+
+> **🪔 Vocabulary note**: "primary", "leader", and "master" mean the same thing in DB literature. Same for "replica", "follower", "slave". Modern docs prefer primary/replica — mentally translate older docs.
+
+> **🧮 Worked example — quorum consistency (Cassandra/Dynamo style)**:
+> - Replication factor N = 3.
+> - Writer waits for W=2 acks before returning success.
+> - Reader queries R=2 replicas and takes the freshest value.
+> - Because W + R = 4 > N = 3, **at least one replica in R overlaps with W** → reader always sees the last write.
+> - Try N=3, W=1, R=1 (fast but "AP"): 1+1 < 3 → stale reads possible.
 - **Sharding**: hash / range / list / lookup. Use **consistent hashing** to minimize rebalance churn.
 - **Normalization** for integrity; **denormalization** for read performance + cross-shard join avoidance.
 - **CAP / PACELC**: choose per workload, not per system.
@@ -39,15 +48,15 @@ Durable, queryable stores for structured (SQL) or flexible (NoSQL) data. The def
 - Sharding: throughput up, but joins across shards and cross-shard tx are painful.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. SQL vs NoSQL — decision criteria?
 2. Why do we need indexes?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Explain MVCC vs locking.
 2. What's replication lag and how do you mitigate read-after-write anomalies?
 
-**Advanced**
+**Advanced 🔴**
 1. Pick a shard key for Twitter tweets. Defend.
 2. Explain LSM vs B-tree storage engines — when each wins.
 3. How does Spanner provide global ACID? (TrueTime, Paxos)

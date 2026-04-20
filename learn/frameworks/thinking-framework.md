@@ -4,7 +4,9 @@
 
 ---
 
-## The 60-second orientation
+> **📈 Depth markers used in this doc** — 🟢 Beginner (use every interview), 🟡 Intermediate (senior signal), 🔴 Advanced (staff+ signal).
+
+## The 60-second orientation 🟢
 
 Before you draw anything, **say these four sentences out loud** (or in your head):
 
@@ -17,7 +19,7 @@ Interviewers are not testing whether you know every buzzword. They are testing w
 
 ---
 
-## Stage 1 — Clarify (3–5 min)
+## Stage 1 — Clarify (3–5 min) 🟢
 
 You will get a vague prompt. **Do not start drawing.** Convert the prompt into a concrete problem.
 
@@ -40,7 +42,7 @@ This sentence is your **contract** for the rest of the interview. Every decision
 
 ---
 
-## Stage 2 — Estimate (2–3 min)
+## Stage 2 — Estimate (2–3 min) 🟡
 
 Do the math. Out loud.
 
@@ -78,7 +80,7 @@ Then interpret: "200k QPS peak means a single DB node will not survive. We need 
 
 ---
 
-## Stage 3 — High-level architecture (5–10 min)
+## Stage 3 — High-level architecture (5–10 min) 🟡
 
 Draw left to right: **client → edge → app → data**.
 
@@ -114,7 +116,7 @@ A default skeleton you can always start from:
 
 ---
 
-## Stage 4 — Deep dive (10–15 min)
+## Stage 4 — Deep dive (10–15 min) 🔴
 
 The interviewer will now pick a piece and say "go deeper". **Anticipate which one.** Usually it's the one most critical to the scale you quoted.
 

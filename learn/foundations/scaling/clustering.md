@@ -40,6 +40,37 @@ A cluster is a group of machines working as if they were one. The user requests 
 - "Difference between clustering and load balancing?" → Clusters are aware of each other and share state; LB'd servers need not be.
 - "Active-active vs active-passive?" → Throughput vs simplicity.
 - "What is split brain?" → Network partition such that two nodes each think they're the leader. Resolved via quorum / fencing.
+
+> **❓ "Quorum" — what is that, exactly?**
+>
+> **The problem it solves:** in a distributed cluster, a network partition can split the cluster in half. If both halves keep accepting writes thinking they're the "real" one, you get inconsistent data (split brain). You need a rule guaranteeing *at most one half* continues making authoritative decisions.
+>
+> **Intuition — the voting analogy:** every important action requires a **majority vote**. Just like democracy — if you have 5 senators and 3 vote yes, that's a quorum.
+>
+> **Formal rule:** quorum = ⌊N/2⌋ + 1 (strict majority of N nodes).
+>
+> | Cluster size (N) | Quorum | Tolerates failures |
+> |---|---|---|
+> | 3 | 2 | 1 |
+> | 5 | 3 | 2 |
+> | 7 | 4 | 3 |
+> | 2 | 2 | **0** (any failure → unavailable) |
+> | 4 | 3 | 1 (same as N=3, but more comms — avoid even N) |
+>
+> **Why odd numbers?** An even-node cluster gains no extra fault tolerance vs N−1, and costs more messages. 3, 5, 7 are canonical.
+>
+> **How this kills split brain:** if 5 nodes split 3–2, only the 3-side has quorum → the 2-side refuses writes until partition heals. Impossible for both halves to think they're authoritative.
+>
+> **Read/write quorums (Cassandra, Dynamo-style):** with replication factor R, you can configure:
+> - `W` = number of replicas that must ack a write
+> - `R` = number of replicas queried on read
+> - As long as **W + R > N**, every read overlaps with the last write → consistency guaranteed.
+> - Example: N=3, W=2, R=2 → 2+2 > 3 → strong consistency per-key.
+>
+> **🔄 Micro reinforcement**:
+> 1. *Recall*: a 7-node cluster survives how many failures and still decides? *(3 failures; need 4 to form quorum.)*
+> 2. *Recall*: why don't we use a 4-node cluster? *(Tolerates same 1 failure as 3 nodes but with more traffic.)*
+> 3. *What if* we required *all* nodes to agree (W=N)? *(Any single failure halts progress — Cassandra calls this consistency level `ALL`; strong but fragile.)*
 - Pitfalls: thinking clustering "just works" without a consensus story.
 
 ## G. Real-World Mapping

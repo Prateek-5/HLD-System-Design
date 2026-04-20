@@ -16,6 +16,22 @@ Keeping multiple copies of data on different nodes. Core lever for read scaling,
 - **Logical vs physical**: physical = WAL shipping (byte-level). Logical = row/column changes. Logical more flexible (cross-version, CDC, selective replication).
 - **Change Data Capture (CDC)**: read the WAL/oplog and publish changes to a stream (Kafka). **Debezium** and **Netflix DBLog** are the canonical tools. Enables event-driven sync to caches, search indexes, warehouses without dual-writes.
 
+> **❓ What CDC *actually does* under the hood:**
+> 1. DB already writes every change to a WAL (for crash recovery). That log is **free, accurate, ordered**.
+> 2. A connector (Debezium) connects to the DB as a "replica" and tails the WAL.
+> 3. Each row change → a structured event `{op: UPDATE, before: {...}, after: {...}, ts: ...}`.
+> 4. Connector publishes to a Kafka topic (often one topic per table).
+> 5. Downstream consumers (Elasticsearch, warehouse, cache invalidator) react.
+>
+> The win: the DB is the single source of truth; downstream systems *derive* their state from the event stream. No dual-writes → no dual-write race conditions.
+
+> **🧱 Primary vs replica — who knows what**
+> Primary: latest writes, unacked in-flight transactions, all active clients.
+> Replica: everything primary has committed *and* successfully replicated. **Lag window**: replica does NOT know about writes from the last N ms. Critical-path reads must go to primary.
+
+> **🧠 What if async replication didn't exist (only sync)?**
+> Every write would pay cross-AZ or cross-region RTT before ack. A write to a US-EU replica pair would cost ~100ms per write. Throughput drops to the point most systems couldn't meet latency targets. Async exists because latency matters — we accept a small data-loss window on primary failure.
+
 ### 🔹 4. Internal Working
 **Primary write:** client → primary commits to WAL → fsync → ack → WAL streamed to replicas → replicas apply → replicas now current (with lag).
 **Failover:** detect primary down (health check quorum) → promote replica (smallest-lag one) → redirect clients (DNS / proxy reconfigure) → old primary rejoins as replica after recovery.

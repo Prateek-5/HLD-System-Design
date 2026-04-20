@@ -28,6 +28,21 @@ An API gateway is a specialized reverse proxy with **API-awareness**:
                                                 …
 ```
 
+### 🧱 What the gateway *should* know (and NOT know)
+
+| ✅ Should know | ❌ Should NOT know |
+|---|---|
+| Auth (JWT validation, API key) | Domain business logic |
+| Rate limits, quotas | How users are stored |
+| Routing rules (`/api/v1/*` → svc A) | Which DB a service uses |
+| Request/response transformation | Internal service contracts (unless you're building a BFF) |
+| Aggregation for BFF (only if BFF pattern) | Service-to-service routing (use mesh) |
+
+**Warning — the "god gateway" anti-pattern**: teams start shoveling business logic into the gateway because it's centralized. Two years later, deploying the gateway becomes scarier than any service deploy. Keep it dumb.
+
+> **🔎 Quick Check** — Where should you validate the *shape* of an order payload: gateway or order service?
+> **🎯 Recall** — Order service. Schema validation is business logic.
+
 ## E. Tradeoffs
 **Pros**: one place for cross-cutting concerns, simpler clients.
 **Cons**: SPOF without HA, can become a monolith of itself, latency added, team coupling risk.

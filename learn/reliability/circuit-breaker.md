@@ -41,6 +41,33 @@ Half-Open ── failure ──────▶ Open
 - Risk: false trip (transient blip) → use rolling window + multiple failure kinds.
 - Half-open probe must be careful not to re-hammer.
 
+### 🧨 Retry storm — the failure pattern circuit breakers mitigate
+
+Bad retry (DON'T do this):
+```python
+while True:
+    try: return call_downstream()
+    except: pass   # immediate retry
+```
+1000 clients doing this → downstream goes from slow to dead.
+
+Good retry (DO this) — exponential backoff + jitter:
+```python
+for attempt in range(5):
+    try: return call_downstream()
+    except TransientError:
+        sleep(min(cap, base * 2**attempt) * random.uniform(0.5, 1.5))
+raise
+```
+- **Exponential**: each retry waits longer.
+- **Jitter**: randomizes so 1000 clients don't all retry at the same microsecond (the "thundering herd" amplification).
+- **Cap**: never wait more than N seconds.
+
+> **🧠 What if you skip jitter?** Retry synchronization → load spikes every backoff interval → downstream oscillates between "recovering" and "dying". Known as the **retry synchronization storm**.
+>
+> **🔎 Quick Check** — You added exponential backoff. One million clients still DDoS the downstream. What did you forget?
+> **🎯 Recall** — Jitter. Without it, everyone retries at identical moments.
+
 ## F. Interview Lens
 - "How do you prevent cascading failure?" — circuit breaker, bulkheads, timeouts, retries with backoff.
 - "Why is retry without backoff dangerous?" — self-inflicted DDoS on recovering service.

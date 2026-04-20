@@ -44,6 +44,17 @@ The client sees "one server" — the proxy. Server fleet is hidden.
 
 **Key test to tell them apart**: *Whose identity is being hidden from the other side?*
 
+### 🧱 What each side sees
+
+| Role | Forward Proxy | Reverse Proxy |
+|---|---|---|
+| Client sees | "The target server" (may not know proxy exists if transparent) | "One server" at a stable IP/DNS name |
+| Server sees | The proxy's IP (not the real client) | The proxy's IP; real client IP via `X-Forwarded-For` header |
+| Proxy knows | Real client, real target | Real client, chosen backend |
+
+> **🔎 Quick Check** — Which type of proxy is Cloudflare, when it sits between the public internet and your origin server?
+> **🎯 Recall** — Reverse proxy. It hides your origin from clients.
+
 ---
 
 ## C. Internal Working

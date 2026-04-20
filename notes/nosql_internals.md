@@ -17,6 +17,15 @@ The storage-engine-level tricks that let NoSQL (Cassandra, BigTable, RocksDB, Sc
   - *Time-window (TWCS)*: group by time window — ideal for time-series with TTL.
 - **Read path**: bloom filter check per SSTable → index block → read data block → possibly merge across SSTables + memtable.
 - **Write amp vs read amp** tradeoff is the central knob.
+
+> **🧠 What if LSM had no compaction?**
+> Every write creates a new SSTable. A read for key X must check *every* SSTable (newest → oldest), stopping at first hit. After 10k writes → 10k SSTables → each read scans 10k files (bloom filters help but eventually fail). Disk fills with obsolete/tombstoned data. System dies.
+> **Compaction is not an optimization — it is how the system survives writes.**
+
+> **📈 Depth layering on this file:**
+> 🟢 Beginner: "writes go to log + memtable; reads check memtable + SSTables".
+> 🟡 Intermediate: "compaction merges SSTables; bloom filter avoids reading non-matching files".
+> 🔴 Advanced: "compaction strategy (STCS/LCS/TWCS) trades write amp vs read amp; tombstone GC is a separate concern from compaction".
 - **Hyperloglog**: probabilistic cardinality (unique count) in ~12KB of memory, ~1% error. Used for "unique visitors" at massive scale.
 
 ### 🔹 4. Internal Working

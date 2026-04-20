@@ -32,6 +32,21 @@ IP gets you to a host. Port gets you to a process on that host.
 
 When your browser connects to Google, your OS picks an ephemeral source port (say 54321) and the destination is port 443. The 4-tuple `(src_ip, src_port, dst_ip, dst_port)` uniquely identifies that connection.
 
+> **❓ Wait — what's an "ephemeral port"? Why does the client even *need* a port?**
+>
+> **The problem it solves:** your browser has 5 tabs each loading `google.com:443`. All 5 target the same (dst_ip, dst_port). If the client had no port of its own, the OS couldn't tell the 5 replies apart — they'd look identical from a routing perspective.
+>
+> **Solution:** the OS picks a *fresh, short-lived port number* for each new outgoing connection — tab 1 gets 54321, tab 2 gets 54322, and so on. These are called **ephemeral ports** ("short-lived, chosen by the kernel, not pre-assigned to any service"). When a reply comes back to `(your_ip, 54321)`, the kernel knows it's for tab 1.
+>
+> **Typical range:** Linux uses 32,768–60,999 by default; Windows uses 49152–65535.
+>
+> **Why this matters at scale:** a single machine has only ~28,000 usable ephemeral ports per (dst_ip, dst_port) pair. If you open 30,000 connections to one backend from one client, you literally run out of ports. This is why **connection pooling** exists, and why high-throughput clients multiplex over HTTP/2.
+>
+> **🔄 Micro reinforcement**:
+> 1. *Recall*: what uniquely identifies a TCP connection? *(The 4-tuple: src IP, src port, dst IP, dst port.)*
+> 2. *Recall*: why does opening a *very* large number of connections from one machine to one server fail around 28k? *(Ephemeral port exhaustion.)*
+> 3. *What if* the OS reused an ephemeral port while the previous connection's packets were still in flight? *(Those stragglers could be delivered to the new connection — which is exactly why `TIME_WAIT` exists.)*
+
 ### TCP's three jobs
 1. **Reliability** — lost packets are retransmitted; duplicates are dropped; out-of-order packets are reassembled.
 2. **Connection** — an explicit handshake sets up shared state; an explicit teardown ends it.
@@ -69,6 +84,13 @@ The handshake costs **1 round-trip time (RTT)** of latency before a single byte 
 - **Sliding window**: sender can have many unacknowledged bytes in flight. The window size (advertised by the receiver) caps how much.
 - **Fast retransmit**: if receiver sees 3 duplicate ACKs for byte N, it means N+1 was lost; retransmit immediately, don't wait for timeout.
 - **Congestion control** (TCP Reno, Cubic, BBR): if the network drops packets, slow down. TCP literally probes for how much bandwidth exists and backs off when it sees signs of congestion.
+
+> **❓ Why must the sender slow down?**
+> Imagine 1000 senders all blasting at full speed down a 10 Gbps link. The router's buffer fills → it drops packets. Every sender retransmits → buffer overflows more → everyone's throughput collapses (congestion collapse). TCP's "slow down on loss" is a **social contract**: by each backing off, everyone gets more total throughput. This is why one malicious UDP flood can ruin a link for everyone — UDP doesn't follow the contract.
+>
+> **🟢 Beginner** — loss triggers slowdown.
+> **🟡 Intermediate** — TCP uses a *congestion window* (cwnd) that grows on ACK, halves (or more) on loss.
+> **🔴 Advanced** — Cubic grows as a cubic function of time since last loss; BBR (Google) measures bottleneck bandwidth directly instead of reacting to loss. BBR wins on lossy wireless links where loss ≠ congestion.
 
 ### TCP teardown (FIN handshake)
 
@@ -143,6 +165,9 @@ Use when:    correctness         Use when:    latency matters
 
 ### The head-of-line blocking problem (senior-level)
 TCP guarantees in-order delivery. If packet 5 is lost, packets 6, 7, 8 can't be handed to the application until 5 is retransmitted — even if they've already arrived. This is fine for file transfer, bad for multiplexed streams (HTTP/2 suffers from it). QUIC fixes this by running independent streams over UDP.
+
+> **🔎 Quick Check** — Why is this a bigger problem for HTTP/2 than HTTP/1.1?
+> **🎯 Recall** — HTTP/2 multiplexes many "streams" onto one TCP connection. One packet loss blocks *all* streams until retransmit; HTTP/1.1 used separate connections so loss only hurt one.
 
 ### TCP's costs
 - Handshake latency.

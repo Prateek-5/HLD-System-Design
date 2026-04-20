@@ -121,6 +121,31 @@ Fixes:
 - **Staggered TTL**: small random jitter on TTLs so not all keys expire at once.
 - **Stale-while-revalidate**: serve stale data for a few seconds while one request refreshes in the background.
 
+> **❓ Why is this called "thundering herd"?**
+>
+> **The problem, visualized:** picture a herd of 1000 cows sleeping peacefully. Someone opens a gate. All 1000 stampede through at once. That's what your DB looks like when a hot cache key expires: all users simultaneously "miss" and rush the DB. The DB, sized for steady-state load, can't handle the spike — it falls over, which makes the miss *longer*, which keeps the stampede going. This is a **cache-induced incident** pattern familiar to every SRE.
+>
+> **The three fixes, concretely:**
+>
+> **1. Request coalescing (also called "singleflight" or "promise-based")** —
+> ```python
+> # Pseudocode:
+> if key in in_flight_requests:
+>     wait for the result of that single fetch
+> else:
+>     register the fetch as in-flight, do it once, broadcast result
+> ```
+> The Go `singleflight` package does this; Facebook's leases (in the Memcached paper) do this at scale.
+>
+> **2. TTL jitter** — instead of TTL=300 for everyone, use `TTL = 300 + random(0, 30)`. Keys expire over a 30s window instead of at the same instant. Cheap, effective, almost always combined with other fixes.
+>
+> **3. Stale-while-revalidate (SWR)** — RFC 5861. Serve the expired value to 999 requests while 1 request refreshes in the background. Users see a 1s-stale value; the DB sees *one* extra query. This is what HTTP's `Cache-Control: stale-while-revalidate=30` does, and what Next.js / Vercel apply by default.
+>
+> **🔄 Micro reinforcement**:
+> 1. *Recall*: under thundering herd, what's the main metric that spikes? *(DB QPS and connection count.)*
+> 2. *Recall*: which fix keeps the UI freshness unchanged? *(Request coalescing — others see the single fetch's result.)*
+> 3. *What if* you add TTL jitter but skip coalescing, and one celebrity key still expires? *(You still get a stampede on that one key — jitter only helps when many keys would have expired together. Hot-key scenarios need coalescing or replication.)*
+
 ---
 
 ## D. Visual Representation
@@ -146,6 +171,16 @@ Write flow (write-through):
 
 ### Consistency vs performance
 Caches are a direct **availability/consistency tradeoff**. Eventual consistency (TTL expiry) is what lets caches be useful; strong consistency would require invalidating every copy on every write (expensive).
+
+> **🟢 Beginner → 🟡 Intermediate — concrete stale-read example:**
+> 1. **T=0s**: Alice posts a comment. Writes to DB. TTL on the feed cache is 60s.
+> 2. **T=1s**: Bob loads the feed. Cache hit — Bob sees the feed WITHOUT Alice's comment.
+> 3. **T=60s**: Cache expires.
+> 4. **T=61s**: Bob reloads. Now sees Alice's comment.
+>
+> During T=0 to T=60s, the system is **eventually consistent** — the truth (DB) and the view (cache) disagree. For a comments feed, this is fine. For an account balance, it would be a bug.
+>
+> **🧠 What if you wanted strong consistency with a cache?** On every write, you'd have to invalidate every copy of the relevant cache key in every region atomically — either give up the cache or pay coordination overhead that defeats the point of having one.
 
 ### Cold-cache problem
 After deploy / restart / flush, every request is a miss → DB overwhelmed. Mitigations:

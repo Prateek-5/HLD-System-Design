@@ -11,7 +11,20 @@ Naive hashing `shard = hash(key) % N` means: if N changes, almost every key goes
 - Add a shard → steal keys only from the next shard clockwise. Remove a shard → those keys migrate to the next. Rest untouched.
 
 ### Virtual nodes
+
+**The problem they solve**: with just 3 physical nodes placed randomly on a ring, you often get *very uneven arcs*. Node A might own 50% of the ring, Node B 10%, Node C 40%. Load distribution = disaster.
+
+**The fix**: each physical node owns **many** points on the ring (e.g., 200 virtual nodes per shard). With 3 × 200 = 600 points, the arcs become statistically uniform.
+
 Each physical shard owns **many** points on the ring (e.g., 200 virtual nodes per shard). Smooths out load and gives finer control when removing/adding a physical node.
+
+> **🧠 What if you skipped virtual nodes?**
+> - Uneven load → some servers idle, others melting.
+> - Removing a node transfers *all* its keys to one neighbor — instant hot shard.
+> With virtual nodes, those keys disperse across many neighbors proportional to their current load.
+>
+> **🔎 Quick Check** — 10 physical nodes × 150 virtual nodes each = 1500 ring points. Removing 1 physical node moves what fraction of keys?
+> **🎯 Recall** — ~10% (1/N), spread across the remaining 9 nodes, not dumped on one.
 
 ## C. Internal Working
 Client (or proxy) on each request:

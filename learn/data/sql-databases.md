@@ -14,6 +14,30 @@ SQL databases organize data as tables of rows and columns. Relationships are exp
 ## C. Internal Working
 - **Storage**: row-oriented pages on disk (typically 8KB). B-tree indexes on primary and secondary keys.
 - **Transactions**: ACID. Most modern systems use **MVCC** — each row has multiple versions; readers don't block writers.
+
+> **❓ What does MVCC actually mean, and why do databases use it?**
+>
+> **The problem it solves:** under classical locking, when Alice is updating a row, any reader has to wait for her to commit. For a read-heavy website (99% reads, 1% writes), that's disastrous — reads pile up behind rare writes.
+>
+> **MVCC (Multi-Version Concurrency Control)** flips this: *instead of locking the row, keep the old version around while the new one is being written.*
+>
+> **Intuition — version history for every row:**
+> - Alice begins a transaction and updates `account[42].balance = 500` (was 400).
+> - The database doesn't overwrite. It creates a **new row version** tagged with Alice's transaction ID.
+> - Meanwhile Bob starts a read transaction: "what's the balance of account 42?"
+> - The database sees Bob's transaction ID is older than Alice's uncommitted change, so Bob **sees the old value (400)** — no waiting, no lock, no blocking.
+> - Alice commits. Any transaction started *after* the commit sees 500.
+>
+> **Consequence:** readers never block writers; writers never block readers. Only writer-vs-writer on the same row needs coordination.
+>
+> **The cost:** old versions pile up; Postgres runs `VACUUM` to reclaim them, MySQL InnoDB uses an undo log. Misconfigured vacuuming → table bloat → slow reads.
+>
+> **Where it's used:** Postgres (default), MySQL InnoDB (default), Oracle, SQL Server (snapshot isolation mode), CockroachDB, YugabyteDB.
+>
+> **🔄 Micro reinforcement**:
+> 1. *Recall*: in MVCC, does a reader ever wait for a writer? *(No, it sees an older version.)*
+> 2. *Recall*: what's the operational downside if Postgres VACUUM falls behind? *(Bloat — disk usage balloons, reads slow as they scan dead versions.)*
+> 3. *What if* two transactions both update the same row concurrently? *(The second one blocks on the first — MVCC doesn't eliminate writer conflicts, just reader-writer conflicts.)*
 - **Query planning**: parser → optimizer (picks index use, join order) → executor.
 - **Replication**: WAL shipping to replicas for read scaling / HA.
 

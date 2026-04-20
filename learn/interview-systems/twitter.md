@@ -53,6 +53,24 @@ Three models:
 ### Celebrity threshold
 ~10k followers is a rough cutoff. Beyond that, pull.
 
+### 🧮 The fan-out math that makes this obvious
+
+| User type | Followers | Tweets/day | Writes (fan-out) |
+|---|---|---|---|
+| Normal | 200 | 2 | 400 / day (trivial) |
+| Power user | 50,000 | 10 | 500,000 / day |
+| Celebrity (e.g., Elon) | 100M | 50 | **5 billion writes / day** |
+
+Push fan-out for a celeb = melt the feed-cache cluster. Pull for the celeb = at read time, just fetch their ~100 recent tweets from their own Cassandra partition and merge with pushed entries from normal follows.
+
+**Storage note**: with hybrid, a user with 10 celeb follows pays 10 extra reads per feed load. Acceptable given the alternative is 5B writes/day per celeb.
+
+> **🧠 What if Twitter used pure push for everyone?**
+> The write-amplification for Taylor Swift alone (~95M followers × ~5 tweets/day = 475M writes/day) would consume ~5% of a Cassandra cluster's write capacity on one user. Hybrid is non-negotiable.
+>
+> **🔎 Quick Check** — Kim K tweets. Which path does that tweet take in a hybrid design?
+> **🎯 Recall** — Stored in her own Cassandra partition; NOT fanned out. Her followers pull it at feed-load time.
+
 ### Storage
 - Tweets: Cassandra keyed by user_id + tweet_id.
 - Follows: graph DB or denormalized table in Cassandra.

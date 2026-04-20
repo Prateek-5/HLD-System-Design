@@ -29,6 +29,18 @@ User (Mumbai) ──→ [Mumbai edge] ─miss─→ [Regional] ─miss─→ [Or
                       └─────────── cache populated ───────────┘
 ```
 
+### 🧱 What a CDN edge knows (and doesn't)
+
+| ✅ Knows | ❌ Doesn't know |
+|---|---|
+| Cached responses for its region | Your DB schema, app logic |
+| Cache-Control + Vary headers | User sessions (unless edge compute runs) |
+| How to reach origin shield on miss | Global invalidation truth — purge is eventual |
+| Signed URL validity (if configured) | Anything about other PoPs except via the same origin |
+
+> **🔎 Quick Check** — Why does purging a CDN URL take seconds to minutes?
+> **🎯 Recall** — The purge has to propagate to every edge PoP globally. Each PoP is independent; no single broadcast channel.
+
 ## E. Tradeoffs
 - **Extra cost** — CDN bandwidth billing (cheaper than egress from origin, but non-zero).
 - **Purge lag** — invalidating cached content is slow (seconds to minutes to propagate globally); plan around it with cache-busting URLs (`cat.v42.jpg`).

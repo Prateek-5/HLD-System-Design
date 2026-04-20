@@ -110,6 +110,23 @@ This is why Wireshark / tcpdump output shows nested headers when you capture a p
 
 **One trick for remembering**: "**A**ll **P**eople **S**eem **T**o **N**eed **D**ata **P**rocessing" (L7 → L1).
 
+### 🧱 What each layer knows (and crucially, doesn't)
+
+| Layer | ✅ Knows | ❌ Doesn't know |
+|---|---|---|
+| L7 App | URLs, HTTP methods, business data | TCP ports, IPs, MAC addresses |
+| L4 Transport | Ports (process-level addressing), sequence numbers | URLs, HTTP headers, MAC addresses |
+| L3 Network | IP addresses, routing decisions | Ports, payload content |
+| L2 Data Link | MAC addresses, local frame delivery | IP addresses (except for ARP's special case), routes |
+| L1 Physical | Bits as voltage / light | Everything above it |
+
+**Why this separation matters:** a router upgrade doesn't require application rewrites. A new HTTP feature doesn't require changing routers. Decoupling is the value.
+
+> **🧠 What if layers were tightly coupled?** Every time Cisco released a new router, every web app in the world would need an update. The internet couldn't have grown.
+>
+> **🔎 Quick Check** — Your `ping` succeeds but `curl https://server` times out. Which layer is most likely broken?
+> **🎯 Recall** — Ping (L3 ICMP) works → L1, L2, L3 are fine. Problem is L4+ (TCP port blocked, TLS cert invalid, or app down).
+
 ---
 
 ## E. Tradeoffs

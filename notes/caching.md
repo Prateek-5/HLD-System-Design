@@ -8,18 +8,26 @@ A fast, size-limited key-value layer in front of slower storage. Absorbs repeate
 - Without a cache: every read pays full DB/disk cost; hot keys melt DBs.
 
 ### 🔹 3. Core Concepts (High Signal)
-- **Patterns**:
-  - *Cache-aside (lazy)* — app reads cache, on miss fetches + populates. Most common.
+- **Patterns** (in order of how often you'll actually use them):
+  - *Cache-aside (lazy)* — **DEFAULT**. App reads cache, on miss fetches + populates. 80% of real deployments.
   - *Read-through* — cache transparently fetches from source.
   - *Write-through* — write goes to both cache + DB. Consistent, slower.
   - *Write-around* — write bypasses cache; first read is a miss.
   - *Write-back* — write to cache, async to DB. Fast, durability risk.
+
+> **🔎 Quick Check** — Which write pattern does Redis typically pair with for a feed cache?
+> **🎯 Recall** — Cache-aside. App explicitly writes to DB, invalidates / updates Redis. Not a "write-*" pattern — app manages both sides.
 - **Eviction**: LRU (default), LFU (long tail), FIFO, random, TTL.
 - **Invalidation** (hard problem): TTL + active invalidation on writes.
 - **Layers of cache**: browser → CDN → reverse proxy (Varnish/Nginx) → app-local (Caffeine/Guava) → distributed (Redis/Memcached) → DB buffer pool.
 - **Stampede / thundering herd** fixes: request coalescing, TTL jitter, stale-while-revalidate.
 - **Negative caching**: cache the "not found" answer with short TTL.
 - **Hot key problem**: one key gets 90% of traffic → partition that key (add suffix, shard) or replicate.
+
+> **🧱 What a cache is (and isn't) responsible for**
+> ✅ Low-latency reads, TTL-based expiry, eviction under memory pressure.
+> ❌ Durability (RAM is volatile), ACID transactions, authoritative data source, cross-cache coordination (each node is independent unless explicitly clustered).
+> **Implication**: cache is never the source of truth. If your system can't survive the cache being empty (cold start), you have a design bug.
 
 ### 🔹 4. Internal Working
 **Read path:** client → cache lookup → hit (return) or miss → DB fetch → populate cache → return.

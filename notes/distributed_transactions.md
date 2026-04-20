@@ -30,6 +30,24 @@ Coordinating state changes across multiple services/DBs as a logical unit. You w
 2. Debezium reads WAL, publishes outbox row as event on Kafka.
 3. Consumers react.
 
+> **🧱 What a saga orchestrator knows (and doesn't)**
+> ✅ Current step, success/failure of each step, the durable workflow state.
+> ❌ Business correctness of the step (it only knows "returned OK"), whether the compensation actually reversed external effects (if the refund API is flaky, nobody knows).
+>
+> **🪜 Concrete worked saga: "Book a hotel room"**
+> 1. Reserve room (hotel service) → success → state `ROOM_RESERVED`.
+> 2. Charge card (payment service) → success → state `PAID`.
+> 3. Send confirmation email (notification service) → success → state `DONE`.
+>
+> If step 2 fails:
+> - Orchestrator runs compensation for step 1 → release room.
+> - Email "sorry, payment failed" (idempotent — user may have retried).
+> - State `CANCELLED`.
+>
+> If step 3 fails (after payment succeeded):
+> - Room + payment are already committed. Retry email, don't roll back. → state `PARTIAL_OK`.
+> - This is a **business decision**, not a technical one: you don't refund just because the email didn't send.
+
 **Failure points:** orchestrator dies (workflow engine must persist state durably), duplicate events (idempotency), compensation itself fails (alert + manual), partial completion visible (no isolation across saga).
 
 ### 🔹 5. Key Tradeoffs

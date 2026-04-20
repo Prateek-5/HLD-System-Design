@@ -18,6 +18,32 @@ Turning a running distributed system into something you can understand, debug, a
   - Alert on **symptoms** (error rate high), not causes.
   - Use **SLO burn rate** alerts (multi-window, multi-burn-rate) — fewer false pages.
   - Actionable alerts only; each should map to a runbook.
+
+> **🧮 Burn rate, worked example**:
+> Your SLO: 99.9% success over 30 days → error budget = 0.1% = 43.2 min of allowed badness per month.
+> **Burn rate** = how fast you're consuming that budget.
+>
+> | Scenario | Rate |
+> |---|---|
+> | Normal baseline ~0.01% errors | burn rate < 1× → all good |
+> | 1% errors for 1h | burn rate = 10× → at this rate, you burn all 43.2 min of budget in ~4.3 hours |
+> | 14.4× for 1h means you'd burn 2% of 30-day budget in that hour | page immediately |
+>
+> Google SRE's **multi-window multi-burn-rate**:
+> - Fast-burn alert: 14.4× over 1h AND 14.4× over 5m (catches acute outages).
+> - Slow-burn alert: 1× over 6h AND 1× over 30m (catches slow leaks).
+>
+> Dual windows prevent alert storms on brief blips *and* missed slow leaks.
+
+> **🧱 Three-pillar boundaries — what each knows**:
+>
+> | Pillar | ✅ Answers | ❌ Doesn't answer |
+> |---|---|---|
+> | Metrics | "how many / how fast / how much?" aggregated | "what exactly happened to request #5?" |
+> | Logs | "what happened to this specific thing?" | aggregated rates, real-time alerting at scale |
+> | Traces | "where did time go across services for this request?" | historical aggregates, error details below trace level |
+>
+> They're complementary, not redundant. Use all three, linked by trace/request ID.
 - **Anomaly detection**: ML for unusual patterns — Isolation Forests, Argos (Uber), ThirdEye (LinkedIn). Good for "unknown unknowns"; noisy without human tuning.
 
 ### 🔹 4. Internal Working

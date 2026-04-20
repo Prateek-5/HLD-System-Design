@@ -87,6 +87,8 @@ Your Laptop → Recursive Resolver → Root → TLD → Authoritative → back
 
 **Most of the time, you skip steps 4–9** because some resolver in the chain has a cached answer. That's why DNS feels fast (typically <10 ms) even though the underlying protocol is recursive across continents.
 
+> **🧠 What if DNS caching didn't exist?** Every single page load would trigger 4 round-trips across continents just to resolve the hostname. Google's 8.8.8.8 would collapse within minutes. **Caching is not an optimization — it's the protocol's survival condition.**
+
 ### Why caches make this scale
 - A TTL of 3600 seconds means: one fetch per hour per resolver for that record.
 - Millions of users behind the same ISP resolver → they all share one cache entry.
@@ -94,6 +96,20 @@ Your Laptop → Recursive Resolver → Root → TLD → Authoritative → back
 
 ### The cache hierarchy you never think about
 Your browser has a DNS cache. The OS has one. The resolver has one. Each might disagree on TTLs. A common debugging confusion: you updated a DNS record, but a stale cache somewhere is still serving the old IP. You run `dig @8.8.8.8 example.com` and it's fresh, but your browser still shows the old page.
+
+### 🧱 What each DNS server *knows* and *doesn't know*
+
+| Server | ✅ Knows | ❌ Does NOT know |
+|---|---|---|
+| Root | Which TLD server owns `.com`, `.org`, `.in`, etc. | Anything about `google.com` or `example.com` |
+| TLD (`.com`) | Which authoritative NS owns `google.com` | The actual A record (IP) for `google.com` |
+| Authoritative | A, AAAA, CNAME, MX for domains it owns | Anything about other domains |
+| Recursive resolver | Cached answers + root hints | Any domain not yet cached — must recurse |
+
+This separation is the entire reason DNS scales. If every root server had to know every domain's IP, root would collapse.
+
+> **🔎 Quick Check** — In 10 seconds: when you `dig google.com`, which of these 4 servers does your laptop talk to first?
+> **🎯 Recall** — You talk to the recursive resolver; it talks to root/TLD/authoritative on your behalf.
 
 ### What does `dig` actually send? (packet level)
 ```

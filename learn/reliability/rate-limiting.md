@@ -28,6 +28,23 @@ Token bucket:   Tokens refill →  [●●●●░░░░░░] cap=10, rate
 - Per-user vs per-IP (IP bans shared NAT users; user requires auth).
 - Distributed limiter needs shared store (Redis).
 
+### 🪜 Idempotency — rate limiting's safety partner
+
+Rate-limited APIs often return `429 Too Many Requests`. Clients retry. Without idempotency, retries re-apply side effects (double-charge!).
+
+**Idempotency key flow:**
+1. Client generates a UUID → `Idempotency-Key: abc123` header.
+2. Server checks Redis: `SET idem:abc123 NX EX 86400 <response>` (atomic).
+3. First call: runs the operation, stores the response.
+4. Retry with same key: Redis hit → return stored response without re-running.
+5. TTL expires → key reusable (typically 24h).
+
+**Where to store**: Redis with `SETNX` or a DB unique constraint.
+**Scope**: per-user + per-endpoint so different APIs don't collide.
+
+> **🔎 Quick Check** — Client gets `429`, retries with same Idempotency-Key. Operation already succeeded on the first attempt. What does the server return?
+> **🎯 Recall** — The stored success response from Redis. Retry is safe; no double-effect.
+
 ## F. Interview Lens
 - "Design a rate limiter for 100k QPS."
 - "Token bucket vs sliding window?"

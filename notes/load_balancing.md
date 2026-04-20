@@ -16,6 +16,13 @@ A component that distributes incoming traffic across a pool of backends. Single 
 - **Connection draining**: when removing a backend, stop new conns but let existing finish.
 - **Subsetting** (Google's trick): each LB instance only knows a subset of backends, not the full fleet — cuts connection count at scale.
 
+> **🧱 What an LB is (and isn't) responsible for**
+> ✅ Distribute traffic, health-check, terminate TLS, add `X-Forwarded-For`, log per-request metrics.
+> ❌ Authenticate users (that's API Gateway or service), understand business logic, persist state between requests, fix a broken backend.
+>
+> **🔎 Quick Check** — Your LB health check passes but users report 500s. First guess?
+> **🎯 Recall** — Health-check endpoint is too shallow (e.g., just returns 200) — doesn't actually exercise the broken code path. Deepen the check.
+
 ### 🔹 4. Internal Working
 **L4 path:** client SYN → LB accepts → picks backend → proxies/splices bytes both ways.
 **L7 path:** TLS terminated at LB → parse HTTP → route rule match (path/host) → pick from upstream pool → keep-alive connection to backend → stream response → optionally cache/compress.
@@ -27,15 +34,15 @@ A component that distributes incoming traffic across a pool of backends. Single 
 - Alternatives: DNS round-robin (no health checks), client-side LB (gRPC, Finagle — less infra but couples clients), anycast (BGP-level).
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Difference between L4 and L7 LB?
 2. Why is a single LB a SPOF and how do you fix it?
 
-**Intermediate**
+**Intermediate 🟡**
 1. For WebSocket service with long-lived connections, which algorithm?
 2. How do health checks + connection draining cooperate during a deploy?
 
-**Advanced**
+**Advanced 🔴**
 1. At 1M backends, why does naive "all LBs know all backends" break? (connection count explodes → subsetting)
 2. Compare power-of-two-choices vs least-connections in theory and practice.
 

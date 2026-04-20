@@ -51,6 +51,24 @@ Rider/Driver app ─→ API Gateway ─→ Location svc (geo-index)
 - Surge = multiplier based on ratio.
 - Rider sees upfront fare computed from route, traffic, surge.
 
+### 🪜 Surge math (concrete)
+
+For each H3 cell every ~30s:
+- `supply` = active drivers in cell.
+- `demand` = pending rider requests in cell over the last 5 min.
+- `ratio = demand / max(supply, 1)`.
+- `surge = clamp(1.0, 3.5, f(ratio))` — e.g., step function: >1.5 → 1.2×, >3 → 2.0×.
+
+Hot-cell problem during rush hour in a dense zone:
+- 10,000 concurrent rider requests → hot cell hammered.
+- Mitigation: **replicate cell state across 3 shards** and fan-out reads; writes still one authoritative shard but consistency is eventual (good enough for surge).
+
+> **🧠 What if surge was computed globally instead of per-cell?**
+> Oversupply in downtown wouldn't suppress surge in airport zone with undersupply. Per-cell granularity is what lets surge match actual local imbalance.
+>
+> **🔎 Quick Check** — Concert ends at Wembley, 50k riders request at once. What's the system's first visible reaction?
+> **🎯 Recall** — Wembley's H3 cells see demand spike, surge multiplier jumps, riders see higher fares, marginal drivers get nudged toward the cell.
+
 ### Trip state machine
 States: Requested → Accepted → EnRoute → Arrived → InTrip → Completed / Cancelled.
 Each transition emits an event (Kafka) consumed by billing, analytics, notifications.

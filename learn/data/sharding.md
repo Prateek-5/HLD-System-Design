@@ -47,6 +47,22 @@ Add S4:   everything remaps → migration nightmare
 - **Operational complexity** (routing, backup per shard, cross-shard queries).
 - **Hot shards** when the shard key is skewed.
 
+### 🧯 Hot-key mitigation playbook (senior-level)
+
+When one key takes 80% of traffic (celebrity tweet, viral meme, Black Friday SKU):
+
+1. **Detect**: per-key QPS metric. Alert on outliers.
+2. **Replicate**: store the hot key on N shards (N=3–10). Client picks a random replica per read. Works for read-heavy skew.
+3. **Salt**: break the key into sub-keys — `user:celeb:0`, `user:celeb:1`, ..., `user:celeb:9` — and fan out reads across them. Used for counters (10× Redis `INCR`, sum on read).
+4. **Two-tier cache**: promote hottest N keys to an app-local cache with shorter TTL.
+5. **Back-pressure**: if a shard is melting, throttle writes to that key from upstream.
+
+> **🧠 What if you *only* rely on consistent hashing and no hot-key strategy?**
+> Consistent hashing gives *uniform hash distribution*, not *uniform query distribution*. A single celebrity key maps to one shard and that shard dies under load — no matter how good your hashing is.
+>
+> **🔎 Quick Check** — Justin Bieber tweets. Twitter's shard for `user:bieber` hits 50× normal QPS. Best fix?
+> **🎯 Recall** — Replicate the celebrity's recent-tweets cache across multiple shards and fan-out reads.
+
 ## F. Interview Lens
 - "When do you shard?" — when a single node's write throughput / storage is saturated.
 - "What's a shard key? How to pick one?" — high cardinality, evenly distributed, queryable.

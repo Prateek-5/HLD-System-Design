@@ -24,6 +24,13 @@ Async messaging layers. **Queue** = 1 message → 1 consumer (work distribution)
 - **Outbox pattern**: DB write + event write in same tx; relay publishes. Solves dual-write.
 - **DB-as-queue anti-pattern**: row-locking contention, indexing issues, vacuum pressure. Don't do it for high throughput.
 
+> **🧱 What a broker knows (and doesn't)**
+> ✅ Message bytes, partition/offset metadata, consumer group offsets, retention policy, replication state.
+> ❌ Business semantics of the message, whether a consumer "successfully" processed (just whether it acked), whether a message is "duplicate" (consumer must dedupe on its own).
+>
+> **🧠 What if we skip idempotency in consumers?**
+> At-least-once delivery means the broker may redeliver on network hiccup / consumer crash mid-ack. If your consumer charges a credit card on each delivery, you double-charge. Idempotency isn't optional — it's the price of at-least-once.
+
 ### 🔹 4. Internal Working
 **Producer → broker:** send (optionally keyed) → broker writes to a partition log (durable). Ack returned.
 **Consumer:** poll broker → get batch → process → commit offset (Kafka) or ack (SQS/Rabbit).
@@ -39,15 +46,24 @@ Async messaging layers. **Queue** = 1 message → 1 consumer (work distribution)
 Exactly-once is a myth without transactional producer + idempotent consumer + dedup store. Plan for at-least-once.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+> **🪜 Step-chunked Kafka end-to-end flow (with reasoning)**:
+> 1. **Producer sends with a key** → reason: key hashes to a specific partition; same key → same partition → order preserved *within that key*.
+> 2. **Leader of that partition writes to its log** → durable append to disk.
+> 3. **Followers replicate the log** → in-sync replicas (ISR). Broker only acks once ISR write satisfies `acks=all`.
+> 4. **Producer receives ack** → safe to move on.
+> 5. **Consumer group assignment**: each partition is owned by exactly one consumer in a group. If 4 consumers, 4 partitions → one each. 8 partitions → two each.
+> 6. **Consumer polls**, processes, commits offset → offset becomes the durable bookmark.
+> 7. **Crash recovery**: a new consumer resumes from the last committed offset. If it crashed between processing and committing, that message is replayed → consumer must be idempotent.
+
+**Beginner 🟢**
 1. Queue vs pub-sub?
 2. Why is idempotency required?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Why does ordering only hold per-partition?
 2. How do DLQs work and why are they needed?
 
-**Advanced**
+**Advanced 🔴**
 1. Design a broker that absorbs 1M events/s with at-least-once + retention.
 2. Explain Kafka EOS (exactly-once semantics): transactional producer + idempotent writes + read-process-write tx.
 3. Transactional outbox — why, and how is it implemented?

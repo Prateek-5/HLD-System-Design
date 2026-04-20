@@ -37,6 +37,26 @@ A load balancer has three jobs:
 
 L4 is blazing fast and protocol-agnostic. L7 is smarter but costs CPU (it must parse HTTP).
 
+### 🧱 Concretely — what can you do at L7 that you can't do at L4?
+
+| Capability | L4 | L7 |
+|---|---|---|
+| Route by source IP + port | ✅ | ✅ |
+| Route by URL path (`/api/*` → service A) | ❌ | ✅ |
+| Route by HTTP host header (multi-tenant) | ❌ | ✅ |
+| Route by cookie (sticky session) | ❌ | ✅ |
+| Terminate TLS | ⚠️ passthrough only | ✅ |
+| Cache HTTP responses | ❌ | ✅ |
+| Block WAF / SQLi patterns | ❌ | ✅ |
+| Gzip / brotli responses | ❌ | ✅ |
+| Rewrite request headers | ❌ | ✅ |
+| Preserve client IP automatically | ❌ (use PROXY protocol) | ✅ (adds `X-Forwarded-For`) |
+
+> **🧠 What if you only had L4?** You'd have to push all URL-based logic into app servers, can't centralize TLS, can't cache at the front door. You'd basically re-implement a bad L7 LB inside each service.
+>
+> **🔎 Quick Check** — You want `/api` to go to Service A and `/static` to go to Service B with the same public domain. Minimum layer needed?
+> **🎯 Recall** — L7 (path-based routing).
+
 ---
 
 ## C. Internal Working

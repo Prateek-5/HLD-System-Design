@@ -30,6 +30,22 @@ Every extra "nine" costs roughly 10× the engineering effort. Most consumer apps
 
 **Punchline**: dependencies in series degrade availability; redundancy in parallel multiplies it. This is why systems are built with redundancy at every layer.
 
+### 🪜 Worked example — why a junior architecture is worse than advertised
+You promise "3 nines (99.9%)" to customers. Your stack:
+Client → LB (99.9%) → App (99.9%) → DB (99.9%).
+- All in series → total = 0.999 × 0.999 × 0.999 = **99.7%**. You missed your SLA by a full nine.
+
+Fix: add redundancy.
+- 2 LBs parallel → 1 − (0.001)² = 99.9999%
+- 3 App instances parallel → ~100%
+- Primary + sync replica DB → 99.9999%
+- Series of those three: still ~99.9999% (the weakest link determines the floor).
+
+> **🧠 What-if** — adding a 4th redundant component in series (say, a new auth service at 99.9%) drags you **back down**. You need it redundant too or it becomes the new weakest link.
+>
+> **🔎 Quick Check** — If I have 5 services each at 99.99%, all in series, what's the total?
+> **🎯 Recall** — 0.9999⁵ ≈ 99.95%. You drop from 4 nines to ~3.5 nines just by chaining them.
+
 ## D. Visual Representation
 ```
 Series (any failure = outage):     A──B──C  → multiply availabilities

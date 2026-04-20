@@ -15,6 +15,27 @@ Two common topologies:
 - **Mediator / orchestrator**: central brain sequences steps (Step Functions, Temporal).
 - **Choreography**: each service listens for events and fires its own.
 
+### 🪜 Same example, both styles — order checkout
+
+**Choreography:**
+1. `Order.Placed` → Inventory listens; reserves stock → publishes `Inventory.Reserved`.
+2. `Inventory.Reserved` → Payment listens; charges card → publishes `Payment.Succeeded`.
+3. `Payment.Succeeded` → Shipping listens; books carrier → publishes `Shipping.Booked`.
+- Pro: no central brain; teams own their piece.
+- Con: "where does the order stand?" requires scanning logs across services. Hard to debug.
+
+**Orchestration (Temporal-style):**
+1. Orchestrator workflow receives `PlaceOrder` request.
+2. Calls `Inventory.Reserve` → waits → success.
+3. Calls `Payment.Charge` → waits → success.
+4. Calls `Shipping.Book` → waits → success.
+5. Orchestrator stores state at every step; on crash, resumes.
+- Pro: workflow visible in one place; compensations easy to express.
+- Con: orchestrator is a central dependency.
+
+> **🔎 Quick Check** — For a 10-step workflow with complex conditional branches and compensations, which fits better?
+> **🎯 Recall** — Orchestration. Debugging a 10-step choreography is a nightmare.
+
 ## D. Visual Representation
 ```
 [Order service] ─emit `order.placed`─▶ [Topic]
