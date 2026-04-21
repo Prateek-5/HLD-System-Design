@@ -1,5 +1,10 @@
 # Load Balancing
 
+> **📎 Prereqs** — If rusty on these, re-read first:
+> - [`learn/foundations/networking/ip.md`](../learn/foundations/networking/ip.md), [`tcp-udp.md`](../learn/foundations/networking/tcp-udp.md) — packets, ports.
+> - [`learn/foundations/networking/osi.md`](../learn/foundations/networking/osi.md) — L4 vs L7 distinction.
+> - [`learn/foundations/networking/proxy.md`](../learn/foundations/networking/proxy.md) — reverse proxy concept (LB is a specialized one).
+
 ### 🔹 1. What This Topic Actually Is
 A component that distributes incoming traffic across a pool of backends. Single front-door, many workers. Also does health-checking and TLS termination.
 

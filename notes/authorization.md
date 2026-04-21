@@ -1,5 +1,10 @@
 # Authorization
 
+> **📎 Prereqs** — If rusty:
+> - [`learn/reliability/oauth-oidc.md`](../learn/reliability/oauth-oidc.md) — authn vs authz.
+> - [`learn/reliability/sso.md`](../learn/reliability/sso.md) — identity providers.
+> - RBAC vs ABAC conceptual difference.
+
 ### 🔹 1. What This Topic Actually Is
 Who can do what on which resource. Distinct from authentication (who are you). Models: RBAC, ABAC, ReBAC (relationship-based), policy-as-code.
 
@@ -31,15 +36,15 @@ Who can do what on which resource. Distinct from authentication (who are you). M
 - Embedded: fast, scatter risk.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Authn vs authz?
 2. RBAC vs ABAC?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Why ReBAC for Google Docs sharing?
 2. What's the "new enemy" problem in auth?
 
-**Advanced**
+**Advanced 🔴**
 1. Design auth for a multi-tenant SaaS with 10M rules.
 2. Implement Zanzibar-like check service.
 

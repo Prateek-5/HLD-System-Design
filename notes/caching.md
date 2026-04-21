@@ -1,5 +1,10 @@
 # Caching
 
+> **📎 Prereqs** — If rusty, first skim:
+> - [`learn/foundations/scaling/caching.md`](../learn/foundations/scaling/caching.md) — full intuition.
+> - Hash-map + TTL basics.
+> - Eventual vs strong consistency mental model.
+
 ### 🔹 1. What This Topic Actually Is
 A fast, size-limited key-value layer in front of slower storage. Absorbs repeated reads; trades freshness/storage for latency.
 

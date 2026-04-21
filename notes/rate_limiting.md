@@ -1,5 +1,9 @@
 # Rate Limiting
 
+> **📎 Prereqs** — If rusty:
+> - [`redis.md`](redis.md) — atomic Lua scripts (used for distributed limiters).
+> - HTTP status codes (especially 429) + `Retry-After` semantics.
+
 ### 🔹 1. What This Topic Actually Is
 Capping request rate per key (user, IP, API key, endpoint) over a window. Protects backends from overload and abuse.
 
@@ -38,15 +42,15 @@ Cost: one Redis round trip per request (~1 ms).
 - **Local (in-process) token bucket** avoids network hop but not consistent across instances — can over-limit or under-limit.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Why rate limit?
 2. What's a 429 response?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Compare fixed window vs sliding window.
 2. How do you implement token bucket in Redis safely?
 
-**Advanced**
+**Advanced 🔴**
 1. Design rate limiter for 100k QPS across 100 regions — consistency vs latency tradeoff.
 2. How do you handle the hot-key problem on the limiter itself?
 

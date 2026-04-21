@@ -1,5 +1,9 @@
 # Capacity Estimation (Back-of-Envelope)
 
+> **📎 Prereqs** — None, but helpful:
+> - Numeric comfort (exponents, unit conversions).
+> - [`load_balancing.md`](load_balancing.md), [`databases.md`](databases.md) — understanding where tiers bottleneck.
+
 ### 🔹 1. What This Topic Actually Is
 Converting user scale to system scale: QPS, storage, bandwidth, memory. Done out loud in interviews.
 
@@ -38,15 +42,15 @@ Bandwidth: QPS × response size = _____
 - Peak matters more than average; p99 latency matters more than mean.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. 10M DAU, each posting 2×/day. QPS?
 2. Each record 1 KB, 100M/day. Daily bytes?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Design storage plan for 3-year retention of 100M events/day @ 500B each.
 2. How much Redis RAM for 10M hot users × 1 KB profile?
 
-**Advanced**
+**Advanced 🔴**
 1. Model QPS growth 10× over 5 years — which tier breaks first?
 2. Calculate bandwidth and cost of serving 4K video at 15 Mbps × 10M concurrent.
 

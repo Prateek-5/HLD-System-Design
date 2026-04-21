@@ -1,5 +1,10 @@
 # Google Docs — Real-Time Collaborative Editing
 
+> **📎 Prereqs** — If rusty:
+> - [`learn/architecture/long-polling-websockets-sse.md`](../learn/architecture/long-polling-websockets-sse.md) — real-time transport.
+> - Vector clocks / Lamport timestamps concept.
+> - Append-only log storage intuition.
+
 ### 🔹 1. What This Topic Actually Is
 Multiple users edit the same document simultaneously, all seeing each other's edits in near-real-time, with convergence + intent preservation guaranteed.
 
@@ -30,14 +35,14 @@ Multiple users edit the same document simultaneously, all seeing each other's ed
 - **Locking**: simple but defeats collaboration.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. What problem does OT/CRDT solve?
 
-**Intermediate**
+**Intermediate 🟡**
 1. OT vs CRDT — tradeoffs?
 2. How do you handle an offline user's 100 pending ops on reconnect?
 
-**Advanced**
+**Advanced 🔴**
 1. Design Google Docs at 100 concurrent users per doc.
 2. Design Figma (2D canvas) — why CRDT? (Easier semantics for arbitrary-typed objects, supports presence + offline.)
 

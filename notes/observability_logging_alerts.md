@@ -1,5 +1,10 @@
 # Observability — Logging, Metrics, Tracing, Alerting, Anomaly Detection
 
+> **📎 Prereqs** — If rusty:
+> - [`microservices.md`](microservices.md) — why observability matters at scale.
+> - [`time_series_databases.md`](time_series_databases.md) — metrics storage.
+> - Basic percentile math (p50/p95/p99).
+
 ### 🔹 1. What This Topic Actually Is
 Turning a running distributed system into something you can understand, debug, and alert on. Three pillars: **logs, metrics, traces**. Plus alerts + anomaly detection on top.
 

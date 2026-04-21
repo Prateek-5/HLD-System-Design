@@ -1,5 +1,10 @@
 # NoSQL Internals — LSM, SSTables, Compaction, Bloom Filters
 
+> **📎 Prereqs** — If rusty:
+> - [`databases.md`](databases.md) — SQL vs NoSQL context.
+> - Basic data structures: B-tree intuition, sorted arrays, hash tables.
+> - Disk I/O cost intuition (sequential ≫ random).
+
 ### 🔹 1. What This Topic Actually Is
 The storage-engine-level tricks that let NoSQL (Cassandra, BigTable, RocksDB, Scylla, LevelDB) absorb massive write throughput and still read fast.
 

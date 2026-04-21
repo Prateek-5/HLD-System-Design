@@ -1,5 +1,10 @@
 # Location-Based Services (Geo Indexing)
 
+> **📎 Prereqs** — If rusty:
+> - Lat/long coordinate system + great-circle distance.
+> - [`redis.md`](redis.md) — GEO set data type.
+> - [`databases.md`](databases.md) — sharding (geo data is often sharded by cell).
+
 ### 🔹 1. What This Topic Actually Is
 Storing and querying geographic data: "find X within Y km of (lat,lon)", driver dispatch, delivery matching, proximity search.
 
@@ -32,15 +37,15 @@ Storing and querying geographic data: "find X within Y km of (lat,lon)", driver 
 - PostGIS: heavy spatial queries, not real-time.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Why not just SQL for "nearby" query?
 2. What does geohash do?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Why query neighboring cells too?
 2. Geohash vs H3 tradeoffs.
 
-**Advanced**
+**Advanced 🔴**
 1. Design driver dispatch for 1M active drivers at 300k updates/s.
 2. Handle surge pricing zones using spatial aggregation.
 

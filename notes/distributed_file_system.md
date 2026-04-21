@@ -1,5 +1,10 @@
 # Distributed File System & Object Storage
 
+> **📎 Prereqs** — If rusty:
+> - [`learn/foundations/scaling/storage.md`](../learn/foundations/scaling/storage.md) — block vs file vs object.
+> - Replication + erasure coding basics.
+> - REST / HTTP (S3's API is HTTP).
+
 ### 🔹 1. What This Topic Actually Is
 Storage systems that present files or objects across a cluster, replicated + sharded for durability and throughput. Examples: HDFS (big data), S3 (object), Ceph (block/file/object).
 
@@ -34,15 +39,15 @@ Storage systems that present files or objects across a cluster, replicated + sha
 - Erasure coding vs replication: 50% storage vs 200% for same durability; recovery ≫ slower.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. What's object storage vs file vs block?
 2. Why HDFS blocks are 128 MB?
 
-**Intermediate**
+**Intermediate 🟡**
 1. How does S3 achieve 11 nines durability?
 2. What's multipart upload for?
 
-**Advanced**
+**Advanced 🔴**
 1. Design S3-like service with 100 PB capacity.
 2. Erasure coding vs replication — when each?
 

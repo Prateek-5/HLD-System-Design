@@ -1,5 +1,10 @@
 # Single Points of Failure (SPOF)
 
+> **📎 Prereqs** — If rusty:
+> - [`learn/foundations/scaling/availability.md`](../learn/foundations/scaling/availability.md) — series vs parallel math.
+> - [`database_replication.md`](database_replication.md) — DB failover.
+> - [`load_balancing.md`](load_balancing.md) — front-door redundancy.
+
 ### 🔹 1. What This Topic Actually Is
 Any component whose failure takes down the whole system. Removing SPOFs is the core of HA design.
 
@@ -27,15 +32,15 @@ Redundancy can be in **series** (bad: multiplies failure) or **parallel** (good:
 - Multi-region doubles or triples cost and complexity; needed only at specific SLOs.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Define SPOF.
 2. Active-active vs active-passive?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Draw an architecture and identify all SPOFs.
 2. What does multi-AZ buy you? Multi-region?
 
-**Advanced**
+**Advanced 🔴**
 1. Design active-active multi-region for a writes-heavy service. (CRDTs or primary-per-region)
 2. What's the cost/complexity of 4-nines vs 5-nines availability?
 

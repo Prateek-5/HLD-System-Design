@@ -1,5 +1,10 @@
 # Redis — The Swiss-Army In-Memory Store
 
+> **📎 Prereqs** — If rusty:
+> - [`caching.md`](caching.md) — why caches exist.
+> - Data structure basics: hash, set, sorted set, list.
+> - Single-threaded event-loop intuition (Redis is single-threaded per node).
+
 ### 🔹 1. What This Topic Actually Is
 Single-threaded in-memory data structure server. Not just a KV — supports hashes, lists, sets, sorted sets, streams, HyperLogLog, bitfields, pub-sub, geo sets.
 
@@ -18,6 +23,9 @@ Single-threaded in-memory data structure server. Not just a KV — supports hash
 - **Lua scripts**: atomic multi-command ops. Essential for rate limiters, distributed locks.
 - **RedLock (distributed lock)**: controversial; Aphyr and others showed unsafe under clock skew. Prefer alternatives (fencing tokens, Zookeeper/etcd) for correctness-critical locks.
 
+> **🧠 What if Redis were multi-threaded per connection?**
+> Every command would need locks; atomic multi-step ops (Lua scripts, transactions) would need coordination overhead. The current single-threaded-per-node design trades concurrency-per-node for *simplicity + predictability*. Redis scales *out* via cluster/sharding, not via threading.
+
 ### 🔹 4. Internal Working
 Command arrives → single thread executes → reply. O(log N) for sorted sets, O(1) for hashes/lists at head. Async replication streams to replicas. Cluster: gossip every few hundred ms; node ping failure → failover via slave promotion.
 
@@ -29,15 +37,15 @@ Command arrives → single thread executes → reply. O(log N) for sorted sets, 
 - Alternatives: Memcached (simpler, multi-threaded, KV-only), Hazelcast, Aerospike.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Why is Redis fast?
 2. What's a sorted set good for?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Cluster vs sentinel — when each?
 2. RDB vs AOF persistence?
 
-**Advanced**
+**Advanced 🔴**
 1. Implement atomic token bucket via Lua.
 2. Build a leaderboard that handles a viral spike to 1M users.
 3. Why is RedLock controversial — explain the fencing token argument.

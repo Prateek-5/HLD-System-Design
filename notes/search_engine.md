@@ -1,5 +1,10 @@
 # Search Engine (Elasticsearch / Text Search)
 
+> **📎 Prereqs** — If rusty:
+> - [`databases.md`](databases.md) — why B-trees aren't built for text.
+> - Inverted index concept (term → list of doc IDs).
+> - CDC basics (for keeping indexes fresh).
+
 ### 🔹 1. What This Topic Actually Is
 Full-text search over large corpora with ranking. Lucene-based: **Elasticsearch**, **OpenSearch**, **Solr**. Plus aggregations for analytics.
 
@@ -29,15 +34,15 @@ Shards processed in parallel, results merged.
 - Elastic vs OpenSearch: same roots, licensing split in 2021. Solr less popular now but still used.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Why not SQL for search?
 2. What's an inverted index?
 
-**Intermediate**
+**Intermediate 🟡**
 1. How does time-based indexing help log retention?
 2. Why isn't Elasticsearch strongly consistent?
 
-**Advanced**
+**Advanced 🔴**
 1. Design search for 10B docs at 5k QPS + typo-tolerant.
 2. Hybrid keyword + vector (semantic) search design.
 

@@ -1,5 +1,10 @@
 # Message Queues & Pub-Sub
 
+> **📎 Prereqs** — If rusty:
+> - Async vs sync programming.
+> - [`learn/architecture/message-brokers.md`](../learn/architecture/message-brokers.md), [`message-queues.md`](../learn/architecture/message-queues.md), [`pub-sub.md`](../learn/architecture/pub-sub.md).
+> - Idempotency concept.
+
 ### 🔹 1. What This Topic Actually Is
 Async messaging layers. **Queue** = 1 message → 1 consumer (work distribution). **Pub-Sub** = 1 message → N subscribers (broadcast/fan-out).
 
@@ -44,6 +49,38 @@ Async messaging layers. **Queue** = 1 message → 1 consumer (work distribution)
 - **NATS / Redis Streams**: lightweight.
 
 Exactly-once is a myth without transactional producer + idempotent consumer + dedup store. Plan for at-least-once.
+
+> **🧠 Kafka EOS — how it's actually built (concrete walkthrough)**
+>
+> Kafka's **Exactly-Once Semantics (EOS)** is the closest practical implementation. It composes three orthogonal mechanisms. Each solves a specific duplication source:
+>
+> **Part 1 — Idempotent producer** (`enable.idempotence=true`)
+> *Problem it solves*: producer retries create duplicate messages in the log.
+> *How*: each producer gets a PID (producer ID) + monotonic sequence number per partition. Broker dedupes by `(PID, partition, seq)`.
+> *Cost*: ~5% producer throughput.
+>
+> **Part 2 — Transactional producer** (`transactional.id=...`)
+> *Problem it solves*: a producer writing to multiple partitions (or to Kafka + an external sink) may partially fail, leaving the system inconsistent.
+> *How*: writes are staged with a transaction ID. A commit marker is written to every involved partition atomically via a 2PC protocol coordinated by a Kafka **transaction coordinator**.
+> *Example*: "write order event to `orders` topic AND inventory-reservation event to `inventory` topic — or neither."
+>
+> **Part 3 — Read-process-write idempotency** (`isolation.level=read_committed` + offset commit in tx)
+> *Problem it solves*: a stream processor (Kafka Streams, Flink) reads from topic A, transforms, writes to topic B. If it crashes after writing B but before committing the source offset, a replay re-writes B → duplicates downstream.
+> *How*: commit the source topic offset **inside the same transaction** as the output writes. Either both succeed or both roll back.
+>
+> **🪜 Concrete flow: "count orders" stream job with EOS**
+> 1. Job reads `orders` topic at offset N.
+> 2. Processes 100 messages → increments running count → needs to write result to `counts` topic.
+> 3. Job starts a Kafka transaction.
+> 4. Writes "count = 3847" to `counts`.
+> 5. Commits offset N+100 to internal `__consumer_offsets` — **inside the same transaction**.
+> 6. Transaction coordinator writes commit markers to both partitions.
+> 7. **If job crashes at step 4 but before step 5**: transaction aborts → `counts` write is invisible (read_committed consumers skip it) → source offset still at N → safe replay.
+>
+> **What EOS still doesn't give you**: exactly-once to an *external system* (DB, HTTP API) without that system participating in the transaction. For that, use the **outbox pattern** or idempotent writes at the sink.
+>
+> **🔎 Quick Check** — What breaks if you enable idempotent producer but don't configure transactions?
+> **🎯 Recall** — Single-partition idempotency works, but any multi-partition write (or read-process-write) can still duplicate. You need transactional writes for cross-partition atomicity.
 
 ### 🔹 6. Interview Questions
 > **🪜 Step-chunked Kafka end-to-end flow (with reasoning)**:

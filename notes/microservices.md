@@ -1,5 +1,10 @@
 # Microservices & Software Architectures
 
+> **📎 Prereqs** — If rusty:
+> - [`learn/architecture/n-tier-architecture.md`](../learn/architecture/n-tier-architecture.md) — basic tier separation.
+> - [`distributed_transactions.md`](distributed_transactions.md) — cross-service coordination pain.
+> - Basic CI/CD understanding.
+
 ### 🔹 1. What This Topic Actually Is
 Style of organizing an app as many small services, each with own deploy, data, team — as opposed to a monolith (one deployable).
 
@@ -39,15 +44,15 @@ Start with a monolith. Split only when coupling or team size demands it.
 - Modular monolith: often correct middle.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Monolith vs microservices — when each?
 2. What's a bounded context?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Signs of "distributed monolith"?
 2. What infrastructure do you need before going microservices?
 
-**Advanced**
+**Advanced 🔴**
 1. Extract payments service from monolith with zero downtime. (strangler + dual-write + cutover)
 2. Microservice too chatty — how do you reduce N+1 cross-service calls?
 

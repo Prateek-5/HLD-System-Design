@@ -1,5 +1,9 @@
 # Network Protocols — TCP, HTTP, QUIC, WebRTC, WebSocket
 
+> **📎 Prereqs** — If rusty:
+> - [`learn/foundations/networking/ip.md`](../learn/foundations/networking/ip.md), [`tcp-udp.md`](../learn/foundations/networking/tcp-udp.md), [`osi.md`](../learn/foundations/networking/osi.md).
+> - RTT (Round-Trip Time) intuition.
+
 ### 🔹 1. What This Topic Actually Is
 The wire formats and protocols that carry your bytes. Interview focus: understand HTTP versions, TCP vs UDP, QUIC's role, when to use WebSocket vs SSE vs WebRTC.
 

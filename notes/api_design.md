@@ -1,5 +1,10 @@
 # API Design
 
+> **📎 Prereqs** — If rusty:
+> - HTTP status codes + verbs.
+> - [`learn/architecture/rest-graphql-grpc.md`](../learn/architecture/rest-graphql-grpc.md) — style comparison.
+> - JSON / JWT basics.
+
 ### 🔹 1. What This Topic Actually Is
 Designing the shape of APIs that clients consume. Choice of style (REST/GraphQL/gRPC), versioning, contracts, errors, pagination, idempotency.
 
@@ -43,15 +48,15 @@ Retry-safe: client sends same Idempotency-Key → server returns cached 201 resp
 - Versioning in URL = explicit; in header = cleaner but invisible in logs.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. REST status codes for common cases.
 2. Pagination — offset vs cursor.
 
-**Intermediate**
+**Intermediate 🟡**
 1. Why idempotency keys?
 2. Version REST via URL or header — tradeoffs.
 
-**Advanced**
+**Advanced 🔴**
 1. Design pagination for a 100M-row feed. (cursor, not offset.)
 2. GraphQL at CDN — how do you cache?
 3. Retry storms — client + server cooperation.

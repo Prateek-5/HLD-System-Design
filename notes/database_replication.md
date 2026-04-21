@@ -1,5 +1,10 @@
 # Database Replication
 
+> **📎 Prereqs** — If rusty:
+> - [`databases.md`](databases.md) — ACID basics.
+> - [`learn/data/acid-base.md`](../learn/data/acid-base.md), [`learn/data/cap-theorem.md`](../learn/data/cap-theorem.md).
+> - WAL (Write-Ahead Log) concept.
+
 ### 🔹 1. What This Topic Actually Is
 Keeping multiple copies of data on different nodes. Core lever for read scaling, HA, and geo distribution.
 

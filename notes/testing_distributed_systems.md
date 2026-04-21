@@ -1,5 +1,10 @@
 # Testing Distributed Systems
 
+> **📎 Prereqs** — If rusty:
+> - [`distributed_consensus.md`](distributed_consensus.md) — what Jepsen tests.
+> - [`database_replication.md`](database_replication.md) — failure modes to test for.
+> - Unit vs integration test mental model.
+
 ### 🔹 1. What This Topic Actually Is
 Beyond unit tests — how to verify concurrency, consistency, partition tolerance, and failure behavior of distributed systems.
 
@@ -32,15 +37,15 @@ Beyond unit tests — how to verify concurrency, consistency, partition toleranc
 - Deterministic simulation: best for greenfield projects; hard to retrofit.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. What's chaos engineering?
 2. Why aren't unit tests enough for distributed systems?
 
-**Intermediate**
+**Intermediate 🟡**
 1. How does Jepsen verify linearizability?
 2. What are game days?
 
-**Advanced**
+**Advanced 🔴**
 1. Design a chaos testing framework for a critical API platform.
 2. Why does FoundationDB use deterministic simulation instead of Jepsen?
 

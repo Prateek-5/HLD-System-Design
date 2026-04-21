@@ -1,5 +1,10 @@
 # Distributed Consensus — Paxos & Raft
 
+> **📎 Prereqs** — If rusty:
+> - [`database_replication.md`](database_replication.md) — why replication is hard.
+> - [`databases.md`](databases.md) — CAP theorem, quorum basics.
+> - State machine concept (inputs → deterministic outputs).
+
 ### 🔹 1. What This Topic Actually Is
 Protocols that let a group of nodes agree on a value (or a sequence of values) despite failures and network partitions. The foundation of any strongly-consistent distributed system.
 

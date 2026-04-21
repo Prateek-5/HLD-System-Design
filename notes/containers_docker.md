@@ -1,5 +1,10 @@
 # Containers & Docker
 
+> **📎 Prereqs** — If rusty:
+> - Basic Linux processes + file system.
+> - [`learn/reliability/vms-and-containers.md`](../learn/reliability/vms-and-containers.md) — VM vs container.
+> - OS namespaces + cgroups existence.
+
 ### 🔹 1. What This Topic Actually Is
 A way to package + isolate a process with its dependencies, using Linux namespaces + cgroups, without virtualizing the whole OS.
 
@@ -29,15 +34,15 @@ A way to package + isolate a process with its dependencies, using Linux namespac
 - microVMs: best of both for multi-tenant.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. VM vs container?
 2. What's a container image?
 
-**Intermediate**
+**Intermediate 🟡**
 1. namespaces vs cgroups?
 2. Why is Firecracker interesting for Lambda?
 
-**Advanced**
+**Advanced 🔴**
 1. Multi-tenant isolation: containers, VMs, microVMs — pick per tenant risk.
 2. How do k8s networking and service discovery work at a high level?
 

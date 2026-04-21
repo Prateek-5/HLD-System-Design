@@ -1,5 +1,10 @@
 # CDN
 
+> **📎 Prereqs** — If rusty:
+> - [`caching.md`](caching.md) — a CDN is a geo-distributed cache.
+> - [`learn/foundations/networking/dns.md`](../learn/foundations/networking/dns.md) — GeoDNS / anycast routing.
+> - HTTP cache headers (`Cache-Control`, `Vary`, `ETag`).
+
 ### 🔹 1. What This Topic Actually Is
 Geographically distributed cache of origin content (images, video segments, JS, HTML) served from **edge PoPs** closest to users.
 
@@ -33,15 +38,15 @@ Geographically distributed cache of origin content (images, video segments, JS, 
 - Purge lag vs TTL — pick strategy once and stick.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Why do CDNs help latency?
 2. Push vs pull?
 
-**Intermediate**
+**Intermediate 🟡**
 1. How do you invalidate CDN content quickly?
 2. What does `Vary` do and why does it matter?
 
-**Advanced**
+**Advanced 🔴**
 1. Design a CDN for 200 PB of video.
 2. Why does Netflix run its own CDN (Open Connect) instead of renting?
 3. Handle flash crowd (viral video) without melting origin. (origin shield + stale-while-revalidate + precompute segments)

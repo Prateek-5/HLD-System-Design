@@ -1,5 +1,10 @@
 # Cluster & Workflow Management
 
+> **📎 Prereqs** — If rusty:
+> - [`containers_docker.md`](containers_docker.md) — deploy unit.
+> - [`distributed_transactions.md`](distributed_transactions.md) — sagas / workflows.
+> - Basic k8s vocabulary (pod, deployment, service).
+
 ### 🔹 1. What This Topic Actually Is
 Two related topics:
 1. **Cluster management** — scheduling containers/VMs across a fleet (k8s, Twine, Borg, ECS).
@@ -35,15 +40,15 @@ Two related topics:
 - Autopilot-style autosizing saves ~30% capacity but requires tight integration.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. What does a scheduler do?
 2. Why is a workflow engine different from a queue?
 
-**Intermediate**
+**Intermediate 🟡**
 1. How does Temporal survive crashes mid-workflow?
 2. Why is Airflow bad for online workflows?
 
-**Advanced**
+**Advanced 🔴**
 1. Design a multi-region scheduler with capacity + locality constraints.
 2. Design subscription renewal workflow with retries, compensations, timeouts.
 

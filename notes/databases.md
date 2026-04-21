@@ -1,5 +1,11 @@
 # Databases — SQL, NoSQL, Replication, Sharding
 
+> **📎 Prereqs** — If rusty:
+> - [`learn/data/db-and-dbms.md`](../learn/data/db-and-dbms.md) — what a DBMS is.
+> - [`learn/data/acid-base.md`](../learn/data/acid-base.md) — ACID/BASE basics.
+> - [`learn/data/cap-theorem.md`](../learn/data/cap-theorem.md) — C/A tradeoff.
+> - Basic SQL + SELECT/JOIN.
+
 ### 🔹 1. What This Topic Actually Is
 Durable, queryable stores for structured (SQL) or flexible (NoSQL) data. The default answer to "where does it go?" in every system design.
 

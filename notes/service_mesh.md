@@ -1,5 +1,10 @@
 # Service Mesh
 
+> **📎 Prereqs** — If rusty:
+> - [`microservices.md`](microservices.md) — why mesh exists.
+> - [`containers_docker.md`](containers_docker.md) — sidecar deployment model.
+> - [`learn/reliability/ssl-tls-mtls.md`](../learn/reliability/ssl-tls-mtls.md) — mTLS basics.
+
 ### 🔹 1. What This Topic Actually Is
 A layer that handles service-to-service network concerns (mTLS, retries, circuit breaking, routing, telemetry) via **sidecar proxies** (Envoy) injected next to each service — out of the app code.
 
@@ -25,15 +30,15 @@ App A → localhost:port (its own sidecar) → Envoy intercepts → mTLS to remo
 **Alternatives**: library-based (Finagle, Spring Cloud) — coupled to language; or gateway-only.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. What's a sidecar?
 2. Data plane vs control plane?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Why mesh over libraries?
 2. How does mTLS rotate certs automatically?
 
-**Advanced**
+**Advanced 🔴**
 1. Debug a request timing out in a mesh — where to look?
 2. Cost/benefit of a mesh for 5 services vs 500.
 

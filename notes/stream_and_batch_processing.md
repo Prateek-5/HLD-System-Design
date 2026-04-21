@@ -1,5 +1,10 @@
 # Stream & Batch Processing
 
+> **📎 Prereqs** — If rusty:
+> - [`message_queues_and_pubsub.md`](message_queues_and_pubsub.md) — Kafka is the stream source.
+> - [`databases.md`](databases.md) — output sinks.
+> - Event-time vs processing-time mental model.
+
 ### 🔹 1. What This Topic Actually Is
 Two ways to process large data:
 - **Batch**: bounded dataset, run periodically (hourly/daily). Throughput over latency.
@@ -39,15 +44,15 @@ Two ways to process large data:
 - Warehouse (Snowflake, BigQuery) = SQL on huge historical data, batch-ish.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Batch vs stream?
 2. What is MapReduce conceptually?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Event time vs processing time.
 2. Windows + watermarks — why?
 
-**Advanced**
+**Advanced 🔴**
 1. Design real-time fraud detection at 100k events/s with <1s latency.
 2. Lambda vs Kappa — when each?
 3. Kafka EOS for a stream job writing to DB — what guarantees, what cost?

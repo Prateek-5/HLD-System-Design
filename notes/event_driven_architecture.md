@@ -1,5 +1,10 @@
 # Event-Driven Architecture (EDA)
 
+> **📎 Prereqs** — If rusty:
+> - [`message_queues_and_pubsub.md`](message_queues_and_pubsub.md) — the transport.
+> - [`microservices.md`](microservices.md) — why decoupling matters.
+> - Async vs sync mental model.
+
 ### 🔹 1. What This Topic Actually Is
 Services communicate by emitting and reacting to **events** ("something happened"), not by calling each other ("do this"). Loose coupling, natural async.
 
@@ -28,15 +33,15 @@ Each consumer owns its own offset and reacts at its own rate. Retries + DLQs per
 **Cons**: harder end-to-end debugging, eventual consistency, schema governance required, duplicate handling is mandatory.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Event vs command?
 2. Why async is good for scale?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Choreography vs orchestration — when each?
 2. Handle a new subscriber needing historical events.
 
-**Advanced**
+**Advanced 🔴**
 1. Design event contract versioning across 100 services.
 2. Trace debug a cross-service outage with 20 events — how? (correlation IDs + tracing + schema registry)
 

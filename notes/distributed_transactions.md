@@ -1,5 +1,10 @@
 # Distributed Transactions — Sagas & Outbox
 
+> **📎 Prereqs** — If rusty:
+> - [`databases.md`](databases.md) — ACID, transactions.
+> - [`message_queues_and_pubsub.md`](message_queues_and_pubsub.md) — pub-sub basics.
+> - [`microservices.md`](microservices.md) — why cross-service coordination is hard.
+
 ### 🔹 1. What This Topic Actually Is
 Coordinating state changes across multiple services/DBs as a logical unit. You want atomic-or-nothing across system boundaries.
 

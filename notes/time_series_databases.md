@@ -1,5 +1,10 @@
 # Time-Series Databases
 
+> **📎 Prereqs** — If rusty:
+> - [`databases.md`](databases.md) — general DB concepts.
+> - [`nosql_internals.md`](nosql_internals.md) — LSM + compaction (TSDBs use similar ideas).
+> - Percentile / aggregation intuition.
+
 ### 🔹 1. What This Topic Actually Is
 Databases specialized for time-indexed, append-heavy data: metrics, IoT, monitoring, financial ticks, user events.
 
@@ -31,15 +36,15 @@ Databases specialized for time-indexed, append-heavy data: metrics, IoT, monitor
 - Column-store OLAP (ClickHouse, Druid) overlaps TSDB for real-time analytics.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Why not use Postgres for metrics?
 2. What's downsampling?
 
-**Intermediate**
+**Intermediate 🟡**
 1. Explain Gorilla compression intuition.
 2. What's the cardinality problem?
 
-**Advanced**
+**Advanced 🔴**
 1. Design metrics pipeline for 1B points/day.
 2. Compare InfluxDB / Prometheus / ClickHouse / Druid for real-time analytics at scale.
 

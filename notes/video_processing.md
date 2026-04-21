@@ -1,5 +1,10 @@
 # Video Processing (Transcoding, Streaming, Live)
 
+> **📎 Prereqs** — If rusty:
+> - [`cdn.md`](cdn.md) — delivery pipeline.
+> - [`distributed_file_system.md`](distributed_file_system.md) — segment storage.
+> - Bitrate / codec basic vocabulary.
+
 ### 🔹 1. What This Topic Actually Is
 Ingesting, encoding, storing, and delivering video at scale. The pipeline behind Netflix, YouTube, Twitch, ESPN.
 
@@ -37,15 +42,15 @@ Ingesting, encoding, storing, and delivering video at scale. The pipeline behind
 - UDP (WebRTC) for sub-second live; TCP (HTTPS) for everything else.
 
 ### 🔹 6. Interview Questions
-**Beginner**
+**Beginner 🟢**
 1. Why transcode into multiple bitrates?
 2. What's adaptive bitrate?
 
-**Intermediate**
+**Intermediate 🟡**
 1. HLS vs DASH?
 2. How does segmentation improve caching?
 
-**Advanced**
+**Advanced 🔴**
 1. Design live streaming for 10M concurrent viewers at <5 s latency.
 2. Why does Netflix use shot-based encoding? Cost/benefit.
 3. Why does Netflix run Open Connect rather than using Cloudflare?
