@@ -112,6 +112,8 @@ Every tier is a cache. Senior engineers design their stack by asking: "at which 
 
 Both can coexist: local cache for microsecond-hot keys, Redis for the rest.
 
+🔗 **Related Questions**: [Q13: stampede fixes](../../03_interview_mode.md#q13-three-fixes-for-cache-stampede-) · [Q16: cold cache](../../03_interview_mode.md#q16-cold-cache-after-deploy--why-dangerous-) · ❗ [Confusion: "cache miss just means reading DB"](../../04_confusion_resolver.md#-a-cache-miss-just-means-reading-from-db) · ❗ [Confusion: "high hit rate is sufficient"](../../04_confusion_resolver.md#-high-cache-hit-rate-is-sufficient)
+
 ### Cache stampede / thundering herd
 
 Scenario: a hot key expires. 1000 concurrent requests all miss → all hit DB → DB dies.
@@ -290,3 +292,79 @@ This is a microcosm of a real Twitter-scale feed.
 - **Negative caching** (caching NOT-FOUND answers) — missing.
 - **Cache partitioning / sharding** across Redis cluster — deserves math treatment.
 - **Secondary indexes inside cache** — real pattern, not covered.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+#### 🔄 Gap 1 — Cache-aside vs Read-through
+- 🔹 **What they are**: Two read-path strategies. **Cache-aside**: app explicitly checks cache, on miss fetches from DB, populates cache. **Read-through**: cache library transparently fetches from source on miss.
+- 🔹 **Why it matters**: Cache-aside is the de-facto default (~80% of real deployments). Read-through hides complexity at the cost of less control.
+- 🔹 **Connection**: The "write-through / around / back" trio in this file are about writes; this gap is the missing read-side counterpart.
+- 🔹 **When needed**: 🔴 **Important for any interview** — you will be asked "what cache pattern would you use and why?"
+- 🔹 **Intuition**: Cache-aside = you as the chef check the fridge, then the pantry. Read-through = you ask a butler who handles both; you never know where the food came from.
+- 🔹 **If you go deeper**: Understand the Caffeine / Guava `Loader` pattern (read-through) vs typical Redis usage (cache-aside). Read why most teams prefer cache-aside: visibility, control, no library lock-in.
+- 🔹 **Interview hook**: *"Which cache pattern for a read-heavy feed?"* → cache-aside with 5-min TTL + active invalidation on write. Justify: control + debuggability.
+
+---
+
+#### ❌ Gap 2 — Negative Caching
+- 🔹 **What it is**: Caching the *absence* of data — e.g., "user 42 doesn't exist" — with a short TTL, so repeated lookups don't hammer the DB.
+- 🔹 **Why it matters**: Without it, a scanner hitting nonexistent IDs (scraping, attack, bug) hits your DB millions of times. A 30-second negative cache absorbs it.
+- 🔹 **Connection**: The stampede section in this file addresses existing hot keys. Negative caching addresses *nonexistent* keys — a different DoS vector.
+- 🔹 **When needed**: 🟡 **Useful for mid-level**, 🔴 **Important for high-traffic public APIs**.
+- 🔹 **Intuition**: Your brain remembers "that restaurant is closed on Mondays" so you don't walk there again. Negative caching stores the null.
+- 🔹 **If you go deeper**: Set *shorter* TTL than positive entries (so a newly-created entity becomes visible quickly). DNS does this for NXDOMAIN — read RFC 2308.
+- 🔹 **Interview hook**: *"Attacker probes random user IDs at 10k QPS. DB dies. Fix?"* → negative caching, rate limit, auth early.
+
+---
+
+#### 🧩 Gap 3 — Cache Partitioning / Sharding (Redis Cluster)
+- 🔹 **What it is**: Splitting the keyspace across N Redis nodes. Redis Cluster uses 16384 hash slots; clients hash each key to a slot and route directly.
+- 🔹 **Why it matters**: Single-node Redis caps at ~100k QPS and ~100GB RAM. Clusters let you go to 1M+ QPS and TB-scale.
+- 🔹 **Connection**: The distributed-cache section in this file is underspecified — this fills in *how* multi-node actually works.
+- 🔹 **When needed**: 🔴 **Important for senior interviews** designing high-scale systems.
+- 🔹 **Intuition**: Instead of one warehouse, build 10 smaller warehouses keyed by the first letter of the product name. Clients know which warehouse owns which letters.
+- 🔹 **If you go deeper**: Learn hash slots (CRC16 mod 16384), MOVED redirect, ASK during resharding, hash tags for multi-key ops `{tag}key`, gossip-based membership.
+- 🔹 **Interview hook**: *"Your Redis node hits 90% memory. Options?"* → 1) Increase TTL pressure, 2) Shard across a cluster, 3) Tiered cache with spillover. Senior answer names the tradeoffs.
+
+---
+
+#### 📇 Gap 4 — Secondary Indexes Inside Cache
+- 🔹 **What it is**: Additional lookup structures in Redis (e.g., `user:email:foo@bar.com → user_id`) enabling non-primary-key lookups.
+- 🔹 **Why it matters**: Redis is primary-key oriented; without secondary indexes, "find user by email" means a DB hit even if you have the user cached.
+- 🔹 **Connection**: Fleshes out "a cache is a KV store" — real systems build richer indexing on top.
+- 🔹 **When needed**: 🟡 **Useful for mid-level**, 🔴 **Important for senior designs using Redis beyond simple cache**.
+- 🔹 **Intuition**: Your library catalog has books indexed by shelf number (primary) but also an author-name index (secondary) pointing to shelf numbers.
+- 🔹 **If you go deeper**: Redis sorted sets (`ZADD` for ranked indexes), hashes for structured records, set intersection for multi-tag lookups. Study how Twitter's early tweet-id-by-user timeline used sorted sets.
+- 🔹 **Interview hook**: *"Design a leaderboard for 100M users updating in real-time."* → Redis sorted set (`ZADD`) + per-user hash for profile data. Secondary indexing is implicit in the design.
+
+---
+
+#### 🦥 Gap 5 — Lazy Loading
+- 🔹 **What it is**: Another name for cache-aside. Data only reaches the cache on first read. Popular/important data stays; rarely-accessed data stays out.
+- 🔹 **Why it matters**: Minimizes cache size; self-tuning. The natural default for applications.
+- 🔹 **Connection**: Complements the "write-through populates on write" approach — lazy loading populates on read.
+- 🔹 **When needed**: 🟡 **Useful to know the terminology** — interviewers use "lazy loading" and "cache-aside" interchangeably.
+- 🔹 **Intuition**: You don't pre-fetch every book in the library; you fetch when asked and keep a copy if it might be asked again.
+- 🔹 **If you go deeper**: Combine with active invalidation on write — "lazy read, active write". This is basically the default pattern across modern apps.
+- 🔹 **Interview hook**: Usually comes up during *"describe your cache strategy"* — use the term confidently.
+
+---
+
+### 🏆 Start here if you have limited time
+
+1. **Cache-aside vs Read-through** — you WILL be asked which pattern.
+2. **Cache Partitioning / Redis Cluster** — senior-level scale justification.
+
+Skip negative caching unless you design public APIs. Secondary indexes mostly come up if the interviewer dives into Redis specifics.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+
+1. **Cache-aside vs Read-through** (~30 min; interview-critical).
+2. **Redis Cluster hash slots + resharding** (~1h; senior-scale discussions).
+3. **Negative caching** (~30 min; specific but widely applicable).
+4. **Secondary indexes in cache** (~1h; real-world Redis mastery).
+5. **Lazy loading terminology** (~10 min; nomenclature only).

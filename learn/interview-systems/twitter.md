@@ -50,6 +50,8 @@ Three models:
 - Pull for celebrities (high follower count) — compute their recent tweets at read time and merge.
 - Stores per-user timeline in Redis (recent ~800 tweets).
 
+🔗 **Related Questions**: [Q60: push vs pull vs hybrid](../03_interview_mode.md#q60-design-twitter-feed--push--pull--hybrid-) · ❗ [Confusion: "Twitter uses push for all users"](../04_confusion_resolver.md#-twitter-uses-push-fan-out-for-all-users)
+
 ### Celebrity threshold
 ~10k followers is a rough cutoff. Beyond that, pull.
 

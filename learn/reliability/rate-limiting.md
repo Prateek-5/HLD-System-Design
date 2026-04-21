@@ -74,3 +74,41 @@ API gateway rate limit: 100 req/s per API key. Token bucket in Redis via Lua. If
 ## L. Potential Gaps & Improvements
 - Distributed token bucket via gossip.
 - Weighted limits by plan/tier.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+#### 🗣️ Gap 1 — Distributed Token Bucket via Gossip
+- 🔹 **What it is**: Each node maintains a local token bucket + gossips its consumption to peers; global limit is enforced approximately without central Redis dependency.
+- 🔹 **Why it matters**: Central Redis limiter is a SPOF and latency bottleneck at 1M+ QPS across regions. Gossip-based distributed limiting scales and tolerates partitions.
+- 🔹 **Connection**: This file's "Redis + Lua" approach is centralized. Gossip-based is the next tier for planet-scale.
+- 🔹 **When needed**: 🔴 **Important for senior infra interviews** at planet-scale shops (Envoy, Istio, Lyft-scale).
+- 🔹 **Intuition**: Instead of everyone asking the mayor for a permit, each neighborhood tracks its own permits and periodically tells neighbors "I've used X". Slight over-limit is accepted; no central SPOF.
+- 🔹 **If you go deeper**: Read Lyft's Envoy global rate limit service + rate limit quota service (RLQS). Understand the precision-latency-availability tradeoff: gossip = less precise but no central dependency.
+- 🔹 **Interview hook**: *"At 10M QPS globally, how do you rate-limit without a central limiter?"* → gossip-based distributed token bucket.
+
+---
+
+#### 🎫 Gap 2 — Weighted Limits by Plan/Tier
+- 🔹 **What it is**: Different rate limits per user tier (free vs pro vs enterprise), endpoint priority (read vs write), or time-of-day.
+- 🔹 **Why it matters**: Real SaaS products monetize rate limits. Simplistic flat limits leave money on the table and annoy power users.
+- 🔹 **Connection**: This file treats rate limits as uniform. Real products multiply per-plan, per-endpoint, per-tenant.
+- 🔹 **When needed**: 🟡 **Useful for mid-level**, 🔴 **Important for SaaS product design interviews**.
+- 🔹 **Intuition**: Airline seats — economy, business, first. Same airplane, different quotas on WiFi, drinks, legroom. Rate limits work the same way.
+- 🔹 **If you go deeper**: Study Stripe's tiered limit architecture — limits stored in user plan metadata, looked up at authn time, applied at gateway. Think about fair-share within a tenant's quota.
+- 🔹 **Interview hook**: *"Design rate limits for a SaaS with free/pro/enterprise tiers."* → tier-aware bucket capacity + per-endpoint priorities.
+
+---
+
+### 🏆 Start here if you have limited time
+
+1. **Weighted limits by tier** — directly applicable to most product interviews.
+2. **Distributed gossip limiter** — senior-infra depth.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+
+1. **Weighted / tiered limits** (~45 min; widely applicable).
+2. **Distributed gossip token bucket (Envoy style)** (~1h; senior-infra signaling).

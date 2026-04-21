@@ -29,6 +29,8 @@ Classic triangle: pick any two. In practice, P is required; pick C or A under pa
 
 ## C. Internal Working
 
+🔗 **Related Questions**: [Q29: CAP concrete scenario](../03_interview_mode.md#q29-cap-theorem--walk-through-a-concrete-partition-scenario-) · [Q30: classify Cassandra/Mongo](../03_interview_mode.md#q30-classify-cassandra-mongodb-hbase-in-pacelc-) · ❗ [Confusion: "CAP says pick 2 of 3"](../04_confusion_resolver.md#-cap-says-pick-2-of-3) · ❗ [Confusion: "eventual = stale for N seconds"](../04_confusion_resolver.md#-eventual-consistency--stale-for-n-seconds-then-consistent)
+
 ### 🪜 Concrete partition scenario (the one example that makes CAP click)
 
 Bank account balance. 3 nodes: A, B, C. Alice's balance is $100, replicated to all 3.
@@ -116,3 +118,55 @@ Multi-region write system. CP: primary in one region, replicas in others, writes
 - CRDTs deserve a standalone section.
 - Linearizability vs eventual — more formal coverage.
 - Jepsen findings on real DBs (Aphyr) — great reading.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+#### 🧮 Gap 1 — CRDTs (Conflict-free Replicated Data Types)
+- 🔹 **What they are**: Data structures mathematically designed so any replica can apply updates in any order and still converge to the same final state.
+- 🔹 **Why it matters**: Enable **AP + eventual consistency** without conflict resolution code. Figma uses them for multi-user canvas. Redis has CRDT-backed "active-active" Enterprise.
+- 🔹 **Connection**: The "reconcile via LWW, vector clocks, CRDTs, or app logic" line in this file — CRDTs are the mathematically clean option for those scenarios.
+- 🔹 **When needed**: 🔴 **Important for senior interviews** in collaborative-editing / real-time / multi-region systems.
+- 🔹 **Intuition**: A counter where +1 anywhere, processed in any order, always yields the right total. Achieved by encoding updates commutatively.
+- 🔹 **If you go deeper**: Learn G-Counter (grow-only), PN-Counter (+/-), G-Set, 2P-Set, OR-Set (with tombstones), RGA (for text). Read Marc Shapiro's papers. Yjs/Automerge libraries for hands-on.
+- 🔹 **Interview hook**: *"Design Figma's collaborative canvas"* → CRDT per object + WebSocket transport + eventual convergence. Alternative: operational transform (Google Docs) — know both.
+
+---
+
+#### 📐 Gap 2 — Linearizability vs Eventual (formal)
+- 🔹 **What it is**: **Linearizability** = every op appears to execute atomically at some point between invocation and response, consistent with a real-time global clock. **Eventual** = replicas converge given no writes; no bound on when.
+- 🔹 **Why it matters**: Interviewers distinguish candidates who confuse these from those who don't. "Strongly consistent" is ambiguous; linearizability is precise.
+- 🔹 **Connection**: "CP" in this file is loosely "linearizable under partition". The precise definition distinguishes real behaviors.
+- 🔹 **When needed**: 🔴 **Important for senior distributed-systems interviews**.
+- 🔹 **Intuition**: Linearizable = "as if every op happened in real-time order with a single shared clock". Eventual = "replicas agree on the final state, but not when".
+- 🔹 **If you go deeper**: Study the **consistency spectrum**: eventual < causal < sequential < linearizable. Read "Consistency Explained" (Jepsen). Understand that Raft gives linearizability for writes + leader reads, but replica reads are stale unless you do leader-leased reads.
+- 🔹 **Interview hook**: *"Is Raft always linearizable?"* → Writes yes. Reads on followers no, unless using read-index or leader-lease.
+
+---
+
+#### 🔬 Gap 3 — Jepsen (Kyle Kingsbury / Aphyr) Findings
+- 🔹 **What it is**: Kyle Kingsbury's open-source framework that tests distributed DBs under realistic partitions + failures, checking if their advertised guarantees hold.
+- 🔹 **Why it matters**: Has found serious correctness bugs in Mongo, Cassandra, Elasticsearch, etcd, RabbitMQ, and others. Vendor claims ≠ reality until Jepsen-tested.
+- 🔹 **Connection**: CAP theory is easy; *real* DB behavior under partition is often worse than advertised. Jepsen tells you which DBs actually deliver.
+- 🔹 **When needed**: 🟡 **Useful for senior interviews** — shows depth of thinking beyond docs.
+- 🔹 **Intuition**: The Consumer Reports of distributed DBs — brutal testing publishes what actually works.
+- 🔹 **If you go deeper**: Read Jepsen analyses on jepsen.io (pick 3: Mongo, Cassandra, etcd). Learn what "stale reads", "lost updates", "aborted reads" mean precisely.
+- 🔹 **Interview hook**: *"You're picking a DB for a financial ledger — how do you validate its consistency claims?"* → check Jepsen reports before prod.
+
+---
+
+### 🏆 Start here if you have limited time
+
+1. **Linearizability vs Eventual (formal)** — the vocabulary interviewers use for precision.
+2. **CRDTs** — the math behind modern multi-region eventual-consistent systems.
+
+Skip Jepsen reading unless you're interviewing for database infra roles.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+
+1. **Linearizability definition + consistency spectrum** (~1h; needed to speak the interviewer's language).
+2. **CRDTs** (~2h; senior-level design payoff).
+3. **Jepsen reports — 2 or 3 DBs you might use** (~2h; reality-check).

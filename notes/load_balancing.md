@@ -14,9 +14,11 @@ A component that distributes incoming traffic across a pool of backends. Single 
 
 ### 🔹 3. Core Concepts (High Signal)
 - **L4 vs L7**: L4 = TCP/UDP, fast, no URL awareness. L7 = HTTP, can route by path/header/cookie, cost: parse HTTP.
+  - 🔗 **Related Questions**: [Q1](03_interview_mode.md#q1-difference-between-l4-and-l7-load-balancer-), [Q3](03_interview_mode.md#q3-websocket-backend--which-lb-algorithm-) · ❗ [Confusion: "L4 vs L7 is performance"](04_confusion_resolver.md#-l4-vs-l7-is-a-performance-thing)
 - **Algorithms**: Round-robin, weighted, least-connections, least-response-time, IP/URL hash, **power-of-two-choices** (pick 2, send to lighter — nearly as good as least-conn, dirt simple).
 - **Health checks**: active (probe `/healthz`) + passive (observe real failures).
 - **Sticky sessions**: bind user to one backend. Almost always a smell — externalize state instead.
+  - 🔗 **Related**: ❗ [Confusion: "TLS is end-to-end"](04_confusion_resolver.md#-tls-is-end-to-end-between-my-client-and-my-backend)
 - **Redundancy**: LB is a SPOF. Use active-passive VIP (VRRP/keepalived) or anycast.
 - **Connection draining**: when removing a backend, stop new conns but let existing finish.
 - **Subsetting** (Google's trick): each LB instance only knows a subset of backends, not the full fleet — cuts connection count at scale.

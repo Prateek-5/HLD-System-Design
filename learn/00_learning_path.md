@@ -21,6 +21,12 @@ Read this file first. Then read topics **in order**. Every topic is a single `.m
 
 If any of those sections feels too fast, **slow down, do not skip**. The whole thing is built so that a concept introduced later never assumes you silently understood something earlier.
 
+### 📚 Scaffolding files (read these in parallel with the layers)
+- [`00_evaluation.md`](00_evaluation.md) — scorecard + gap analysis + enhancement log.
+- [`03_interview_mode.md`](03_interview_mode.md) — **Q → Answer Location → 30-sec answer → Decision Framework**, for ~64 priority questions across all layers.
+- [`04_confusion_resolver.md`](04_confusion_resolver.md) — ~60 deep conceptual traps with ❗/✅ clarifications. Read night-before-interview.
+- [`99_interview_mastery.md`](99_interview_mastery.md) — final checklist before an interview.
+
 ---
 
 ## The five layers (and why they are in this order)

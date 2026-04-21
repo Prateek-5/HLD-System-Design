@@ -13,6 +13,8 @@ A fast, size-limited key-value layer in front of slower storage. Absorbs repeate
 - Without a cache: every read pays full DB/disk cost; hot keys melt DBs.
 
 ### 🔹 3. Core Concepts (High Signal)
+🔗 **Related**: ❗ [Confusion: "cache-aside vs write-through are opposites"](04_confusion_resolver.md#-cache-aside-and-write-through-are-opposites) · [Q6: default pattern](03_interview_mode.md#q6-default-cache-pattern--and-when-do-you-deviate-)
+
 - **Patterns** (in order of how often you'll actually use them):
   - *Cache-aside (lazy)* — **DEFAULT**. App reads cache, on miss fetches + populates. 80% of real deployments.
   - *Read-through* — cache transparently fetches from source.
@@ -26,6 +28,7 @@ A fast, size-limited key-value layer in front of slower storage. Absorbs repeate
 - **Invalidation** (hard problem): TTL + active invalidation on writes.
 - **Layers of cache**: browser → CDN → reverse proxy (Varnish/Nginx) → app-local (Caffeine/Guava) → distributed (Redis/Memcached) → DB buffer pool.
 - **Stampede / thundering herd** fixes: request coalescing, TTL jitter, stale-while-revalidate.
+  - 🔗 **Related Questions**: [Q7](03_interview_mode.md#q7-three-fixes-for-cache-stampede-thundering-herd-), [Q8](03_interview_mode.md#q8-when-should-you-not-cache-)
 - **Negative caching**: cache the "not found" answer with short TTL.
 - **Hot key problem**: one key gets 90% of traffic → partition that key (add suffix, shard) or replicate.
 

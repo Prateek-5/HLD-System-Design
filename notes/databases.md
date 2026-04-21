@@ -38,8 +38,10 @@ Durable, queryable stores for structured (SQL) or flexible (NoSQL) data. The def
 > - Because W + R = 4 > N = 3, **at least one replica in R overlaps with W** → reader always sees the last write.
 > - Try N=3, W=1, R=1 (fast but "AP"): 1+1 < 3 → stale reads possible.
 - **Sharding**: hash / range / list / lookup. Use **consistent hashing** to minimize rebalance churn.
+  - 🔗 **Related Questions**: [Q15: shard key for Twitter](03_interview_mode.md#q15-pick-a-shard-key-for-twitter-tweets-defend-), [Q20: why consistent hashing](03_interview_mode.md#q20-why-consistent-hashing-over-hashkey--n-), [Q22: hot key mitigation](03_interview_mode.md#q22-hot-key-on-a-sharded-system--mitigation-) · ❗ [Confusion: "sharding is horizontal scale"](04_confusion_resolver.md#-sharding-is-how-you-make-a-sql-database-horizontal)
 - **Normalization** for integrity; **denormalization** for read performance + cross-shard join avoidance.
 - **CAP / PACELC**: choose per workload, not per system.
+  - 🔗 **Related Questions**: [Q46: honest CAP](03_interview_mode.md#q46-pick-two--honest-version-), [Q47: classify Cassandra/Mongo](03_interview_mode.md#q47-classify-cassandra--mongodb-in-pacelc-), [Q48: when eventual is wrong](03_interview_mode.md#q48-when-is-eventual-consistency-the-wrong-choice-) · ❗ [Confusion: "CAP says pick two"](04_confusion_resolver.md#-cap-says-pick-two)
 
 ### 🔹 4. Internal Working
 **SQL write (MVCC, Postgres):** begin tx → execute statements → write WAL (durability) → fsync → commit log → apply to data pages in background → replica streams WAL.

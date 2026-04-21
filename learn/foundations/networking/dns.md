@@ -283,3 +283,79 @@ A real resolver (Unbound, Knot, Bind) looks exactly like this.
 - EDNS0 (extended DNS) and the 512-byte → 4096-byte jump — missing.
 
 **How to close:** run `dig +trace google.com` and read every line. You'll see the actual recursion happen in real time.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+#### 🔐 Gap 1 — DNSSEC
+- 🔹 **What it is**: Cryptographic signatures on DNS records so resolvers can verify answers weren't tampered with in flight.
+- 🔹 **Why it matters**: Without it, an on-path attacker can forge DNS replies (poisoning) → redirect users to malicious sites. Governments have done this.
+- 🔹 **Connection**: The "attacker races a forged response" scenario mentioned in this file is exactly what DNSSEC prevents via chain-of-trust from the root.
+- 🔹 **When needed**: 🟡 **Useful for mid-level security interviews**, 🔴 **Important for infra-security roles**.
+- 🔹 **Intuition**: Like a tamper-evident seal on every DNS answer. The root publishes a signing key; each TLD's key is signed by root; each zone's key by its TLD. Any broken link = reject.
+- 🔹 **If you go deeper**: Read the chain-of-trust (root → TLD → domain), the DS + DNSKEY records, why adoption has been slow (operational complexity + key rollover pain).
+- 🔹 **Interview hook**: *"How do you prevent DNS spoofing?"* → DNSSEC for integrity + DoH/DoT for privacy.
+
+---
+
+#### 🕵️ Gap 2 — DoH / DoT (DNS over HTTPS / TLS)
+- 🔹 **What it is**: DNS queries tunneled over TLS (DoT, port 853) or HTTPS (DoH, port 443) so ISPs and on-path observers can't see your lookups.
+- 🔹 **Why it matters**: Modern browsers (Firefox, Chrome) default to DoH. This breaks ISP-level DNS-based content blocking and logging. Big privacy + geopolitics issue.
+- 🔹 **Connection**: UDP-based DNS is observable on the wire. DoH/DoT hides the query content; only the resolver sees what you asked.
+- 🔹 **When needed**: 🟡 **Useful for security/privacy interviews**, 🟢 curiosity otherwise.
+- 🔹 **Intuition**: Traditional DNS = sending a postcard (anyone en route reads it). DoH = sending in a sealed envelope.
+- 🔹 **If you go deeper**: Why DoH (port 443) is politically controversial — indistinguishable from normal HTTPS, can't be blocked without blocking all web traffic. Contrast with DoT (port 853, easier to block).
+- 🔹 **Interview hook**: *"Why is DoH using port 443 rather than 853 like DoT?"* → Unblockable via firewall without collateral damage; political + privacy reasons.
+
+---
+
+#### 🌐 Gap 3 — Anycast DNS
+- 🔹 **What it is**: Announcing the *same* DNS server IP from many geographic locations via BGP; packets route to the nearest.
+- 🔹 **Why it matters**: It's how `8.8.8.8`, `1.1.1.1`, and the 13 DNS root servers serve billions of queries per day from hundreds of physical machines — all sharing one IP.
+- 🔹 **Connection**: The "13 root servers, hundreds of physical machines" remark in this file works because of anycast.
+- 🔹 **When needed**: 🔴 **Important for senior CDN / infra interviews**, 🟡 useful at mid-level.
+- 🔹 **Intuition**: One phone number that rings in the nearest call center. Callers never notice; the center they reach depends on geography.
+- 🔹 **If you go deeper**: Understand anycast is a routing property (via BGP), not a DNS property. Applies to any protocol — Cloudflare uses it for HTTP, DNS, and more.
+- 🔹 **Interview hook**: *"How does `1.1.1.1` respond to queries from Tokyo within 10ms?"* → Anycast BGP announcement from a Tokyo PoP.
+
+---
+
+#### 🔬 Gap 4 — Worked `dig +trace` Example
+- 🔹 **What it is**: Running `dig +trace example.com` shows the real recursion hop by hop — root → TLD → authoritative — with timing.
+- 🔹 **Why it matters**: The abstract diagram in this file becomes concrete bytes. You can't un-see how DNS actually works.
+- 🔹 **Connection**: Directly validates the 11-step flow described above.
+- 🔹 **When needed**: 🟢 **Optional but high-value practice**. Do it once.
+- 🔹 **Intuition**: It's the difference between reading about a recipe and watching it cooked on camera.
+- 🔹 **If you go deeper**: Run it for a domain with a CNAME chain — you'll see the extra hop. Run for a CDN-hosted domain — you'll see the CDN's nameservers taking over.
+- 🔹 **Interview hook**: Sets you up for *"walk me through a DNS lookup"* with lived experience, not memorization.
+
+---
+
+#### 📏 Gap 5 — EDNS0 and the 512 → 4096 Byte Jump
+- 🔹 **What it is**: Original DNS limited UDP responses to 512 bytes. EDNS0 (extension) allows 4096 bytes. Beyond 4096 → falls back to TCP.
+- 🔹 **Why it matters**: DNSSEC and large response sets (AAAA + many A records) exceed 512 bytes. Without EDNS0, everything falls to TCP → slow.
+- 🔹 **Connection**: The "UDP unless response is large" note in this file depends on EDNS0. Without it, DNSSEC is impractical.
+- 🔹 **When needed**: 🟢 **Mostly trivia**. Useful for understanding why DNSSEC adoption needed protocol changes.
+- 🔹 **Intuition**: DNS had a tiny envelope size by default; EDNS0 is a standardized larger envelope, negotiated between client and server.
+- 🔹 **If you go deeper**: Read the EDNS0 options field — it's also how DNS cookies (anti-spoofing) and client subnet (CDN geo-routing) are carried.
+- 🔹 **Interview hook**: Rarely direct, but comes up if *"why did DNSSEC take so long to adopt?"* → partially because legacy middleboxes dropped EDNS0 responses.
+
+---
+
+### 🏆 Start here if you have limited time
+
+1. **Anycast DNS** — lets you explain how big resolvers scale; senior interview gold.
+2. **DNSSEC** — security angle, comes up on any role touching auth or public DNS.
+
+Skip EDNS0 trivia, run `dig +trace` once as practice.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+
+1. **Run `dig +trace` live** (~10 min; immediate intuition boost).
+2. **Anycast DNS** (~1h; senior interview payoff).
+3. **DNSSEC** (~1–2h; security-critical).
+4. **DoH / DoT** (~45 min; modern privacy landscape).
+5. **EDNS0** (~30 min; trivia with occasional relevance).

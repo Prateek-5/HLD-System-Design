@@ -102,3 +102,55 @@ Fixes:
 - CDC (Change Data Capture) via Debezium / Kafka Connect — missing.
 - Quorum-based replication math (W+R>N) — belongs near CAP.
 - Group replication / Paxos-based (Spanner, CockroachDB) — missing.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+#### 🛰️ Gap 1 — CDC via Debezium / Kafka Connect
+- 🔹 **What it is**: Framework for capturing database changes as a Kafka event stream in real time, by tailing the WAL/binlog.
+- 🔹 **Why it matters**: Makes "sync DB to search index / cache / warehouse" trivial without dual-writes. Industry-standard for event-driven architectures.
+- 🔹 **Connection**: This file introduces CDC conceptually. Debezium is *how* you deploy it. Kafka Connect is the generic framework hosting it.
+- 🔹 **When needed**: 🔴 **Important for senior interviews** in data pipelines, event-driven microservices, search-index sync.
+- 🔹 **Intuition**: Put a tap on the DB's internal change log. Everything flowing through it goes out as an event stream. The DB doesn't know or care.
+- 🔹 **If you go deeper**: Read Debezium docs for Postgres (logical replication slot), MySQL (binlog), MongoDB (oplog). Understand at-least-once delivery + schema evolution concerns.
+- 🔹 **Interview hook**: *"How do you keep Elasticsearch in sync with Postgres without dual-writes?"* → Debezium streams CDC events to Kafka → indexer consumer updates ES.
+
+---
+
+#### 📐 Gap 2 — Quorum-based Replication (W+R>N)
+- 🔹 **What it is**: Configurable replication where writes need W acks and reads query R replicas. When W+R>N, reads always see the latest write.
+- 🔹 **Why it matters**: Lets you tune per-query consistency vs latency. Default for Cassandra, DynamoDB, Riak, etc.
+- 🔹 **Connection**: This file covers primary-replica replication; quorum is the next level — nobody is "the primary" per se, and reads/writes are voted.
+- 🔹 **When needed**: 🔴 **Important for senior interviews** on NoSQL databases.
+- 🔹 **Intuition**: A jury. Writes need W votes. Reads need R. If W+R>N (total jurors), every read jury includes at least one who saw the last write.
+- 🔹 **If you go deeper**: Try N=3 W=2 R=2 (strong) vs N=3 W=1 R=1 (fastest, stale reads possible). Understand ONE, QUORUM, ALL levels in Cassandra.
+- 🔹 **Interview hook**: *"In Cassandra with RF=3, when would you use CL=QUORUM vs CL=ONE?"* → QUORUM for critical reads needing consistency; ONE for speed-first workloads accepting staleness.
+
+---
+
+#### 🤝 Gap 3 — Paxos/Raft-based Replication (Spanner, CockroachDB)
+- 🔹 **What it is**: Replication where every write requires majority consensus via Paxos or Raft. Guarantees linearizable writes + strong leader.
+- 🔹 **Why it matters**: How true cross-region strong consistency works — Spanner (Paxos), CockroachDB (Raft), etcd (Raft). Not the usual primary-replica async.
+- 🔹 **Connection**: Primary-replica is simple but has data-loss window. Consensus-replicated systems close that — at latency cost.
+- 🔹 **When needed**: 🔴 **Important for senior infra interviews**.
+- 🔹 **Intuition**: Every write requires a majority vote before being "committed". Crashes can't lose data (the majority persisted it) — but each write pays the vote RTT.
+- 🔹 **If you go deeper**: Study how Spanner uses **TrueTime** (GPS + atomic clocks) to make Paxos-replicated writes globally serializable with minimal latency. Read the Spanner paper (2012).
+- 🔹 **Interview hook**: *"How does Spanner provide global ACID transactions?"* → Paxos-replicated tablets + TrueTime for serializable ordering.
+
+---
+
+### 🏆 Start here if you have limited time
+
+1. **CDC via Debezium** — practical, reusable, instant interview payoff.
+2. **W+R>N math** — core interview question for NoSQL.
+
+Paxos/Raft is foundational but already covered in `clustering.md` and distributed consensus files.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+
+1. **CDC via Debezium** (~1h; pragmatic value).
+2. **W+R>N quorum math** (~30 min; interview staple).
+3. **Raft/Paxos-based replication + Spanner's TrueTime** (~2–3h; senior infra depth).

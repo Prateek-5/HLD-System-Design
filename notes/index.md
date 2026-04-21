@@ -8,6 +8,8 @@
 - [`00_quick_revision.md`](00_quick_revision.md) — the whole field in 2–3 pages
 - [`01_interview_patterns.md`](01_interview_patterns.md) — the 10 patterns behind 80% of questions
 - [`02_quiz.md`](02_quiz.md) — 60-question rapid-fire self-test (use after each day to verify)
+- [`03_interview_mode.md`](03_interview_mode.md) — **Q → Answer Location → 30-sec answer → Decision Framework**, for every priority question
+- [`04_confusion_resolver.md`](04_confusion_resolver.md) — top ~40 misunderstandings with one-line clarifications (read night-before-interview)
 
 ### Day 1 — the big 3
 - [`load_balancing.md`](load_balancing.md)

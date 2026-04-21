@@ -99,3 +99,40 @@ Fallback: serve cached / degraded response while open.
 ## L. Potential Gaps & Improvements
 - Bulkheads (resource isolation).
 - Hedging (send duplicate requests to multiple backends).
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+#### 🚢 Gap 1 — Bulkheads (Resource Isolation)
+- 🔹 **What it is**: Partition your thread pools / connection pools per downstream dependency, so one sick dependency can't exhaust shared resources starving healthy dependencies.
+- 🔹 **Why it matters**: Circuit breakers protect you *after* failures accumulate. Bulkheads prevent one slow downstream from starving threads used by other (healthy) downstreams.
+- 🔹 **Connection**: Circuit breakers stop calls to a sick downstream. Bulkheads ensure the "sick downstream" doesn't burn shared resources while the breaker is deciding to open.
+- 🔹 **When needed**: 🔴 **Important for senior interviews** on resilience.
+- 🔹 **Intuition**: Ships have compartments — one flooding doesn't sink the ship. Your app has thread pools — one slow dependency shouldn't freeze the rest.
+- 🔹 **If you go deeper**: Study Hystrix's bulkhead pattern (now in Resilience4j). Per-dependency thread pool sized to concurrency need + some headroom. Combine with timeouts + circuit breakers.
+- 🔹 **Interview hook**: *"A slow dependency freezes your entire service even with a circuit breaker. Why?"* → All shared threads are waiting for it. Fix: bulkhead per-dep thread pool.
+
+---
+
+#### ⚡ Gap 2 — Hedging (Tail-latency Reduction)
+- 🔹 **What it is**: Send the request to multiple backends; use the first response; cancel the rest. Trades some extra load for reduced p99 latency.
+- 🔹 **Why it matters**: Tail latency (p99, p999) kills perceived performance. Hedging can shave p99 from 500ms to 100ms at ~2× resource cost.
+- 🔹 **Connection**: Circuit breakers and retries don't help with *tail latency* (slow-but-succeeded calls). Hedging does.
+- 🔹 **When needed**: 🔴 **Important for senior latency-critical interviews** (ads, search, real-time).
+- 🔹 **Intuition**: If you're in a hurry, call 3 Ubers and take the first one. Cancel the rest. More cost, less waiting.
+- 🔹 **If you go deeper**: Read Google's "Tail at Scale" paper (Dean, 2013). Study hedged requests at replica level (send to 2 replicas, take first response). Understand the cost model: extra 2× load for 1 second is worth it for a fraction of the requests.
+- 🔹 **Interview hook**: *"Your p99 is 500ms but p50 is 50ms. How do you reduce p99?"* → hedging to 2 replicas after e.g., 100ms delay.
+
+---
+
+### 🏆 Start here if you have limited time
+
+Both gaps are **important for senior interviews**. Bulkheads come up more often; hedging is the more exotic pick.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+
+1. **Bulkheads** (~45 min; resilience completeness).
+2. **Hedging + "Tail at Scale" paper** (~1h; senior-performance signaling).

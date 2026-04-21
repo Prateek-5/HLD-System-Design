@@ -98,3 +98,55 @@ Rebalance on node add:
 - Rendezvous hashing (HRW) — a competing scheme, sometimes better.
 - Jump hash — simpler alternative for stable N+1 scaling.
 - Load-aware hashing.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+#### 🎲 Gap 1 — Rendezvous Hashing (HRW — Highest Random Weight)
+- 🔹 **What it is**: For each key, compute `hash(key, node_id)` across all nodes; pick the node with the highest score. No ring, no virtual nodes.
+- 🔹 **Why it matters**: Simpler than consistent hashing, better load distribution without virtual nodes, similar ~1/N key movement on node add/remove. Used internally by some CDNs.
+- 🔹 **Connection**: Direct alternative to the ring approach in this file. Same goals, cleaner mechanism.
+- 🔹 **When needed**: 🟡 **Useful at mid-level**, 🔴 **Important if interviewing at places using HRW** (some CDN teams).
+- 🔹 **Intuition**: For each key, "audition" every node (hash it together). Pick the winner. On node add, only keys where the new node scores highest move.
+- 🔹 **If you go deeper**: Understand the `argmax(hash(key, node))` selection, replication (pick top-K nodes), and why it doesn't need virtual nodes. Read Thaler & Ravishankar's 1998 paper.
+- 🔹 **Interview hook**: *"Besides consistent hashing, what algorithms distribute keys across nodes with minimal churn?"* → HRW, jump hash.
+
+---
+
+#### 🏃 Gap 2 — Jump Hash (Lamping & Veach, Google 2014)
+- 🔹 **What it is**: A closed-form algorithm mapping key → bucket in O(log n) time with minimal memory. `int JumpHash(key, num_buckets)`.
+- 🔹 **Why it matters**: No ring state to maintain. Ultra-fast (~5 ns per lookup). Used at Google for internal sharding.
+- 🔹 **Connection**: Replaces the ring lookup entirely — pure stateless function. Tradeoff: works best when nodes are 0..N-1; deleting arbitrary nodes is harder.
+- 🔹 **When needed**: 🟢 **Optional for most interviews**, 🟡 useful if you hit *"any cheaper alternative to the ring?"*.
+- 🔹 **Intuition**: Simulate N coin flips to decide which bucket a key lands in. Add a bucket → only ~1/N keys flip to the new one. No ring required.
+- 🔹 **If you go deeper**: Read the 6-page paper (shortest ever); it's 20 lines of code.
+- 🔹 **Interview hook**: Rarely direct. Shows depth if dropped as an alternative.
+
+---
+
+#### ⚖️ Gap 3 — Load-Aware Hashing
+- 🔹 **What it is**: Extensions to consistent hashing that consider *current load* (not just hash) — route to the lightly-loaded node among top-K candidates.
+- 🔹 **Why it matters**: Plain consistent hashing can still create hot nodes due to hot keys or heterogeneous node capacity. Load-aware variants smooth this.
+- 🔹 **Connection**: Addresses the "hot key" weakness of plain consistent hashing mentioned in this file.
+- 🔹 **When needed**: 🔴 **Important for senior interviews** designing cache/DB clusters at scale.
+- 🔹 **Intuition**: Consistent hashing picks your favorite restaurant by location. Load-aware peeks at the line first and picks a close-enough restaurant with a shorter queue.
+- 🔹 **If you go deeper**: Read "Consistent hashing with bounded loads" (Google, 2016) — picks the hash owner unless overloaded, in which case spills to next-on-ring. Guarantees each node ≤ ε above average load.
+- 🔹 **Interview hook**: *"Consistent hashing still creates hotspots in my cache — what next?"* → bounded-load consistent hashing.
+
+---
+
+### 🏆 Start here if you have limited time
+
+1. **Bounded-load consistent hashing** — actual production improvement.
+2. **Rendezvous hashing** — the most common alternative; expected knowledge at senior level.
+
+Skip jump hash unless you're deep in infra / Google-adjacent.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+
+1. **Rendezvous hashing (HRW)** (~30 min; nearest alternative).
+2. **Bounded-load consistent hashing** (~1h; prod relevance).
+3. **Jump hash** (~30 min; elegant trivia).
