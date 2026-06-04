@@ -290,7 +290,7 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ## Scaling Perspective
 
-- **Per-process memory ceiling.** Default `--max-old-space-size` is 2GB on 64-bit. For Node servers, 4–8GB is common. Beyond that, GC costs grow superlinearly.
+- **Per-process memory ceiling.** The old-space limit is not a flat 2GB: the historical fixed default was ~1.5GB, but modern Node (since ~v12) derives `--max-old-space-size` from available physical memory (roughly half of RAM, up to a cap, raised for large-memory machines). For Node servers, explicitly setting 4–8GB is common. Beyond that, GC costs grow superlinearly.
 - **Many small Node processes** often beat one big one — smaller heaps, faster GCs, simpler isolation.
 - **Worker threads** share the parent process but have isolated heaps. CPU-intensive work without polluting the main heap.
 - **CPU profiling at scale** requires sampling, not tracing. `--prof` produces tick logs you process offline.
@@ -433,17 +433,15 @@ Then the loop adds a *new* property (`subtotal`) to each, creating *another* 8 h
 
 ### V8 measurement
 
-Run with `--trace-ic`:
+Run with `--trace-ic`. Real `--trace-ic` output is terse and references map (hidden-class) addresses, not pretty field sets — the IC at `item.subtotal = ...` transitions through states as it sees more shapes. Schematic (not literal) output:
 
 ```
-[ic] update: PROPERTY at calc.js:25:20 [polymorphic]
-  - hidden class 0x123abc: {id, name, qty, unitPrice, tax}
-  - hidden class 0x456def: {id, name, qty, unitPrice, discount, subtotal}
-  - hidden class 0x789012: {id, name, qty, unitPrice, tax, subtotal}
-  - hidden class 0xabcdef: {id, name, qty, unitPrice, tax, discount, subtotal}
+[ic] StoreIC at calc.js:25:20 (subtotal): MONOMORPHIC -> POLYMORPHIC
+  maps: 0x123abc, 0x456def, 0x789012, 0xabcdef
+[ic] StoreIC at calc.js:25:20 (subtotal): POLYMORPHIC -> MEGAMORPHIC
 ```
 
-Polymorphic IC. Slower than monomorphic by 5-20×.
+Each map address corresponds to one of the input shapes from `buildLineItem`. As the count of distinct maps at this site grows past ~4, the IC degrades from monomorphic to polymorphic to megamorphic — slower than monomorphic by roughly 5-20×.
 
 ### The fix — uniform shape
 

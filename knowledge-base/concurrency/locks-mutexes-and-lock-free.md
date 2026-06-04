@@ -176,7 +176,7 @@ Memory orderings (C++ vocabulary):
 - **Acquire-release**: both.
 - **Sequentially consistent**: total global order. Strongest, slowest.
 
-Java's `volatile` and Go's atomic operations default to sequential consistency. Lower-level languages let you weaken for performance — at significant complexity cost.
+Java's `volatile` and Go's atomic operations default to sequential consistency (Go's `sync/atomic` is documented as sequentially consistent since the Go 1.19 memory model; earlier the guarantee was unspecified). Lower-level languages let you weaken for performance — at significant complexity cost.
 
 ### Lock-free data structures
 
@@ -207,7 +207,7 @@ Memory reclamation is the hardest part: how do you free a node when other thread
 
 ### Wait-free
 
-A weaker stronger guarantee: every thread completes its operation in *bounded* steps. No starvation possible. Useful in real-time systems. Generally even harder to implement than lock-free; performance often worse for typical workloads.
+A strictly stronger guarantee than lock-free: every thread completes its operation in *bounded* steps. No starvation possible. Useful in real-time systems. Generally even harder to implement than lock-free; performance often worse for typical workloads.
 
 ### Channels and message passing
 

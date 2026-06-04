@@ -475,21 +475,27 @@ async def book_travel_saga(request: TravelBookingRequest):
 ```python
 async def compensate(state: TravelBookingSagaState):
     """Compensate in reverse order of completed steps."""
+
+    # The pivot is the payment charge. Once it has committed, the saga MUST
+    # roll forward (retry confirmations until they succeed) — we never refund a
+    # post-pivot charge here. Compensation therefore only applies BEFORE the
+    # pivot, i.e. when payment has not been charged. If we somehow reach this
+    # path with payment already committed, that is a roll-forward / manual-ops
+    # situation, not a refund.
+    if "payment" in state.completed_steps:
+        alert_ops(state, "payment")
+        state.status = "needs_manual_intervention"
+        save_saga_state(state)
+        raise UnrecoverableCompensationError(
+            "payment already committed (post-pivot); roll forward, do not refund"
+        )
+
     completed = list(reversed(state.completed_steps))
 
-    # Note: only PRE-PIVOT steps need compensation here.
-    # Post-pivot (after payment), we keep retrying forward.
-
+    # Only PRE-PIVOT reservation holds are compensated (released) here.
     for step in completed:
         try:
-            if step == "payment":
-                await retry_until_success(
-                    lambda: payment_service.refund(
-                        state.payment_charge_id,
-                        idempotency_key=f"saga-{state.booking_id}-refund",
-                    )
-                )
-            elif step == "car":
+            if step == "car":
                 await retry_until_success(
                     lambda: car_service.cancel_reservation(
                         state.car_reservation,

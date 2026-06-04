@@ -91,7 +91,7 @@ Types (Prometheus convention):
 - **Counter** — monotonically increasing. Total requests, errors, bytes sent.
 - **Gauge** — current value, can go up or down. Memory usage, queue depth, active connections.
 - **Histogram** — bucketed distribution. Latency percentiles, request size distribution.
-- **Summary** — pre-computed quantiles. Useful but harder to aggregate across instances.
+- **Summary** — pre-computed quantiles. Useful, but the quantiles are mathematically non-aggregatable: you cannot average two instances' p99s to get a fleet-wide p99. This is precisely why histograms (whose buckets do aggregate) won for distributed percentile reporting.
 
 Cost model: storage is `cardinality × resolution × retention`. A 10-label metric where each label has 10 possible values has 10^10 = 10 billion potential time series. Don't do that. Real systems must be cardinality-disciplined.
 

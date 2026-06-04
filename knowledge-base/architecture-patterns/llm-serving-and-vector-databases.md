@@ -63,7 +63,7 @@ Different from traditional web serving. New constraints; new optimizations.
 Similarity in vector space ≈ similarity in meaning. ANN algorithms find similar vectors fast.
 
 **3. Token-by-token generation is the dominant pattern.**
-Output streams; users see tokens as they're generated. Tail latency = total response time, not first byte.
+Output streams; users see tokens as they're generated. Latency has two distinct components: time-to-first-token (TTFT, the prefill latency before the first token appears) and inter-token latency (TPOT, the per-token streaming rate). Total response time is roughly TTFT + (output tokens × TPOT). Which one matters depends on the use case.
 
 **4. Context windows are limited.**
 Models have token limits (4K, 32K, 128K, 1M). RAG fits relevant context within the window.
@@ -121,14 +121,14 @@ vLLM and similar implement this. Throughput improvements 2-10× over naive batch
 
 ### Quantization
 
-Reduce weight precision: fp32 → fp16 → int8 → int4.
+Reduce weight (and sometimes activation) precision: fp32 → fp16/bf16 → fp8 → int8 → int4.
 
 Trade-offs:
 - Smaller memory; can fit larger models.
 - Faster inference.
-- Slightly worse quality (varies by model and task).
+- Slightly worse quality (varies by model, method, and task).
 
-Most production deployments use fp16 or int8. int4 emerging.
+High-quality serving commonly runs at fp16/bf16. For compression, weight-only 4-bit methods such as GPTQ and AWQ are widely used, and FP8 has become common on newer hardware (e.g. NVIDIA Hopper/Ada and later). The right choice depends on the model, the accelerator, and the accuracy budget — there is no single "default" precision across production.
 
 ### Streaming output
 
@@ -137,7 +137,7 @@ LLMs generate token-by-token. Server streams to client:
 - HTTP/2 or HTTP/3 streams.
 - Each token as it's generated.
 
-User experience: text appears progressively. Time-to-first-token is the latency metric.
+User experience: text appears progressively. The key latency metrics are time-to-first-token (TTFT, how soon output starts) and inter-token latency / TPOT (how fast it then streams); together with output length they determine total response time.
 
 ### Vector embeddings
 
@@ -168,7 +168,7 @@ Most vector databases use HNSW or hybrid approaches.
 
 ### Vector databases
 
-**Pinecone**: managed; HNSW-based.
+**Pinecone**: fully managed; proprietary indexing (the exact ANN algorithm isn't publicly specified — don't assume plain HNSW).
 **Weaviate**: open-source; rich features.
 **Qdrant**: open-source; Rust; performant.
 **pgvector**: Postgres extension; SQL integration.

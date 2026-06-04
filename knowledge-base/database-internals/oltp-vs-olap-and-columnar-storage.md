@@ -205,7 +205,7 @@ CDC (Change Data Capture) enables near-real-time replication from OLTP to OLAP v
 | User-facing transactions | OLTP (Postgres, MySQL) |
 | Real-time queries on small data | OLTP |
 | Reports on millions of rows | OLAP (Snowflake, BigQuery, ClickHouse) |
-| Embedded analytics in app | DuckDB, SQLite (analytical mode) |
+| Embedded analytics in app | DuckDB (SQLite is row-store and the wrong fit for OLAP) |
 | Data lake exploration | Spark, Presto, Trino |
 | Real-time analytics | ClickHouse, Druid, Pinot |
 | Time-series specifically | TimescaleDB, Influx, ClickHouse |

@@ -61,7 +61,7 @@ The contract — what fields exist, what they mean, when they change — is the 
 Adding a field is cheap. Removing a field is a year-long migration. Renaming a field is the same. Every breaking change costs many client-team-weeks. Design APIs assuming you cannot break them.
 
 **3. Latency budgets shape the protocol.**
-A REST call is typically 100-500ms (TLS, JSON parsing, routing). A gRPC call is 10-50ms internal. A GraphQL query may aggregate dozens of upstream calls. Pick based on where you sit in the latency budget.
+The protocol's own overhead (serialization, framing) is usually a small slice of request latency — the bulk is network round-trips, TLS, and downstream work. gRPC/protobuf trims serialization and header overhead versus REST/JSON, which matters most for chatty internal calls and large payloads; it does not turn a 200ms request into a 20ms one if that time was spent in the database. A GraphQL query may aggregate many upstream calls, so its latency is bounded by the slowest dependency. Pick based on where the time actually goes.
 
 **4. Discoverability vs efficiency is the central tradeoff.**
 REST's strength is a curl command works. gRPC's strength is wire-format and type efficiency. The difference shows up at scale and at the boundary between organizations.
@@ -135,7 +135,7 @@ The compiler generates client and server stubs in any supported language (Go, Ja
 
 Strengths:
 - **Strong typing** at the wire level. Field tag numbers preserve compatibility across versions.
-- **Efficient encoding** (binary protobuf, not text JSON). Often 5-10× smaller and faster.
+- **Efficient encoding** (binary protobuf, not text JSON). Payloads are often substantially smaller, and encode/decode is faster — though this is serialization cost, not whole-request latency.
 - **HTTP/2 multiplexing** (no head-of-line blocking; many concurrent calls per connection).
 - **Streaming** (server-side, client-side, bidirectional) as a first-class primitive.
 - **Code generation** keeps clients and servers in sync.
@@ -149,10 +149,10 @@ Weaknesses:
 ### Protobuf evolution rules
 
 The schema can evolve safely if you follow rules:
-- **Never reuse field tag numbers.** A removed field's tag is reserved forever.
-- **New fields must be optional**. Default to a sensible zero value.
-- **Don't change field types.** Adding a new field with a new tag is the way.
-- **Removing required fields** is a breaking change; make fields optional or use markers.
+- **Never reuse field tag numbers.** A removed field's tag is reserved forever (use `reserved`).
+- **Add new fields with new tags.** Readers ignore unknown fields; absent fields take their default.
+- **Most field type changes are breaking — but some are wire-compatible.** Within the varint family (int32/int64/uint32/uint64/bool/enum) values share an encoding and can be interchanged (with the usual truncation/sign caveats), and string ↔ bytes is safe when the bytes are valid UTF-8. Changing between incompatible wire types (e.g. int32 ↔ string) corrupts data silently — add a new field instead.
+- **proto3 has no `required`.** All fields are optional; design for fields being absent rather than relying on required-ness.
 
 These rules are battle-tested at Google scale. Followed religiously, they let services evolve indefinitely without breaking clients.
 
@@ -333,7 +333,7 @@ Offset-based pagination over a list that changes. Client fetches pages 1, 2, 3. 
 
 ## Performance Perspective
 
-- **gRPC is typically 5-10× faster** than REST for equivalent payloads (binary vs JSON, HTTP/2 vs HTTP/1.1).
+- **gRPC's serialization/transport overhead is lower** than REST/JSON-over-HTTP/1.1 (binary vs text, HTTP/2 multiplexing vs HTTP/1.1). The encode/decode and wire-size advantage can be large per call, but end-to-end request latency is usually dominated by network round-trips and downstream work, not the protocol — don't expect a uniform "5-10× faster" on real requests.
 - **JSON parsing is non-trivial CPU cost** at high QPS.
 - **HTTP/2 multiplexing** means many parallel requests on one connection — both REST-over-HTTP/2 and gRPC benefit.
 - **GraphQL adds a hop** (client → GraphQL gateway → backends) that costs latency.

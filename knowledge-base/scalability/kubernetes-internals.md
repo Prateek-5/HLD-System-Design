@@ -92,7 +92,7 @@ A consensus-based KV store (Raft). Stores all cluster state.
 Properties:
 - 3-, 5-, or 7-node clusters typical.
 - Strong consistency.
-- ~10K writes/sec at scale; reads cached.
+- Write throughput is workload- and fsync-bound; under real K8s object churn it is often far lower than headline benchmark numbers, so treat it as latency-sensitive rather than high-throughput. Reads cached.
 - Latency-sensitive: SSD storage required.
 
 When etcd is unhealthy, the cluster is effectively unusable. Operators monitor etcd carefully.
@@ -124,11 +124,16 @@ Watches are HTTP long-poll connections. Efficient at scale; one of K8s's key des
 A controller watches resources, compares desired vs actual, takes action. Pattern:
 
 ```
-loop forever:
-    observed = api_server.list(my_resource_type)
-    for resource in observed:
-        if resource.status != desired:
-            take_action(resource)
+# Driven by watches via an informer, not a poll loop:
+# the informer maintains a local cache and enqueues changed keys.
+on event (add/update/delete) from informer watch:
+    enqueue(resource_key)
+
+# Worker drains the work queue:
+for resource_key in work_queue:
+    resource = informer_cache.get(resource_key)
+    if resource.status != desired:
+        take_action(resource)
 ```
 
 Examples:
@@ -146,7 +151,7 @@ Watches for unscheduled pods. For each:
 2. **Scoring**: rank candidate nodes. Considers spread, packing, etc.
 3. **Binding**: assign pod to node.
 
-Scheduling is a hard problem at scale; K8s's default scheduler handles thousands of pods/sec.
+Scheduling is a hard problem at scale; the binding step (write to the API server), not raw filtering, is typically the throughput limit, so sustained scheduling rate is well below the per-pod filter/score speed.
 
 ### Kubelet
 

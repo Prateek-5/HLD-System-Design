@@ -186,10 +186,10 @@ Linkerd's documentation has good public examples. AWS SDKs have similar behavior
 
 ### The retry-amplification math
 
-Three layers of retries, each retrying 3 times:
-- 1 user request → up to 3 service calls (client retries) → up to 9 service-to-service calls → up to 27 database calls.
+Three layers of retries, each retrying 3 times (4 total attempts per layer — 1 original + 3 retries):
+- 1 user request → up to 4 service calls (client retries) → up to 16 service-to-service calls → up to 64 database calls.
 
-This is what kills production during partial outages. A 1% downstream failure rate becomes a 27% load amplification with naive retries — and the increased load makes the failure worse.
+This is what kills production during partial outages. Even a small downstream failure rate, once it triggers retries at every layer, can multiply effective load by up to 64× — and the increased load makes the failure worse.
 
 The mitigations:
 - **Retry at one layer only**, typically the outermost.
@@ -548,7 +548,7 @@ Critical: **same idempotency key on every retry**. Server dedupes; charges only 
 
 **Without idempotency**: retries cause duplicate charges; customer billed twice.
 
-**Without retry budgets**: client retries 3×, gateway retries 3×, order retries 3× = 27× amplification under failure.
+**Without retry budgets**: client, gateway, and order each do 3 retries (4 total attempts per layer) = 4 × 4 × 4 = 64× amplification under failure.
 
 **Without proper status-code classification**: retrying on 4xx (permanent client errors) wastes budget; retrying on 503 (transient) recovers.
 

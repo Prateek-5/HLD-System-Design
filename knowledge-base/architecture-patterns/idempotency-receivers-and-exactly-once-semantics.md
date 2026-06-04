@@ -84,7 +84,7 @@ If A sends a message to B over an unreliable network and asks "did B receive it?
 - A re-sends; B may receive twice or once.
 - B acks; A may not receive the ack; A re-sends; same problem.
 
-There's no protocol that achieves exactly-once delivery in finite time over a network with possible failures. (FLP impossibility for related problem of consensus.)
+There's no protocol that achieves exactly-once delivery in finite time over a network with possible failures. (This is the **Two Generals Problem**: with an unreliable channel, no finite exchange of messages lets both sides become certain the other received the last one. FLP is a distinct impossibility result, about consensus among processes in an asynchronous system with even one crash failure.)
 
 The escape: shift from "exactly-once delivery" to "exactly-once effect." Allow at-least-once delivery; make the receiver detect duplicates. Now the application sees exactly-once semantics regardless of how many duplicates the network produced.
 
@@ -219,14 +219,14 @@ The `mark_processed` and the business logic must be atomic. Otherwise: business 
 
 Approach: use the same database transaction for both. Or: use the message's effect itself as the dedup mechanism (e.g., the database operation has a unique constraint on the message ID).
 
-### CRDTs as idempotent operations
+### CRDTs and idempotent merges
 
-Conflict-free Replicated Data Types are inherently idempotent:
-- G-Counter: increment is idempotent if you track which increments by ID.
-- LWW-Set: insert with timestamp is idempotent.
-- OR-Set: insert with unique ID is idempotent.
+In Conflict-free Replicated Data Types it is the **merge** of replica states that is idempotent (and also commutative and associative) — merging the same state twice changes nothing. The underlying *operation* is not automatically idempotent; you make it so by recording which operations have already been applied:
+- G-Counter: state-based merge is idempotent (it takes the per-replica max). A raw increment is *not* idempotent — replaying it adds again — unless you dedupe increments by ID.
+- LWW-Set: merge by last-writer-wins timestamp is idempotent.
+- OR-Set: insert tagged with a unique ID is safe to merge repeatedly because the tag dedupes it.
 
-Replaying any CRDT operation is safe. Particularly useful for distributed systems where retries are common.
+Because the merge is idempotent, replaying delivered state is safe. This is why CRDTs are useful for distributed systems where retries and re-delivery are common.
 
 ### Idempotency vs commutativity
 
@@ -314,7 +314,7 @@ TTL set to 5 minutes. Customer retries after 10 minutes (slow connectivity). Key
 
 - **Idempotency store**: scales horizontally (sharded by key).
 - **Outbox**: per-service; scales with service.
-- **Kafka EOS**: well-tested at large scale; performance cost ~10-30%.
+- **Kafka EOS**: well-tested at large scale; carries a measurable throughput/latency cost over plain at-least-once (workload-dependent — benchmark for your case rather than assuming a fixed percentage).
 - **At hyperscale**: dedicated dedup services; specialized stores.
 
 ---
@@ -350,7 +350,7 @@ The unifying observation: **idempotency is the application-layer compensation fo
 - That **the dedup window TTL matters**.
 - That **mid-process crashes** can cause re-execution if dedup isn't atomic with business effect.
 - That **commutativity is also useful** for out-of-order delivery.
-- That **CRDTs are inherently idempotent**.
+- That **a CRDT's merge is idempotent** (the operation itself is not, unless deduped).
 
 ---
 
@@ -394,7 +394,7 @@ Common traps:
 6. **Kafka EOS** for in-Kafka effectively-once.
 7. **Atomic dedup record** with business effect.
 8. **TTL idempotency records** appropriately.
-9. **CRDTs are inherently idempotent**.
+9. **CRDT merges are idempotent** (the operation isn't, unless deduped).
 10. **Document semantics precisely** to users.
 
 ---

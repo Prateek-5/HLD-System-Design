@@ -170,7 +170,7 @@ The cost: you need GPS + atomic clocks. Most companies can't deploy this. The be
 A consistency model that respects happens-before but doesn't require a global linearization:
 
 - **Causal**: causally related operations are seen in causal order; concurrent operations may differ across replicas.
-- **Causal+**: causal + convergent conflict resolution.
+- **Causal+**: causal + convergent conflict resolution (the term comes from the COPS paper, Lloyd et al., 2011).
 
 Implementable with vector clocks or HLCs without consensus. Faster than linearizability; provides intuition that "if A happened before B, you'll see them in that order."
 

@@ -123,10 +123,10 @@ Retry policy, hierarchical:
 2. **Limit the count.** 3 retries max, typically. More than that is a system smell.
 3. **Exponential backoff.** First retry after 100ms, then 200ms, 400ms, 800ms.
 4. **Jitter.** Add randomness so retries don't synchronize across the fleet. Without jitter, every client retries at the same instant — a thundering herd of retries.
-5. **Budget retries at the *caller chain* level.** If A calls B calls C, and each retries 3×, a single failure becomes 27 calls. Use a *retry budget* (e.g., 10% of base traffic).
+5. **Budget retries at the *caller chain* level.** If A calls B calls C, and each does up to 3 retries (4 total attempts each), a single failure becomes up to 64 calls (4 × 4 × 4). Use a *retry budget* (e.g., 10% of base traffic).
 6. **Stop retrying when the circuit is open.** Don't retry into a known-broken dependency.
 
-The single most expensive retry pattern: client-side retry + load-balancer retry + service mesh retry. Three layers of retries is 27× amplification under failure. Ban this configuration.
+The single most expensive retry pattern: client-side retry + load-balancer retry + service mesh retry. With 3 retries (4 total attempts) at each of three layers, that compounds to 4 × 4 × 4 = 64× amplification under failure. Ban this configuration.
 
 ### Timeouts: the most important number in production
 

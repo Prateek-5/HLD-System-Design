@@ -190,7 +190,7 @@ Performance:
 - Single-threaded code: ~5-10% slower.
 - Multi-threaded CPU-bound code: scales linearly with cores.
 
-Transition: years. C extensions must opt-in. Default GIL removal in 3.16+ tentatively.
+Transition: years. C extensions must opt-in. PEP 703 lays out a phased plan (experimental → supported → default) but deliberately does not commit to a release in which free-threading becomes the default.
 
 ### asyncio internals
 
@@ -300,7 +300,7 @@ Service slow under load. Investigation with py-spy: 60% time waiting on GIL. Sol
 
 ## Performance Perspective
 
-- **GIL acquisition**: ~50ns.
+- **GIL acquisition**: on the order of nanoseconds when uncontended (varies by hardware; measure on yours).
 - **Switch interval**: 5ms typical.
 - **multiprocessing IPC**: milliseconds for non-trivial data.
 - **asyncio overhead**: minimal vs synchronous.

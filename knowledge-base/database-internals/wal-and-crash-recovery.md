@@ -398,7 +398,7 @@ T1 commit: WAL record at LSN 1237; calls fsync.
 T2 commit: WAL record at LSN 1238; calls fsync.
 T3 commit: WAL record at LSN 1239; calls fsync.
 
-Naive: 3 fsyncs (each takes ~1ms on SSD); 3000 commits/sec ceiling per thread.
+Naive: 3 fsyncs (each takes ~1ms on SSD); ~333 commits/sec ceiling per thread.
 
 Group commit:
 T1 calls fsync; this fsync includes any WAL written so far.

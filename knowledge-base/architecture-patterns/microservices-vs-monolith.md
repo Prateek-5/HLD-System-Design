@@ -266,10 +266,9 @@ Service A's API change requires updating clients in B, C, D. Schema migration in
 
 ## Performance Perspective
 
-- **Monolith function calls**: nanoseconds.
-- **Microservice HTTP calls**: ~10ms minimum (LAN), often more.
-- **Microservice gRPC calls**: ~1-5ms.
-- **Latency budgets**: easier in monoliths; in microservices, must be carefully apportioned across services.
+- **Monolith function calls**: nanoseconds (in-process, no serialization or network).
+- **Microservice network calls**: add a per-hop overhead — on a LAN, sub-millisecond to a few milliseconds of round-trip plus serialization, more across zones/regions. The key point is the *added* cost of crossing a process/network boundary versus an in-process call, not a fixed floor.
+- **Latency budgets**: easier in monoliths; in microservices, the boundary-crossing cost compounds with each hop and must be carefully apportioned across services.
 - **Throughput**: monoliths can saturate a single machine; microservices distribute the load but pay coordination costs.
 
 ---

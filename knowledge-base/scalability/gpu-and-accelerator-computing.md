@@ -89,7 +89,7 @@ Single Instruction Multiple Threads. Threads in a warp execute together; diverge
 - Optimized for data-parallel workloads.
 - Memory bandwidth: 500-3000 GB/sec.
 
-NVIDIA H100: 80GB HBM3 memory; 3 TB/sec bandwidth; ~67 teraflops FP32 / 1000 teraflops FP16.
+NVIDIA H100: 80GB HBM3 memory; ~3 TB/sec bandwidth; ~67 teraflops FP32 (CUDA cores) / ~1000 teraflops FP16 on Tensor Cores (dense; roughly double with structured sparsity). Note the ~15× gap is a Tensor Core effect, not vanilla CUDA-core FP16 throughput.
 
 ### CUDA programming model
 
@@ -138,7 +138,7 @@ GPU memory is layered:
 - **Registers**: per-thread; fastest.
 - **Shared memory**: per-block; fast (~1 TB/sec); programmer-managed.
 - **L1/L2 cache**: per-SM and global.
-- **Global memory**: per-device; slow but large (1-2 TB/sec).
+- **Global memory (HBM)**: per-device; large (~1-3 TB/sec). Slow *relative to* on-chip SRAM/shared memory, but fast *relative to* PCIe host transfer.
 
 Optimization: maximize use of fast memory. Cache reuse via shared memory. Coalesced access patterns (consecutive threads access consecutive memory).
 

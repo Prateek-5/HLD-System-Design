@@ -170,7 +170,7 @@ Conflict-free Replicated Data Types: data structures designed so that *any* sequ
 - **OR-Set**: tag each insert/delete with a unique ID; merges are union/intersection over tags.
 - **LWW-Element-Set**: each operation tagged with timestamp; last write wins.
 
-Used in: Riak, Redis (some types), collaborative editing (Yjs, Automerge), Figma, Linear, AWS DynamoDB Streams patterns. Where the math works, CRDTs eliminate the conflict-resolution problem entirely.
+Used in: Riak, Redis Enterprise (Active-Active / CRDB), collaborative editing (Yjs, Automerge). Where the math works, CRDTs eliminate the conflict-resolution problem entirely.
 
 ### Time and ordering
 

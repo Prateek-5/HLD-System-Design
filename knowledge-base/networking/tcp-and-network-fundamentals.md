@@ -114,7 +114,7 @@ Two mechanisms:
 
 **Timeout-based.** Sender starts a timer when sending; if no ACK, retransmit.
 
-**Fast retransmit.** Three duplicate ACKs (e.g., ACK 1001, 1001, 1001) signal a missing packet — retransmit immediately, don't wait for timeout.
+**Fast retransmit.** Three *duplicate* ACKs (the original ACK plus three more repeating the same number, e.g., ACK 1001, 1001, 1001, 1001) signal a missing packet — retransmit immediately, don't wait for timeout.
 
 Modern stacks use both. Fast retransmit is much faster than timeout for single losses.
 
@@ -123,7 +123,7 @@ Modern stacks use both. Fast retransmit is much faster than timeout for single l
 The challenge: send as fast as possible without congesting the network. Loss = signal of congestion.
 
 **Slow start.**
-Start with cwnd=1 segment. Double per RTT until first loss. Exponential ramp.
+Historically started with cwnd=1 segment; modern stacks use an initial window of ~10 segments (IW10, RFC 6928). Double per RTT until first loss. Exponential ramp.
 
 **Congestion avoidance (AIMD).**
 After slow start, increase cwnd by 1 per RTT (additive). On loss, halve (multiplicative). The sawtooth pattern.
@@ -216,7 +216,7 @@ Default: idle 7200s, then 9 probes 75s apart. Way too long for most use cases. A
 
 ### Slow start after idle
 
-After an idle period, many TCP implementations restart slow start. A connection that's been quiet for seconds re-ramps from cwnd=1.
+After an idle period, many TCP implementations restart slow start. A connection that's been quiet for seconds re-ramps from the initial window (IW10).
 
 This causes "first request after idle is slow." Long-lived HTTP connections used periodically can be surprisingly slow on the first request after idle.
 

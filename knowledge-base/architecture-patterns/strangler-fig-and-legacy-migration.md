@@ -150,13 +150,13 @@ Application writes the same data to both old and new stores. Critical: dual writ
 
 The new system subscribes to changes in the old system's data (via WAL streaming, Debezium, etc.). The new system stays in sync with the old without dual writes. Migration completes when the new system can serve reads correctly.
 
-### The 80/90/95 rule
+### The long-tail of migration effort
 
-Migrations follow a predictable pattern:
-- **First 80%**: rapidly handled. Common cases, well-understood code.
-- **Next 10% (to 90%)**: harder. Edge cases, less-trafficked endpoints.
-- **Next 5% (to 95%)**: very hard. Strange features, poorly-documented integrations.
-- **Last 5%**: appears insurmountable. Often takes as long as the first 80%.
+Migrations tend to follow a predictable shape — effort is heavily back-loaded:
+- **First chunk** (the bulk of traffic): rapidly handled. Common cases, well-understood code.
+- **Next chunk**: harder. Edge cases, less-trafficked endpoints.
+- **Next chunk**: very hard. Strange features, poorly-documented integrations.
+- **Final sliver**: appears insurmountable. Often takes as long as everything before it combined.
 
 Two responses:
 - **Push through**: dedicated effort to migrate the last 5%.
@@ -223,10 +223,10 @@ A hospital can't close for a year while it renovates. Instead, they renovate one
 
 That's strangler. The hospital remains functional throughout. Risk per step is small. The transformation is gradual but complete.
 
-**The roman aqueduct replacement.**
-Roman aqueducts supplied water for centuries. When they were replaced, engineers built new pipes alongside, valve-by-valve switching the water source. The old aqueducts weren't demolished until the new system was proven. Some Roman aqueducts still exist because they were never decommissioned — the new system was built around them.
+**Incremental water-main replacement.**
+Cities replace aging water mains a segment at a time: new pipe is laid alongside the old, service is switched over section by section, and the old pipe is decommissioned only once the new run is proven. The system never goes fully offline, and old segments sometimes stay in the ground for decades because removing them isn't worth the cost.
 
-This is the long-tail outcome: the new system handles current load; the old system persists for legacy reasons; over decades, the old becomes a museum.
+This is the long-tail outcome: the new system handles current load; the old system persists for legacy reasons; over decades, the old becomes effectively a museum piece.
 
 ---
 
@@ -308,7 +308,7 @@ The unifying observation: **legacy migration is engineering's hardest problem, n
 - **Shopify's monolith preservation**: extensive public engineering on extracting bounded contexts from a Rails monolith over a decade.
 - **Stripe's API migrations**: documented patterns for evolving APIs with thousands of customers.
 - **Netflix's monolith decomposition**: famous public talks on the multi-year journey.
-- **GitHub's MySQL → MariaDB migration**: documented case study of database migration at scale.
+- **GitHub's online schema migrations**: GitHub runs MySQL at scale and built/open-sourced `gh-ost` for online, low-lock schema changes — a documented case study of safe, incremental database migration.
 - **Bank legacy modernizations**: many banks running 40-year-old COBOL systems alongside modern microservices, with strangler-fig migration strategies measured in decades.
 - **The Joel Spolsky essay**: "Things You Should Never Do, Part I" remains required reading.
 

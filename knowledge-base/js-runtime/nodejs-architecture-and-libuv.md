@@ -41,7 +41,7 @@ Late 1990s. Netscape and others tried server-side JS. Slow engines, no good asyn
 Google's V8 makes JavaScript fast enough to be a serious server language. Just-in-time compilation; competitive with Java/C# for many workloads.
 
 **Era 3 — Node.js's birth (2009).**
-Ryan Dahl combines V8 with libev (event loop) and CPython's libpython-style FFI. Demonstrates async HTTP serving with single-threaded JavaScript outperforming threaded servers. The talk goes viral.
+Ryan Dahl combines V8 with libev (event loop), libeio (a thread pool for async file I/O — the ancestor of today's thread pool), and c-ares (async DNS). Demonstrates async HTTP serving with single-threaded JavaScript outperforming threaded servers. The talk goes viral.
 
 **Era 4 — libev → libuv (2011).**
 Original libev was Unix-only. libuv was created to abstract async I/O across all major platforms — Linux's epoll, macOS's kqueue, Windows's IOCP. Node's portability becomes a first-class property.
@@ -144,7 +144,7 @@ setTimeout(() => console.log('timeout'), 0);
 setImmediate(() => console.log('immediate'));
 ```
 
-Order is non-deterministic when run from the main script. Inside an I/O callback, `setImmediate` always runs before `setTimeout(fn, 0)` because we're in poll phase, and check phase comes immediately after.
+Order isn't guaranteed when run from the main script — it depends on whether the ~1ms timer threshold has already elapsed when the loop reaches the timers phase (sensitive to startup cost), not a true coin flip. Inside an I/O callback, `setImmediate` always runs before `setTimeout(fn, 0)` because we're in poll phase, and check phase comes immediately after.
 
 ### `process.nextTick` vs Promises
 
@@ -234,8 +234,8 @@ Modern alternative: deploy N container instances behind a load balancer. Same mo
 
 ### Memory and garbage collection
 
-Node's V8 has a default heap limit (`--max-old-space-size`):
-- Default: 2 GB on 64-bit (was 1.4 GB for years; raised).
+Node's V8 has a default old-space heap limit (`--max-old-space-size`):
+- Not a flat 2 GB: the historical fixed default was ~1.5 GB. Modern Node (since ~v12) instead derives the limit from available physical memory (roughly half of RAM, up to a cap, raised on large-memory machines).
 - Configurable up to many GB.
 
 GC pauses scale with heap size. A 4 GB heap with frequent old-gen collections can pause 50-200ms. For latency-sensitive services, smaller heaps with multiple processes often beat one giant heap.

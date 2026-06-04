@@ -189,7 +189,7 @@ This is invisible to application code. `Thread.sleep`, `Socket.read`, `BufferedR
 
 ### Virtual thread limitations
 
-**Pinned threads.** A virtual thread inside a `synchronized` block can't unmount. JVM creates an extra carrier thread; degrades scaling. Mitigation: `ReentrantLock` instead of `synchronized` (Java 21 has improvements; see Java 24+ for further fixes).
+**Pinned threads.** A virtual thread that blocks inside a `synchronized` block can't unmount — it stays pinned to its carrier OS thread, which is therefore tied up. The scheduler can add *compensating* carrier threads (up to a cap) so the rest of the pool keeps progressing, but a flood of pinned threads still degrades scaling. Mitigation (pre-JDK 24): use `ReentrantLock` instead of `synchronized`. JDK 24 / JEP 491 removed the `synchronized` pinning limitation, so virtual threads can now unmount while holding monitors.
 
 **Native code blocking.** JNI calls don't yield. Carrier thread is blocked.
 

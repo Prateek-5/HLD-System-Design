@@ -141,7 +141,7 @@ The choice depends on RTO/RPO targets and budget.
 
 **Differential.** Changes since last full. Compromise.
 
-**Continuous (CDP).** Every change captured. Highest RPO; expensive.
+**Continuous (CDP).** Every change captured. Near-zero (lowest) RPO; expensive.
 
 In practice: weekly full + daily incremental is common. Or: continuous replication for hot data; periodic snapshots for archive.
 

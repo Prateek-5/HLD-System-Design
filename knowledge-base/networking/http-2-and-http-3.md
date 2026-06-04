@@ -182,7 +182,7 @@ QUIC requires TLS 1.3. HTTP/2 can use TLS 1.2 or 1.3.
 
 ### Connection coalescing
 
-HTTP/2 allows reusing a connection for any origin matching the certificate. A connection to `*.example.com` can serve requests for `api.example.com`, `cdn.example.com`, etc.
+HTTP/2 allows reusing a connection for another origin only when two conditions hold (RFC 7540 §9.1.1): the connection's certificate covers the host, **and** that host resolves to the same IP address as the existing connection. So a connection to `*.example.com` can serve requests for `api.example.com`, `cdn.example.com`, etc. — but only if those names point at the same IP. Cert match alone is not sufficient.
 
 Reduces connections; improves efficiency. Some operational care needed (sharding by IP, etc.).
 

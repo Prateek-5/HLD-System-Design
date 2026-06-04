@@ -81,7 +81,7 @@ Each object has a counter. Increment on new reference; decrement on dereference.
 
 Pros: deterministic; immediate reclamation.
 Cons:
-- Per-mutation overhead (atomic increments).
+- Per-mutation overhead (every reference change touches a counter). In CPython these increments/decrements are *non-atomic* — they're protected by the GIL, which is precisely why removing the GIL is so hard. Swift's ARC and free-threaded ("no-GIL") Python use *atomic* refcounts, which are correct under concurrency but measurably more expensive.
 - Doesn't handle cycles (Python uses cycle detector for these).
 - Cache-unfriendly (counter updates touch every referenced object).
 

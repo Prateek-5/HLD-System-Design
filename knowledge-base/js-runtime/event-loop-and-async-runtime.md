@@ -115,7 +115,7 @@ After each individual callback, microtasks drain and `process.nextTick` callback
 Practical consequences:
 - `setTimeout(fn, 0)` runs in the *next* timer phase, not "next tick."
 - `setImmediate(fn)` runs in the *check* phase of the current loop iteration.
-- Inside an I/O callback, `setImmediate` runs before `setTimeout(fn, 0)`. Outside, the order is non-deterministic. This trips up everyone exactly once.
+- Inside an I/O callback, `setImmediate` runs before `setTimeout(fn, 0)`. Outside (at the top of the main module) the order isn't guaranteed: it depends on whether the ~1ms timer threshold has already elapsed by the time the loop reaches the timers phase, which is sensitive to process-startup cost — not a true coin flip. This trips up everyone exactly once.
 
 ### Microtasks: the rule that explains everything
 
@@ -161,6 +161,8 @@ function f() {
   return getA().then(a => getB(a)).then(b => b);
 }
 ```
+
+This is a happy-path sketch only — it gets rejection semantics wrong. A real async function wraps its entire synchronous body so that a `throw` *before* the first `await` still returns a rejected promise; the naive `.then` desugaring above would instead throw synchronously at call time. (This is the same reason an `async` function always returns a promise, even on a synchronous error.)
 
 Each `await` is a yield point. The function's state is captured, control returns to the event loop, and when the awaited promise resolves, a microtask is queued to resume the function.
 

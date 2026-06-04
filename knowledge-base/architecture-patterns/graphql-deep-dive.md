@@ -8,7 +8,7 @@
 
 GraphQL is a query language and runtime for APIs. Where REST has many endpoints each returning fixed shapes, GraphQL has one endpoint where the client *queries* for exactly the data it wants. Servers expose a schema (types, queries, mutations, subscriptions); clients write queries against it; the server resolves and returns precisely the requested shape.
 
-The benefits: no over-fetching (don't load fields you don't need); no under-fetching (don't make N+1 calls); single round-trip for related data; strong typing with introspection.
+The benefits: no over-fetching (don't load fields you don't need); no client-side under-fetching (the client gets related data in a single round-trip instead of making N+1 *client* requests); strong typing with introspection. Note the N+1 problem isn't eliminated — it moves server-side, where naive resolvers re-introduce it and must be batched with DataLoader (covered below).
 
 The trade-offs: server complexity (resolvers can fan out unboundedly); caching is harder (everything is POST to one URL); authorization is per-field (more surface area); query complexity must be bounded (clients can DoS the server).
 
@@ -276,7 +276,7 @@ mutation {
 }
 ```
 
-Mutations are sequential by spec (not parallel); one failure shouldn't half-apply the next.
+By spec, *top-level* mutation fields execute serially, one after another (whereas query fields may resolve in parallel). This only applies to the root mutation fields — selection sets nested under each mutation resolve like any other fields. So multiple top-level mutations in one operation run in order; design them so a later failure doesn't leave an earlier one half-applied.
 
 ### Error handling
 

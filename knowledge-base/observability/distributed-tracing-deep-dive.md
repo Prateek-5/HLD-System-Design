@@ -101,7 +101,7 @@ A span represents a unit of work:
 ```
 
 Key fields:
-- **trace_id**: shared across all spans in the request (128-bit UUID).
+- **trace_id**: shared across all spans in the request (128-bit random identifier, not a UUID — no version/variant bits; the only constraint is that it is not all zeroes).
 - **span_id**: unique to this span (64-bit).
 - **parent_span_id**: forms the tree.
 - **start_time, end_time**: timing.
@@ -140,7 +140,7 @@ For non-HTTP transports:
 - **Rate-limited**: keep up to N traces per second per service.
 - **Always-on for specific routes**: keep all health-checks dropped, all checkout flows kept.
 
-Head sampling decisions propagate via the `sampled` flag in `traceparent` — once decided at the entry point, all downstream services honor the decision.
+Head sampling decisions propagate via the `sampled` flag in `traceparent`. If every service uses a `ParentBased` sampler, the decision made at the entry point is honored downstream and traces stay complete. This consistency is a property of the samplers, not of the flag itself — a service free to make its own decision can break the trace (see the failure scenario below).
 
 Pros: simple, low overhead.
 Cons: misses interesting requests statistically (errors, slow requests are rare).

@@ -170,11 +170,11 @@ The SQL standard defines four levels by which anomalies they forbid. The truth i
 |---|---|---|---|
 | Read Uncommitted | Nothing useful | Everything including dirty reads | (Mostly historical) |
 | Read Committed | Dirty reads | Non-repeatable, phantoms, write skew, lost updates | Per-statement snapshot |
-| Repeatable Read / Snapshot Isolation | + non-repeatable, phantoms* | Write skew, lost updates** | Per-transaction snapshot |
+| Repeatable Read / Snapshot Isolation | + non-repeatable, phantoms* | Write skew** | Per-transaction snapshot |
 | Serializable | Everything | Nothing | SSI / 2PL / serial execution |
 
 *Phantoms: standard SQL allows them at RR; many MVCC implementations forbid them in practice.
-**Lost updates: most MVCC implementations detect and abort one of the conflicting writers.
+**Lost updates: under snapshot isolation most MVCC implementations (including Postgres at Repeatable Read) detect the conflict and abort one of the writers (`could not serialize access due to concurrent update`); write skew is the anomaly snapshot isolation genuinely permits.
 
 ### What different databases actually do
 

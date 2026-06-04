@@ -99,8 +99,8 @@ service UserService {
 
 Properties:
 - Each field has a *tag number* (1, 2, 3, ...) — the on-the-wire identifier.
-- Fields are *optional* by default in proto3.
-- Schema evolution rules: never reuse tag numbers; new fields are optional with defaults; never change types.
+- In proto3, singular scalar fields have *implicit presence* by default: a field set to its zero value (0, "", false) is indistinguishable from unset and is not serialized. To distinguish "unset" from "zero", mark the field `optional` (explicit presence). All fields are non-required — there is no `required` in proto3.
+- Schema evolution rules: never reuse tag numbers; add new fields with new tags (readers ignore unknown fields, and missing fields take defaults); changing a field's type is only safe between wire-compatible types (e.g. within the varint family int32/int64/uint32/uint64/bool/enum, or between string and bytes when the data is valid UTF-8) — most other type changes corrupt data and must be avoided.
 
 Code generation: `protoc` produces client and server stubs in any supported language (C++, Java, Python, Go, JS, Rust, etc.).
 
@@ -375,8 +375,8 @@ Engineering picks gRPC for a service used by browser. Discovers no native browse
 
 ## Performance Perspective
 
-- **Wire size**: typically 30-70% of equivalent JSON.
-- **Latency**: parse/serialize 5-10× faster than JSON.
+- **Wire size**: protobuf payloads are typically substantially smaller than equivalent JSON (varies widely with the data — most for numeric/structured payloads, less for string-heavy ones).
+- **Serialization cost**: protobuf encode/decode is generally faster than JSON parsing. Note this is *serialization* overhead, not end-to-end request latency — over a network, latency is usually dominated by network round-trips, TLS, and downstream work, so the protobuf advantage is a fraction of total latency, not a 5-10× speedup of the whole request.
 - **Connection overhead**: HTTP/2 multiplexing; one connection serves many concurrent calls.
 - **Streaming throughput**: high; ideal for large datasets.
 

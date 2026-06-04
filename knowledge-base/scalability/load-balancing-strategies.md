@@ -119,7 +119,7 @@ Pick two instances at random; pick the less-loaded one. Surprisingly effective: 
 Hash the request (by URL, header, or key) to a position on a ring; route to the closest instance clockwise. Same key always goes to same instance — cache-friendly. Adding/removing instances moves only ~1/N of keys.
 
 **Maglev Hashing.**
-Google's variant of consistent hashing with even better distribution and minimal disruption. Used in many CDN and load balancer implementations.
+Google's lookup-table-based hashing scheme (not a ring). It trades slightly more disruption on backend failure for much better load evenness than ring-based consistent hashing. Used in many CDN and load balancer implementations.
 
 ### Health checks
 

@@ -193,7 +193,7 @@ The transition takes years. It requires explicit leadership commitment ("we will
 
 Each is imperfect. MTTR can be gamed by classifying things differently. MTBF depends on your definition of incident. Use them as trends, not absolutes.
 
-The ratio MTTR / MTBF gives a rough availability number. 1 hour MTTR with 1 month MTBF is ~99.86% availability. Get to 5 minutes MTTR or 1 year MTBF and you're at 99.99%.
+The ratio MTTR / MTBF gives a rough availability number. 1 hour MTTR with 1 month MTBF is ~99.86% availability. To reach ~99.99% you need to cut downtime by ~10×: e.g., hold MTTR at 1 hour but push MTBF to ~1 year, or keep the 1-month MTBF but drop MTTR to ~5 minutes. Either lever works only when you state the other.
 
 ---
 

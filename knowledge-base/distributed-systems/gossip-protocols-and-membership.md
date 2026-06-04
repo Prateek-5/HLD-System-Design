@@ -65,7 +65,7 @@ A node tells a few random peers; those tell a few more. Convergence happens in e
 Each node sends to a small fixed number of peers per round. Total messages per round = O(N). Convergence time = O(log N). Bandwidth and latency scale gracefully.
 
 **3. Failure detection is integrated.**
-"I haven't heard from node X in a while; maybe it's dead?" Gossip protocols handle this directly — `O(log N)` rounds to suspect; subsequent confirmation; failure declared.
+"I haven't heard from node X in a while; maybe it's dead?" Gossip protocols handle this directly — detection latency is roughly constant (independent of N, since each node probes a random member once per protocol period); subsequent confirmation; failure declared.
 
 **4. Eventual consistency at the cluster level.**
 Two nodes might disagree momentarily about whether a third is alive. They converge. Operations that require strict consistency need a separate mechanism (consensus).
@@ -105,7 +105,7 @@ The mechanics:
 4. If any succeeds: revive; gossip that.
 
 Properties:
-- **Failure detection time**: O(log N) rounds (a few seconds in practice).
+- **Failure detection time**: ~constant — a small multiple of the protocol period, independent of N (each node probes one random member per period). It's the *dissemination* of the membership update once detected that takes O(log N) rounds. A few seconds in practice.
 - **False positive rate**: tunable via K and timeouts.
 - **Bandwidth**: O(1) per node per round.
 

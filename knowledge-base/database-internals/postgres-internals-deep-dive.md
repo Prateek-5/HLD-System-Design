@@ -142,7 +142,7 @@ The famous Postgres wraparound:
 - If vacuum can't keep up, Postgres refuses writes to protect itself.
 - This has caused major production outages (Sentry's famous one).
 
-Modern Postgres has 64-bit transaction IDs in some contexts; freezing is still a concern at very high write rates.
+Postgres XIDs are still 32-bit on disk (through PG17); 64-bit XIDs are a long-proposed feature that has *not* shipped, which is why freezing remains mandatory. Postgres does use a 64-bit `FullTransactionId` internally for some bookkeeping, but it does not change the on-disk wraparound problem.
 
 ### Tuple bloat
 

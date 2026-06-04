@@ -63,7 +63,7 @@ The pattern: each generation pushed the cache *closer to the consumer* of the da
 Every cache makes the same tradeoff. If you can't tolerate any staleness, you don't have a cache — you have a slower indirection.
 
 **2. The hit rate is everything.**
-A cache with 99% hit rate is fast on average. A cache with 90% hit rate is *barely faster than no cache* — because the 10% miss path probably checks the cache first, then falls through to the source. The economics depend on the asymmetry between hit cost and miss cost.
+A cache with 99% hit rate is fast on average; a 90% hit rate is still much faster than no cache (the miss path only adds a sub-millisecond cache check before falling through to the source). Where hit rate really compounds is *origin load*: 90% hit means the source sees 10% of traffic (a 10× reduction), and 99% hit means 1% (a 100× reduction). The economics depend on the asymmetry between hit cost and miss cost.
 
 **3. There are only three meaningful cache patterns.**
 Cache-aside (lazy load). Read-through (cache loads on miss). Write-through / write-behind (cache absorbs writes). Every "design pattern" library page is variations on these three.
@@ -93,9 +93,9 @@ Stale rendering of a marketing page: nobody cares. Stale balance on a checkout p
 │  ~100 μs       Local in-process cache (object cache)  │
 │  ~500 μs       Local Redis on same host               │
 │  ~1 ms         Redis on same DC                       │
+│  ~5 ms         CDN edge (POP near user)               │
 │  ~10 ms        Database query (warm cache)            │
 │  ~50 ms        Database query (cold)                  │
-│  ~5 ms         CDN edge (POP near user)               │
 │  ~50–200 ms    Origin server cross-continent          │
 └─────────────────────────────────────────────────────┘
 ```
@@ -150,7 +150,7 @@ When the cache is full, which entry leaves?
 | Policy | Mechanism | Best for |
 |---|---|---|
 | **LRU** (least recently used) | Evict the entry not accessed longest | General purpose |
-| **LFU** (least frequently used) | Evict the entry accessed least overall | Stable workloads |
+| **LFU** (least frequently used) | Evict the entry accessed least overall | Stable workloads; plain LFU suffers cache pollution (once-hot keys never evict), so use decay (Redis's `lfu-decay-time`) or W-TinyLFU |
 | **FIFO** | Evict in arrival order | Simplistic; rarely best |
 | **TLRU** | LRU with TTL filter | When freshness matters |
 | **W-TinyLFU** | Hybrid; admission filter + LRU | Modern (Caffeine) |
@@ -313,7 +313,7 @@ The unifying observation: **caching is what every layer does when the layer belo
 ## What Junior Engineers Usually Miss
 
 - That **cache invalidation is a distributed systems problem**, not a coding pattern.
-- That **a 90% hit rate is barely worth the complexity** of caching for many workloads.
+- That **hit rate's biggest payoff is origin-load reduction**, not user latency — 90% hit cuts source traffic 10×, 99% cuts it 100×.
 - That **storing values without size limits will OOM the cache** at the worst possible time.
 - That **`DELETE` then `SET` ordering creates race conditions** that look like ghosts in production.
 - That **TTLs based on access (sliding) can keep stale data alive forever** under steady load.
@@ -421,8 +421,11 @@ def update_product(product_id, changes):
     publish_event("product.updated", {"id": product_id})
     # Other instances of the service receive event; clear their in-process cache.
 
-    # Clear Redis (immediate, single instance)
-    redis.delete_pattern(f"product:{product_id}:*")
+    # Clear Redis. There is no native "delete by pattern" command;
+    # iterate with SCAN (non-blocking) and DEL the matches. Never use
+    # KEYS * in production — it's an O(N) blocking scan on a single-threaded server.
+    for key in redis.scan_iter(match=f"product:{product_id}:*"):
+        redis.delete(key)
 
     # Purge CDN by surrogate key (eventually consistent globally)
     cdn.purge_surrogate(f"product-{product_id}")

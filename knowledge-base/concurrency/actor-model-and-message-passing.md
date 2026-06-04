@@ -8,7 +8,7 @@
 
 The actor model is a different bet about concurrency. Where threads + locks share state and coordinate access, actors *don't share state* — each actor has private memory, and the only way to interact is to send a message. The receiving actor processes messages one at a time, in order, alone with its state. No locks. No race conditions. No shared mutable state.
 
-This is not a niche academic idea. Erlang has been running telecom switches with nine-nines reliability since the 1980s using actors. Akka brought the model to the JVM. Microsoft Orleans powered Halo's matchmaking infrastructure. Go's goroutines + channels are actors with different vocabulary. Rust's tokio tasks share the spirit. The pattern, by various names, runs significant production systems where threading-with-locks would be unmaintainable.
+This is not a niche academic idea. Erlang has been running telecom switches with nine-nines reliability since the 1980s using actors. Akka brought the model to the JVM. Microsoft Orleans powered Halo's matchmaking infrastructure. Go's goroutines + channels are a close cousin (CSP, not strictly actors — channels are first-class and there's no per-entity mailbox/address), sharing the "communicate, don't share memory" spirit. Rust's tokio tasks share the spirit too. The pattern, by various names, runs significant production systems where threading-with-locks would be unmaintainable.
 
 The tradeoff is that actor code looks different. State machines, message protocols, supervision hierarchies — these are first-class concerns. The lock you didn't write is replaced by the message protocol you must design. Failures must be handled per-actor, with explicit policies. The mental shift is real.
 

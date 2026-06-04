@@ -136,7 +136,7 @@ Optimization:
 - **Retention tiering**: hot (fast access) vs cold (cheap, slow).
 - **Compression**: standard.
 
-Real numbers: a service at 10K RPS with 2KB log per request = 20MB/s = ~1.7TB/day. At Splunk-like pricing of $1500/GB/yr indexed: $90M/yr. At more typical S3 + Athena: $5K/yr. The architecture matters enormously.
+Real numbers: a service at 10K RPS with 2KB log per request = 20MB/s = ~1.7TB/day. Index-heavy commercial platforms (Splunk-style) bill primarily on daily ingest volume, and at premium per-GB-ingested list rates this lands in the high six to seven figures per year. At more typical S3 + Athena: on the order of a few thousand dollars per year. The architecture matters enormously.
 
 ### Traces cost model
 

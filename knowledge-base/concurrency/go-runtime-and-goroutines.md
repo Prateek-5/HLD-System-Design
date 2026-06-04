@@ -309,7 +309,7 @@ HTTP handler launches goroutine; never returns. After million requests: million 
 `select { case <-ch: ... default: ... }` — if `ch` not ready, default runs immediately. Code intended to block; instead burns CPU in a busy loop. Mitigation: remove default if blocking desired.
 
 **Scenario 3 — The channel deadlock.**
-Sender and receiver both waiting on each other. Whole program hangs. Detected by Go's runtime; panic. Fix: redesign coordination.
+Sender and receiver both waiting on each other. If this is the *whole* program (all goroutines asleep), Go's runtime detects it and panics with "fatal error: all goroutines are asleep - deadlock!". But a deadlock between a subset of goroutines while others keep running is *not* detected — it just hangs. Fix: redesign coordination.
 
 **Scenario 4 — The CPU pegging via GOMAXPROCS.**
 Container with 1 CPU; Go thinks it has 32 (host CPUs). GOMAXPROCS=32. Excessive context switching. Fix: set GOMAXPROCS to actual CPU.
@@ -334,7 +334,7 @@ High allocation rate; GC overhead 30%. Reduced via pooling; CPU recovered.
 - **Single process**: millions of goroutines.
 - **Multi-core**: GOMAXPROCS scales to CPUs.
 - **Distributed**: each Go process is its own runtime.
-- **Cloud**: container-aware GOMAXPROCS (modern Go).
+- **Cloud**: container-aware GOMAXPROCS (default since Go 1.25, Aug 2025; before that, use `uber-go/automaxprocs` to respect cgroup CPU limits).
 
 ---
 

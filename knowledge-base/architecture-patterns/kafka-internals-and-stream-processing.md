@@ -333,7 +333,7 @@ The unifying observation: **Kafka is a distributed log treated as a primary prim
 
 - **LinkedIn's origin**: extensively documented.
 - **Netflix's adoption**: public engineering posts.
-- **Uber's Kafka usage**: trillions of events.
+- **Uber's Kafka usage**: one of the largest deployments; Uber has publicly described processing on the order of trillions of messages (multiple petabytes) per day.
 - **Slack, Pinterest, etc.**: many public case studies.
 
 ---

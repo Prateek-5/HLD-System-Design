@@ -6,7 +6,7 @@
 
 ## Topic Overview
 
-DNS (Domain Name System) translates human-friendly names ("example.com") into machine-friendly IP addresses ("93.184.216.34"). It's a hierarchical, distributed, caching system designed in 1983 and still running. Every browser request, every API call, every email starts with a DNS lookup.
+DNS (Domain Name System) translates human-friendly names ("example.com") into machine-friendly IP addresses (e.g., "203.0.113.10"). It's a hierarchical, distributed, caching system designed in 1983 and still running. Every browser request, every API call, every email starts with a DNS lookup.
 
 The design is elegant: a tree of authoritative servers; recursive resolvers that traverse the tree; caching at every layer; eventual consistency through TTLs. It scales to billions of requests per second globally with no central coordination.
 
