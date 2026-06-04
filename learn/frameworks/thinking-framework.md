@@ -216,3 +216,50 @@ At the end of any design, ask yourself:
 4. Did I land the non-functional checklist (availability, consistency, latency)?
 
 If yes to all four, you did the job of a senior engineer in that session.
+
+---
+
+## Potential Gaps & Improvements
+- **Back-of-the-envelope estimation drills** — this framework tells you *to* estimate but not how to get fast at QPS / storage / bandwidth math; raw repetition is what makes the estimation step instinctive instead of a stall.
+- **Reading the interviewer** — when to go deep vs. broad, how to catch hints ("…and what about writes?"), and how to recover gracefully when you're stuck; the soft skills no checklist can script.
+- **Domain-specific framings** — ML-serving, payments/ledgers, and real-time/streaming systems each bend this generic framework; knowing the variant for the role you're interviewing for signals seniority.
+
+**🔧 How to close:** set a 2-minute timer and estimate three systems out loud — Twitter peak QPS, YouTube yearly storage, a chat app's bandwidth at 10M DAU. If any runs over the timer, drill the unit conversions (DAU → peak RPS, bytes → PB/year) until they're automatic.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
+#### 🧮 Gap 1 — Back-of-the-Envelope Estimation
+- 🔹 **What it is**: The mental-math toolkit for turning "100M daily users" into concrete QPS, storage/year, and bandwidth numbers in under two minutes.
+- 🔹 **Why it matters**: Estimation is where most candidates freeze. Fluent numbers let you *justify* every component ("that's 12K writes/sec, so we shard") instead of hand-waving.
+- 🔹 **Connection**: It's the engine behind this framework's estimation step and the self-check's "justify every component with numbers."
+- 🔹 **When needed**: 🟢 **Foundational** — every system-design interview expects this; it's the most reusable single skill.
+- 🔹 **Intuition**: Like a chef who eyeballs portions — not because measuring is wrong, but because speed under pressure comes from reps, not precision.
+- 🔹 **If you go deeper**: Memorize the power-of-two and latency cheat sheets (Jeff Dean's "Latency Numbers Every Programmer Should Know"); do one estimation a day for two weeks.
+- 🔹 **Interview hook**: *"Roughly how much storage does this need per year?"* → DAU × writes/user × bytes/write × seconds → bytes/year, rounded to the nearest power of ten.
+
+---
+
+#### 🗣️ Gap 2 — Reading the Interviewer & Driving the Conversation
+- 🔹 **What it is**: The meta-skill of steering depth vs. breadth, catching the interviewer's hints, and narrating your thinking so they can follow and help.
+- 🔹 **Why it matters**: A correct design delivered silently or in the wrong order still fails the round. The interview is a *collaboration*, and signal-reading is half the score.
+- 🔹 **Connection**: It's the human layer wrapped around every stage of this framework — the part the checklist can't automate.
+- 🔹 **When needed**: 🟡 **Mid-level** — the difference between "technically right" and "got the offer."
+- 🔹 **Intuition**: Like a tour guide watching the group — speed up past the boring hall, slow down where people lean in and ask questions.
+- 🔹 **If you go deeper**: Do mock interviews recorded on video; watch yourself back and mark every moment you missed a hint or buried the headline.
+- 🔹 **Interview hook**: *"Where would you like me to go deeper?"* — asking this at the right moment shows you're driving collaboratively, not guessing.
+
+---
+
+### 🏆 Start here if you have limited time
+1. **Estimation drills** — highest-leverage, universally tested skill.
+2. **Reading the interviewer** — turns a right answer into a passed round.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+1. **Back-of-the-envelope estimation** (~2 weeks of daily reps; foundational and universal).
+2. **Reading the interviewer** (ongoing; sharpen via recorded mocks).

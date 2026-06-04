@@ -204,3 +204,62 @@ Every interview, every production incident, every design review: **you are traci
 - Justify every component's existence in terms of what would break without it.
 
 Read this file more than once. Read it after a long design discussion. It ties everything together.
+
+---
+
+## Potential Gaps & Improvements
+- **TLS 1.3 handshake & 0-RTT** — the trace says "TLS happens" but not the round-trip math (1-RTT for a new session, 0-RTT on resumption) that dominates first-request latency; the answer to "why is the *first* request slow but the rest fast?"
+- **HTTP/3 over QUIC** — replaces the separate TCP + TLS stages with a single UDP-based handshake and removes head-of-line blocking; it literally rewrites the early stages of this lifecycle.
+- **BGP & anycast routing** — between resolving the IP and reaching the CDN edge, packets cross the public internet via BGP, and anycast is what sends them to the *nearest* edge; the trace collapses this into one hop.
+
+**🔧 How to close:** create a `curl-format.txt` with `time_namelookup`/`time_connect`/`time_appconnect`/`time_starttransfer`, then run `curl -w "@curl-format.txt" -o /dev/null -s https://example.com` — every stage of this lifecycle (DNS → TCP → TLS → TTFB) shows up as real milliseconds you can watch shrink on a second, keep-alive'd request.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
+#### 🔒 Gap 1 — TLS 1.3 Handshake & 0-RTT
+- 🔹 **What it is**: The modern TLS handshake — one round-trip to set up an encrypted session, or zero round-trips when resuming a prior session (0-RTT).
+- 🔹 **Why it matters**: The handshake is pure latency before any data flows; cutting it from 2-RTT (old TLS) to 1-RTT (or 0) is a huge perceived-speed win, especially on mobile.
+- 🔹 **Connection**: Slots directly into the "TLS happens" beat of this trace — it's *what* happens and *how long* it costs.
+- 🔹 **When needed**: 🟡 **Mid-level** — comes up the moment latency or HTTPS performance is on the table.
+- 🔹 **Intuition**: A returning regular at a bar gets served "the usual" instantly (0-RTT); a new customer has to order and wait (full handshake).
+- 🔹 **If you go deeper**: Read RFC 8446, then capture a handshake in Wireshark and count the round-trips; learn why 0-RTT has a replay-attack caveat.
+- 🔹 **Interview hook**: *"Why is the first HTTPS request slower than the rest?"* → TLS handshake round-trips on the cold connection; resumption/0-RTT and keep-alive amortize it away.
+
+---
+
+#### 🚀 Gap 2 — HTTP/3 over QUIC
+- 🔹 **What it is**: HTTP/3 runs over QUIC, a UDP-based transport that folds the TCP and TLS handshakes into one and eliminates TCP's head-of-line blocking.
+- 🔹 **Why it matters**: On lossy/mobile networks, one lost packet no longer stalls every stream; connection setup is faster and migrates across network changes (Wi-Fi → cellular).
+- 🔹 **Connection**: It rewrites the early TCP + TLS stages of *this very lifecycle* into a single step — the clearest example of the trace evolving.
+- 🔹 **When needed**: 🔴 **Senior** — transport-level depth; signals you understand where the stack is heading.
+- 🔹 **Intuition**: TCP is a single-lane road — one stalled car blocks everyone. QUIC is parallel lanes; a stall in one doesn't freeze the others.
+- 🔹 **If you go deeper**: Read RFC 9000 (QUIC) + RFC 9114 (HTTP/3); test a site with `curl --http3` and compare handshake timing to HTTP/2.
+- 🔹 **Interview hook**: *"How does HTTP/3 improve on HTTP/2?"* → QUIC over UDP: merged handshake, no TCP head-of-line blocking, connection migration.
+
+---
+
+#### 🌍 Gap 3 — BGP & Anycast Routing
+- 🔹 **What it is**: BGP (Border Gateway Protocol) is how networks advertise routes across the internet; anycast advertises one IP from many locations so packets reach the nearest.
+- 🔹 **Why it matters**: It's the invisible step between "got the IP" and "reached the CDN edge" — and how `1.1.1.1` or a CDN serves you from a PoP milliseconds away.
+- 🔹 **Connection**: Fills the gap this trace collapses into a single hop between DNS resolution and the CDN edge.
+- 🔹 **When needed**: 🔴 **Senior** — infra/networking depth, mostly for SRE or CDN-adjacent roles.
+- 🔹 **Intuition**: One phone number that rings at whichever call center is closest to you — same number worldwide, nearest office answers.
+- 🔹 **If you go deeper**: Run `traceroute` to a CDN-hosted domain and watch the hops; read how Cloudflare uses anycast for DNS and HTTP.
+- 🔹 **Interview hook**: *"How does a CDN serve me from a nearby edge using one IP?"* → anycast BGP announcement from many PoPs; routing picks the nearest.
+
+---
+
+### 🏆 Start here if you have limited time
+1. **TLS 1.3 handshake** — explains real latency you'll be asked about in almost any design.
+2. **HTTP/3 / QUIC** — the headline modern-transport answer.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+1. **TLS 1.3 handshake & 0-RTT** (~45 min; immediately useful latency intuition).
+2. **HTTP/3 over QUIC** (~1h; modern transport, senior signaling).
+3. **BGP & anycast** (~1h; networking depth for infra/SRE rounds).
