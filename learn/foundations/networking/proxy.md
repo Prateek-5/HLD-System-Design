@@ -244,3 +244,53 @@ This is why every serious prod system has a reverse proxy at the edge. Not optio
 - **xDS (the Envoy discovery APIs)** — the gRPC/REST APIs (LDS, CDS, EDS, RDS) a control plane uses to push live config to Envoy proxies; key to understanding how a service mesh updates routing without restarts.
 
 **🔧 How to close:** Run a local reverse proxy and watch it hide the backend: `docker run -d -p 8080:80 --name web nginx`, then put a second nginx in front of it as a reverse proxy and curl through it with `curl -v http://localhost:8081/`. Inspect the `X-Forwarded-For` and `Server` headers the proxy adds, and use `ss -tan | grep :80` to see the separate front-side and back-side TCP connections the proxy maintains.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
+#### 🕸️ Gap 1 — Sidecar Proxy & Service Mesh
+- 🔹 **What it is**: A tiny reverse proxy (usually Envoy) deployed right next to every service instance, so a control plane can handle TLS, retries, and routing for the whole fleet.
+- 🔹 **Why it matters**: It's how modern microservice infra (Istio, Linkerd) moves networking concerns out of app code — a very common "how does your service mesh work?" interview thread.
+- 🔹 **Connection**: Section G already noted "every pod in k8s has a reverse proxy inside it." This is that proxy — the same TLS-termination and routing jobs from Section C, just replicated per-pod instead of one box at the edge.
+- 🔹 **When needed**: 🔴 **Senior** — relevant for platform/infra and microservices-at-scale rounds.
+- 🔹 **Intuition**: Instead of one receptionist at the building's front door, give *every office* its own personal assistant who logs visitors, checks IDs, and retries dropped calls — uniformly, without each office writing its own rules.
+- 🔹 **If you go deeper**: Read the Istio architecture docs and Envoy's "service mesh" overview; deploy a two-service mesh locally with Linkerd's getting-started and watch mTLS turn on with zero app changes.
+- 🔹 **Interview hook**: *"In a service mesh, every service has a sidecar proxy — why?"* → It pushes cross-cutting networking (mTLS, retries, observability, traffic-shifting) into a uniform data plane, so app teams stop reimplementing it and the platform controls it centrally.
+
+---
+
+#### 🔀 Gap 2 — HTTP/2 Multiplexing & Connection Pooling Math
+- 🔹 **What it is**: HTTP/2 carries many parallel request streams over a single connection, which breaks the old "one backend connection per in-flight request" model and changes how many keep-alive connections a proxy should hold.
+- 🔹 **Why it matters**: Mis-sizing the backend pool either exhausts backend sockets under load or under-utilizes connections — a concrete capacity-planning question that separates mid from senior.
+- 🔹 **Connection**: Section C's reverse-proxy flow says the proxy "opens its own TCP connection to the chosen backend (often keep-alive pooled)." Multiplexing is what determines how big that pool needs to be.
+- 🔹 **When needed**: 🟡 **Mid-level** — useful once you're reasoning about proxy capacity and tuning real deployments.
+- 🔹 **Intuition**: HTTP/1.1 pooling is like needing one phone line per simultaneous call; HTTP/2 is a single line that carries many conversations at once — so you suddenly need far fewer lines, but each line is busier.
+- 🔹 **If you go deeper**: Read RFC 7540 (HTTP/2) on streams and multiplexing, then tune Nginx `keepalive` / Envoy `max_requests_per_connection` and load-test to find the right pool size (roughly concurrent in-flight requests ÷ proxy instances).
+- 🔹 **Interview hook**: *"How many backend connections should each proxy instance keep open?"* → Size it to peak concurrent in-flight requests divided by the number of proxy instances, then adjust for HTTP/2 multiplexing, which lets one connection serve many streams.
+
+---
+
+#### 🧾 Gap 3 — Preserving Client IP Below HTTP (PROXY Protocol & xDS)
+- 🔹 **What it is**: When you load-balance at Layer 4 (raw TCP) you lose `X-Forwarded-For`, so the **PROXY Protocol** prepends a tiny header carrying the real client IP; separately, **xDS** is the set of gRPC/REST APIs (LDS, CDS, EDS, RDS) a control plane uses to push live config to Envoy proxies without restarts.
+- 🔹 **Why it matters**: Both are the "how does this actually work in production" follow-ups to the file's client-IP and routing topics — and a forged-or-lost client IP is a real security and debugging hazard.
+- 🔹 **Connection**: Section C and the Interview Lens lean on `X-Forwarded-For` to recover the real client IP, but that only exists at L7; PROXY Protocol solves the same problem at L4. xDS is what makes the per-pod sidecars from Gap 1 update routing dynamically.
+- 🔹 **When needed**: 🔴 **Senior** — infra/networking depth; rarely needed until you operate L4 LBs or a mesh.
+- 🔹 **Intuition**: A sealed envelope (TCP) hides the sender's return address; PROXY Protocol staples a sticky note with the original sender on the front before handing it over. xDS is the dispatcher radioing every courier new delivery routes mid-shift instead of recalling them to base.
+- 🔹 **If you go deeper**: Read HAProxy's PROXY Protocol spec (v1/v2) and enable it between an L4 LB and Nginx; read the Envoy xDS API docs to see how LDS/CDS/EDS/RDS map to listeners, clusters, endpoints, and routes.
+- 🔹 **Interview hook**: *"You load-balance at L4 and the backend only sees the LB's IP — how do you recover the real client IP?"* → Enable the PROXY Protocol so the LB prepends a header with the original client address, since `X-Forwarded-For` only exists once you parse HTTP at L7.
+
+---
+
+### 🏆 Start here if you have limited time
+1. **HTTP/2 multiplexing & pooling math** — the most broadly applicable; it shows up the moment you tune or size a real proxy.
+2. **Sidecar proxy / service mesh** — highest-leverage for microservices and platform interviews.
+
+---
+
+### 🧭 Suggested Deep Dive Order
+1. **HTTP/2 multiplexing & connection pooling** (~45 min; immediately useful for capacity planning).
+2. **Sidecar proxy / service mesh** (~1.5h; unlocks modern microservice infra).
+3. **PROXY Protocol & xDS** (~1h; senior-infra signaling, builds on the mesh you just learned).

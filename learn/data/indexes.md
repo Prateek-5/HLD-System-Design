@@ -96,3 +96,65 @@ Avoid indexing `content` with B-tree; use Elasticsearch for text search.
 - **Partial / filtered index** — an index built over only the rows matching a `WHERE` predicate (e.g. `WHERE active = true`); smaller and faster when you only ever query a subset.
 
 **🔧 How to close:** Spin up Postgres (`docker run --rm -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres`), create a table with a few hundred-thousand rows via `generate_series`, then compare `EXPLAIN (ANALYZE, BUFFERS) SELECT ...` before and after `CREATE INDEX` — watch the plan switch from `Seq Scan` to `Index Only Scan` / `Bitmap Heap Scan` and note the drop in shared-buffer reads.
+
+---
+
+### 🧭 Guided Deep-Learning Layer
+
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
+#### 🎯 Gap 1 — Partial & Index-Only Scans (squeezing more out of what you already know)
+- 🔹 **What it is**: A *partial index* covers only rows matching a `WHERE` predicate (e.g. `WHERE active = true`); an *index-only scan* answers a query entirely from the index, never touching the table heap.
+- 🔹 **Why it matters**: These are the two cheapest, highest-leverage optimizations on top of plain B-trees — smaller indexes and skipped heap reads — and both show up constantly in `EXPLAIN` tuning.
+- 🔹 **Connection**: This file's "covering index" (§C) is exactly the prerequisite for an index-only scan; the partial index is the disciplined version of "index what you filter by" (§E).
+- 🔹 **When needed**: 🟢 **Foundational** — most readers can apply these today on any real query.
+- 🔹 **Intuition**: A partial index is a phone book that lists *only* the businesses still open — thinner, faster to flip through, useless for the closed ones you never look up.
+- 🔹 **If you go deeper**: Read the Postgres docs on "Index-Only Scans and Covering Indexes" and "Partial Indexes"; build a table, add `WHERE deleted = false`, and watch the index size and plan change.
+- 🔹 **Interview hook**: *"You query only active users out of 50M rows, 2% active. How do you index it?"* → partial index on the predicate, ideally covering the selected columns so it's index-only.
+
+---
+
+#### 🗺️ Gap 2 — Specialized Index Types: GIN, GiST, BRIN
+- 🔹 **What it is**: Postgres index families for cases B-trees can't serve well — GIN (Generalized Inverted Index) for full-text/JSONB/array containment, GiST (Generalized Search Tree) for geometric/range/nearest-neighbour, BRIN (Block Range INdex) for huge naturally-ordered tables.
+- 🔹 **Why it matters**: Knowing *which* structure fits *which* access pattern is the core skill the "why not just B-tree everything?" interview question probes.
+- 🔹 **Connection**: §B already names inverted, spatial, and LSM indexes; this gap maps those abstract structures onto the concrete Postgres types you'll actually `CREATE INDEX ... USING`.
+- 🔹 **When needed**: 🟡 **Mid-level** — relevant once you handle search, geo, or time-series data.
+- 🔹 **Intuition**: Different tools for different jobs — a B-tree is a sorted dictionary, GIN is the index at the back of a textbook (word → pages), BRIN is the chapter-range summary on the spine.
+- 🔹 **If you go deeper**: Try `CREATE INDEX USING GIN (to_tsvector('english', content))` for text, a GiST index on a `geometry`/`tsrange` column, and a BRIN index on a `created_at` time-series table; compare sizes.
+- 🔹 **Interview hook**: *"Full-text search on a B-tree — why impractical, and what fits?"* → B-trees order whole values, not contained tokens; an inverted index (GIN/Lucene) maps each token to its rows.
+
+---
+
+#### ⚖️ Gap 3 — Bitmap Scans & How the Planner Chooses
+- 🔹 **What it is**: A bitmap scan builds an in-memory bitmap of matching row locations from one or more indexes, then visits the heap in physical order; the planner picks it (vs index scan vs seq scan) based on estimated selectivity and statistics.
+- 🔹 **Why it matters**: It explains *why an index you created isn't being used* — the most common real-world indexing surprise — and ties indexing to the cost-based optimizer.
+- 🔹 **Connection**: §F warns against "not checking `EXPLAIN ANALYZE`"; this gap teaches you to *read* what the planner decided and why a Bitmap Heap Scan appeared instead of an Index Scan.
+- 🔹 **When needed**: 🟡 **Mid-level** — essential once you're debugging slow queries in production.
+- 🔹 **Intuition**: Instead of fetching books one-by-one as you find them in the catalog (random walking), you jot down every shelf location first, then sweep the aisles once in order — fewer back-and-forth trips.
+- 🔹 **If you go deeper**: Read Postgres "Row Estimation Examples" and run `ANALYZE`; deliberately make a query match 30% of rows and watch the plan flip from Index Scan to Bitmap to Seq Scan as selectivity drops.
+- 🔹 **Interview hook**: *"You added an index but the query still does a seq scan — why?"* → low selectivity / stale statistics; the planner estimates the heap fetches cost more than scanning.
+
+---
+
+#### 🧱 Gap 4 — Write Amplification & LSM-Tree Trade-offs
+- 🔹 **What it is**: The hidden cost of indexing under heavy writes — every secondary B-tree must be updated and pages split, while LSM-trees (Log-Structured Merge) instead buffer writes in memory and merge sorted runs in the background, trading read amplification for write throughput.
+- 🔹 **Why it matters**: At scale, the index *write* path, not the read path, becomes the bottleneck; this is the depth that separates "add an index" from designing a write-heavy store.
+- 🔹 **Connection**: §C says "a table with 10 indexes pays 10× write cost" and §B names LSM-trees (Cassandra, RocksDB); this gap explains the mechanism behind both and when you'd choose one engine over the other.
+- 🔹 **When needed**: 🔴 **Senior** — deep storage-engine territory, mostly for infra and high-write-volume design rounds.
+- 🔹 **Intuition**: A B-tree is filing each document into the right cabinet immediately (tidy reads, slow filing); an LSM-tree is tossing papers into an inbox and sorting them in batches later (fast filing, slower lookups until merged).
+- 🔹 **If you go deeper**: Read the original LSM-tree paper (O'Neil et al., 1996) and RocksDB's compaction docs; benchmark write throughput on a heavily-indexed InnoDB table vs RocksDB-backed MyRocks.
+- 🔹 **Interview hook**: *"Why does Cassandra ingest writes faster than a B-tree RDBMS?"* → LSM appends to an in-memory memtable + WAL and defers sorting to background compaction, avoiding in-place page splits per write.
+
+---
+
+### 🏆 Start here if you have limited time
+1. **Partial & index-only scans** — pure leverage on the B-trees you already understand; applies to almost every real query.
+2. **Bitmap scans & planner choice** — the fastest way to stop being surprised by "my index isn't used."
+
+---
+
+### 🧭 Suggested Deep Dive Order
+1. **Partial & index-only scans** (~45 min; immediate payoff on real queries).
+2. **Bitmap scans & how the planner chooses** (~1h; turns `EXPLAIN` from noise into signal).
+3. **Specialized index types — GIN/GiST/BRIN** (~1.5h; unlocks search, geo, and time-series work).
+4. **Write amplification & LSM-trees** (~2h; senior storage-engine depth).
