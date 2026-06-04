@@ -60,25 +60,6 @@ The pattern: DDD's insights are now widespread; the explicit practice remains sp
 
 ---
 
-## Core Mental Models
-
-**1. The same word can mean different things in different contexts.**
-"Order" in cart, fulfillment, and billing are different things. Don't merge them.
-
-**2. Bounded contexts have their own vocabulary.**
-The "ubiquitous language" of one context is the dialect spoken there. Crossing contexts requires translation.
-
-**3. Aggregates are consistency boundaries.**
-A group of objects treated as one unit. Updates within an aggregate are atomic; across aggregates, eventually consistent.
-
-**4. The anti-corruption layer is translation.**
-When integrating contexts (or external systems), translate models. Don't let foreign vocabulary leak in.
-
-**5. Domain events are first-class.**
-Important things that happen in the domain ("OrderPlaced," "PaymentReceived") are events. Other parts of the system react to them.
-
----
-
 ## Deep Technical Explanation
 
 ### Bounded contexts
@@ -347,67 +328,33 @@ The unifying observation: **DDD is the discipline of taking domain vocabulary se
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **bounded contexts are real**.
-- That **ACLs prevent vocabulary contamination**.
-- That **aggregates are transaction boundaries**.
-- That **strategic DDD > tactical DDD**.
-- That **domain events** are first-class.
-- That **simple CRUD doesn't need DDD**.
-- That **DDD is about language**, not classes.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **identify bounded contexts** in design discussions.
-- They **introduce ACLs** at integration points.
-- They **right-size aggregates**.
-- They **respect ubiquitous language**.
-- They **use domain events** for cross-context communication.
-- They **align microservices with bounded contexts**.
+- **DDD's core claim**: the hard problem of software is modeling the business correctly, not technology. Domain complexity usually dwarfs technical complexity.
+- **The same word can mean different things in different contexts.** "Order" in cart, fulfillment, and billing are distinct concepts — don't merge them into one giant model that tries to mean everything to everyone.
+- **Bounded contexts have their own vocabulary** (ubiquitous language). Crossing contexts requires translation. The boundary is the architecture.
+- **The anti-corruption layer is translation** — it prevents foreign/legacy vocabulary from leaking into your model when integrating contexts or external systems.
+- **Aggregates are consistency (transaction) boundaries.** Updates within an aggregate are atomic/ACID; across aggregates, eventually consistent (use sagas or domain events). Right-size aggregates to the invariants you care about — not too large, not too small.
+- **Domain events are first-class** — past-tense, immutable records of significant happenings used for loose coupling across contexts.
+- **Strategic DDD (bounded contexts, context maps, ubiquitous language) matters more than tactical DDD (entities, value objects, repositories)** — and is less practiced. Adopting tactical patterns alone yields "DDD-shaped code without DDD's benefits."
+- **Microservices align with bounded contexts** — identify contexts first, then build services around them.
+- **Event Storming** is a workshop technique that discovers bounded contexts and aggregates collaboratively.
+- **DDD is about language, not classes.** Skip it for simple CRUD apps, pure technical infrastructure, and throwaway prototypes; it shines for rich, evolving business logic.
+- **Senior instinct**: identify bounded contexts in design discussions, define ubiquitous language with stakeholders, introduce ACLs at integration points, right-size aggregates, and use domain events for cross-context communication.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
 What gets tested:
 
-1. **"What's a bounded context?"** Tests fundamental.
+1. **"What's a bounded context?"** Tests the fundamental.
 2. **"What's an anti-corruption layer?"** Translation between contexts.
 3. **"What's an aggregate?"** Consistency boundary.
 4. **"How does DDD relate to microservices?"** Bounded contexts ≈ services.
-5. **"What's ubiquitous language?"** Shared vocabulary within context.
+5. **"What's ubiquitous language?"** Shared vocabulary within a context.
 6. **"When wouldn't you use DDD?"** Simple CRUD; no rich domain.
 
 Common traps:
 - Believing DDD is just classes and patterns.
-- Not knowing about strategic vs tactical.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Bounded contexts** = different vocabularies for different parts.
-2. **Ubiquitous language** within each context.
-3. **Anti-corruption layer** for integration translation.
-4. **Aggregates** are consistency boundaries.
-5. **Domain events** for cross-context.
-6. **Strategic DDD** matters more than tactical.
-7. **Microservices align** with bounded contexts.
-8. **Event Storming** discovers contexts.
-9. **Right-size aggregates** for invariants.
-10. **Skip DDD for simple CRUD**.
-
----
-
-## Final Mental Model
-
-> **Domain-Driven Design says the hard problem of software is not technology — it's modeling the business correctly. Bounded contexts honor that different parts of the business mean different things. Anti-corruption layers protect those distinctions when systems integrate. The discipline isn't trendy; the systems that have it scale gracefully through years of business evolution.**
-
-The senior architect using DDD listens to the business carefully. They identify the words that mean different things in different rooms. They model accordingly. They put translation layers at boundaries. They keep aggregates focused. They use domain events for loose coupling.
-
-The systems that age well are the ones whose architects took domain language seriously. The systems that calcify are the ones with one giant model trying to mean everything to everyone. DDD is the discipline that produces the former.
-
-That's anti-corruption layers. That's domain-driven design. That's the architectural philosophy that puts language and concept boundaries at the center of design — and produces software that maps cleanly to the business it serves.
+- Not knowing about strategic vs tactical DDD.

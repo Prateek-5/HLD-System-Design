@@ -54,25 +54,6 @@ The pattern: each generation made event-driven easier and more reliable. The fun
 
 ---
 
-## Core Mental Models
-
-**1. Events are facts about the past.**
-"OrderPlaced" — this happened. Immutable. Other services react. Events are *not* commands; nobody is being told what to do.
-
-**2. Producers and consumers are decoupled.**
-Producer doesn't know who's listening. Consumers don't know who emitted. They share a contract: the event schema.
-
-**3. Temporal decoupling.**
-Producer can be down; events queue. Consumer can be down; producer keeps emitting. Eventually they sync.
-
-**4. Eventual consistency is the default.**
-"OrderPlaced" emitted; consumers process at their own pace. The state across the system is briefly inconsistent. Designs must accommodate this.
-
-**5. Order of events matters but is hard.**
-Events from one producer to one partition are typically ordered. Events across producers, across partitions, across consumers are not. Reasoning about ordering is real work.
-
----
-
 ## Deep Technical Explanation
 
 ### Events vs commands vs messages
@@ -325,72 +306,28 @@ The unifying observation: **event-driven architecture is loose coupling realized
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **events are facts, not commands**.
-- That **producers and consumers are decoupled** (don't know each other).
-- That **eventual consistency is the default**.
-- That **ordering is per-partition**, not global.
-- That **at-least-once requires idempotent consumers**.
-- That **schemas need management** at scale.
-- That **debugging is harder** without tracing.
-- That **outbox pattern** for atomic dual writes.
+- **Events are facts about the past, not commands.** "OrderPlaced" happened and is immutable; consumers react. Nobody is being told what to do. Confusing events with commands is the most common conceptual error.
+- **Producers and consumers are decoupled.** The producer doesn't know who's listening; consumers don't know who emitted. They share one contract: the event schema. This is loose coupling realized through asynchronous facts.
+- **Temporal decoupling.** Producer can be down while events queue; consumer can be down while the producer keeps emitting. Eventually they sync.
+- **Eventual consistency is the default.** State across the system is briefly inconsistent; designs must accommodate it.
+- **Ordering is per-partition, not global.** Events from one producer to one partition are ordered; across producers/partitions/consumers they are not. Use per-key partitioning (hash by user_id) or explicit sequence numbers; never assume global order.
+- **At-least-once delivery requires idempotent consumers.** Don't assume exactly-once; redelivery happens. Build idempotency in by default.
+- **Outbox pattern** is the standard for atomic dual writes (DB state + event emission in one transaction, published by a separate poller).
+- **Schema registry and additive-only evolution.** Manage schemas with a registry and compatibility checks; treat events as forever-contracts like APIs — add fields, never change semantics.
+- **DLQs** quarantine poison pills so one bad event can't block the queue.
+- **Consumer lag is the canonical health metric** — the primary signal that a consumer is overloaded, stuck, or risking retention-driven data loss.
+- **Choreography for simple reactions; orchestration for complex business flows.** Many systems use both.
+- **Distributed tracing is essential** for debugging "where's my order?" — answering requires aggregating events across services.
+- EDA makes every other distributed-systems concept — eventual consistency, idempotency, sagas, observability — essential rather than optional. Teams that succeed treat events as a discipline (registry, outbox, idempotency, DLQs, lag monitoring, tracing) built deliberately; teams that fail discover after outages that they should have.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **use schema registry** by default.
-- They **build idempotent consumers**.
-- They **use outbox pattern** for reliability.
-- They **monitor consumer lag** as primary signal.
-- They **set up DLQs** for poison pills.
-- They **distribute trace** across event flows.
-- They **document events as forever-contracts**.
-- They **distinguish choreography from orchestration**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's event-driven architecture?"** Tests fundamentals.
-2. **"Pub/sub vs request/response?"** Decoupled vs coupled.
-3. **"What's the outbox pattern?"** Atomic DB write + event emission.
-4. **"Choreography vs orchestration?"** Decentralized vs central.
-5. **"How do you handle schema evolution?"** Registry, backward compatibility.
-6. **"What's a dead-letter queue?"** Quarantine for failed events.
-7. **"How do you debug event flows?"** Distributed tracing; aggregated state.
-
-Common traps:
-- Confusing events with commands.
-- Believing global ordering exists.
-- Assuming exactly-once delivery.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Events = past facts**; loose coupling.
-2. **At-least-once + idempotent consumers** = reliable.
-3. **Outbox pattern** for atomic dual writes.
-4. **Schema registry** for evolution.
-5. **DLQ** for poison pills.
-6. **Per-key ordering**, not global.
-7. **Consumer lag** is the canonical metric.
-8. **Choreography** for simple flows; **orchestration** for complex.
-9. **Distributed tracing** for debugging.
-10. **Events are forever**: additive only.
-
----
-
-## Final Mental Model
-
-> **Event-driven architecture is the choice to decouple producers from consumers via durable facts. Every other distributed-systems concept — eventual consistency, idempotency, sagas, observability — becomes essential, not optional. The systems that thrive in EDA are the ones whose teams treat events as a contract; the systems that struggle are the ones that thought "we'll figure out the contract later."**
-
-The senior architect designing EDA treats it as discipline, not just technology. Schema registry. Outbox pattern. Idempotent consumers. DLQs. Lag monitoring. Distributed tracing. Each is a small piece; together they form a foundation that scales to billions of events without losing comprehension.
-
-Teams that succeed with EDA build these pieces deliberately. Teams that fail with EDA discover, after three years and two outages, that they should have. The pattern is powerful; the engineering investment is real.
-
-That's event-driven architecture. That's the substrate of modern reactive systems. That's the design that lets services evolve independently — when you've done the work to make it actually evolvable.
+- **"What's event-driven architecture?"** / **"Pub/sub vs request/response?"** — decoupled async facts vs coupled synchronous calls.
+- **"What's the outbox pattern?"** — atomic DB write + event emission.
+- **"Choreography vs orchestration?"** — decentralized reactions vs a central coordinator.
+- **"How do you handle schema evolution?"** — registry, backward compatibility, additive changes.
+- **"What's a dead-letter queue?"** — quarantine for repeatedly-failing events.
+- **"How do you debug event flows?"** — distributed tracing; aggregated cross-service state.
+- Common traps: confusing events with commands; believing global ordering exists; assuming exactly-once delivery.

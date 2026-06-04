@@ -56,25 +56,6 @@ The pattern: each generation made streams safer (better error propagation), more
 
 ---
 
-## Core Mental Models
-
-**1. Streams are *time-ordered* data, not space-bounded.**
-A stream isn't a buffer; it's an *interface* through which data flows. The total data may be larger than memory; the in-flight buffer is small.
-
-**2. Backpressure is automatic with proper APIs.**
-`pipeline()` and `pipe()` propagate backpressure correctly. Writing your own glue often doesn't.
-
-**3. There are four stream types.**
-Readable (data source), Writable (data sink), Duplex (both), Transform (Duplex with transformation). Each has slightly different semantics.
-
-**4. Modes matter.**
-Paused mode: explicit `read()`. Flowing mode: `'data'` events. Switching modes mid-stream causes weirdness.
-
-**5. Errors must be handled at every stage.**
-A stream that errors and isn't `.on('error', ...)` crashes the process. `pipeline()` handles this; manual piping doesn't.
-
----
-
 ## Deep Technical Explanation
 
 ### The four stream types
@@ -421,71 +402,26 @@ The unifying observation: **streams are how Node handles data that doesn't fit i
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **`write()` returns a boolean** that signals backpressure.
-- That **`pipe()` has bad error semantics**; use `pipeline`.
-- That **`data` events without `pause`** ignore backpressure.
-- That **errors must be handled** at every stage.
-- That **`end()` must be called** on writables.
-- That **memory grows unbounded** if backpressure is ignored.
-- That **async iteration** is the modern idiom.
-- That **object-mode streams** exist and are powerful.
+- **Streams are time-ordered data, not space-bounded buffers.** A stream is an interface through which data flows; total data may exceed memory while the in-flight buffer stays small.
+- **Four stream types:** Readable (source), Writable (sink), Duplex (both, separate channels), Transform (Duplex where reads derive from writes).
+- **Two reading modes:** paused (pull via `read()`) vs flowing (push via `'data'` events). Switching modes mid-stream causes weirdness; `data` events without `pause`/`resume` ignore backpressure and are the source of countless bugs.
+- **Backpressure is the safety discipline.** `write()` returns a boolean: `false` means stop writing until the `'drain'` event. Ignoring it builds an unbounded in-memory buffer and eventually OOMs. `highWaterMark` controls buffer size (default 16KB binary / 16 objects) and is a tunable.
+- **`pipeline` over `pipe`.** `pipeline` propagates errors, cleans up, and calls `end()` automatically; `pipe()` has bad error semantics and is legacy.
+- **Async iteration (`for await...of`)** is the modern, ergonomic idiom; `await`-ing per chunk applies backpressure via execution rate. `Transform.from(async function*)` gives clean, composable transforms.
+- **Object mode** lets chunks be arbitrary JS values, powering message-passing/row-based pipelines (e.g. CSV → filter → CSV).
+- **Errors must be handled at every stage** — an unhandled stream `error` crashes the process. `pipeline` handles this; manual piping does not.
+- **`end()` must be called** on writables to signal completion, or readers wait forever.
+- Senior habits: reach for `pipeline` + async iteration + small focused Transforms, and monitor memory to catch backpressure failures early.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **use `pipeline`** in production code.
-- They **prefer async iteration** for clarity.
-- They **handle errors** at every stage.
-- They **monitor memory** for stream-related leaks.
-- They **avoid `data` events** for backpressure-sensitive code.
-- They **understand highWaterMark** as a tunable.
-- They **compose pipelines** of small, focused transforms.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"How does backpressure work in Node streams?"** Tests fundamental.
-2. **"Pipe vs pipeline?"** Pipeline handles errors; pipe doesn't cleanly.
-3. **"What happens if you ignore `write()` return value?"** Memory grows; eventually OOM.
-4. **"What's a Transform stream?"** Duplex with transformation.
-5. **"How do you handle errors in a stream chain?"** Pipeline; or per-stream error handlers.
-6. **"What's the difference between paused and flowing modes?"** Pull vs push.
-7. **"How do you compose stream transformations?"** Pipeline of Transforms or async generators.
-
-Common traps:
-- Using `data` events without backpressure handling.
-- Forgetting error handlers.
-- Not calling `end()`.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Streams are time-ordered data**, not buffered.
-2. **Backpressure**: `write()` returns false; wait for `drain`.
-3. **`pipeline` over `pipe`** — error handling, cleanup.
-4. **Async iteration** is modern and ergonomic.
-5. **Object mode** for non-binary data.
-6. **Transform streams** for in-pipeline processing.
-7. **Errors must be handled** at every stage.
-8. **`end()` must be called** to signal completion.
-9. **highWaterMark** controls buffer size.
-10. **Backpressure failures cause OOM**.
-
----
-
-## Final Mental Model
-
-> **Streams are Node's answer to "data is bigger than memory." Backpressure is the discipline that makes streams safe. Used correctly — pipeline, async iteration, error handling — they let you process arbitrary-sized data with bounded memory. Used incorrectly, they create unbounded buffers in disguise.**
-
-The senior Node engineer reaches for streams whenever data flow is involved. File processing, HTTP bodies, network proxying, CSV transformations, media pipelines — all stream-shaped. The combination of `pipeline` + async iteration + Transform streams is the modern toolkit.
-
-The teams that scale Node services to handle large data flows are the ones that internalize streams. The teams that hit memory walls are the ones that "load it all in memory; we'll figure it out later." Streams scale; ad-hoc buffering doesn't.
-
-That's streams. That's backpressure in Node. That's the standard library's most powerful and most ignored primitive — the difference between Node that handles GB of data smoothly and Node that crashes the moment a real workload arrives.
+- **"How does backpressure work in Node streams?"** `write()` returns `false` at the `highWaterMark`; you wait for `'drain'`. `pipeline`/`pipe` propagate this automatically.
+- **"Pipe vs pipeline?"** `pipeline` handles errors and cleanup; `pipe` does not cleanly.
+- **"What happens if you ignore `write()`'s return value?"** Buffer grows unbounded; eventually OOM.
+- **"What's a Transform stream?"** A Duplex stream where output is derived from input.
+- **"How do you handle errors in a stream chain?"** `pipeline` (single catch), or per-stream `error` handlers.
+- **"Paused vs flowing mode?"** Pull (`read()`) vs push (`'data'`).
+- **"How do you compose stream transformations?"** A `pipeline` of Transforms or async generators.
+- Common traps: `data` events without backpressure handling, forgotten error handlers, missing `end()`.

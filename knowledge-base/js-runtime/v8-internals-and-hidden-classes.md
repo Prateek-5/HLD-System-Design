@@ -318,53 +318,6 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That **JavaScript is JIT-compiled**, not interpreted.
-- That **object property order matters** for performance.
-- That **`delete` is a performance footgun** in hot code.
-- That **deoptimization is a real, measurable cost**.
-- That **closures retain everything in their lexical scope**, even unused variables.
-- That **`for...in` is slower than indexed iteration** by an order of magnitude.
-- That **generational GC means temporary allocations are usually free** — *until* they survive long enough to be promoted.
-- That **typed arrays exist** and are wildly faster for numeric work.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **profile before guessing** — both CPU and heap.
-- They **suspect polymorphism** when a hot function is unexpectedly slow.
-- They **read deoptimization traces** when chasing performance regressions.
-- They **shape data uniformly** across callers of hot functions.
-- They **monitor GC pause time** as a tail-latency indicator.
-- They **prefer typed arrays** for numeric hot paths.
-- They **know that object pooling matters** at high allocation rates.
-- They **avoid `delete` and dynamic property addition** in performance-sensitive code.
-- They **distinguish startup performance from steady-state performance** — different optimization tiers, different concerns.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Explain hidden classes."** Tests basic V8 literacy. Bonus for explaining how property addition order creates different classes.
-2. **"What's an inline cache and what are its states?"** Senior candidates name mono/poly/megamorphic and explain the performance impact.
-3. **"Why is this code slow?"** Given a function with conditional property addition or polymorphic argument types, the candidate should diagnose IC degradation.
-4. **"Explain V8's GC."** Generational, mostly concurrent, with copy-collect young gen and mark-sweep-compact old gen. Bonus for naming Orinoco.
-5. **"How do you debug a memory leak?"** Heap snapshots, retainer paths, the three-snapshot technique.
-6. **"What's deoptimization?"** Speculative optimization based on observed types; fall back when assumption breaks. Bonus for naming `--trace-deopt`.
-7. **"How would you optimize this hot path?"** Tests practical V8 awareness: monomorphic shapes, avoid closures-in-loops, typed arrays, object pooling.
-
-Common traps:
-- Believing JS is "interpreted."
-- Thinking GC is uniformly expensive (it's mostly free for young allocations).
-- Assuming all object shapes are equivalent.
-- Not knowing that `delete` is dangerous in hot code.
-
----
-
 ## Worked Example — Optimizing a Hot Path
 
 A Node.js service computes invoices. After tracing, the team identifies `calculateInvoice()` as the bottleneck — called 10K times/sec; takes 2ms each. Walk through V8-aware optimization.
@@ -581,27 +534,34 @@ function getStatus(order) {
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **V8 is a tiered JIT** (Ignition → Sparkplug → Maglev → TurboFan).
-2. **Hidden classes** make property access fast; consistent object shape is mandatory.
-3. **Inline caches** state matters — monomorphic >> polymorphic >> megamorphic.
-4. **Deoptimization is expensive**; type stability prevents it.
-5. **Generational GC** makes short-lived allocations cheap; long-lived ones expensive.
-6. **`delete` causes hidden-class transitions to slow modes.** Avoid in hot paths.
-7. **Closures retain captured variables** — leak source if held by long-lived references.
-8. **Typed arrays** are 5–50× faster than regular arrays for numeric work.
-9. **Strings have multiple representations**; concatenation patterns matter.
-10. **Profile, then optimize.** Guesses are usually wrong.
+**The core contract.** V8 is a deal: give it code with stable types and stable object shapes and it generates machine code that runs nearly as fast as C; give it chaos and it falls back to interpretation. Most JavaScript lives in the slow lane not because the language is slow, but because the code doesn't provide the predictability the engine needs. The difference between "Node is fine" and "Node is amazing" is measured in monomorphic call sites and stable hidden classes.
 
----
+**Mental models that pay off:**
+- **JavaScript is a tiered JIT, not interpreted** (Ignition -> Sparkplug -> Maglev -> TurboFan), each tier costing more to compile but generating better code.
+- **Hidden classes** make property access a single memory load; consistent object shape is mandatory in hot code, and **property-addition order matters** (same fields, different insertion order = different hidden class).
+- **Inline cache state matters**: monomorphic >> polymorphic >> megamorphic. Suspect polymorphism first when a hot function is unexpectedly slow.
+- **Deoptimization is a real, measurable cost**; type stability prevents it. Mixed argument/return types and runtime shape changes trigger it.
+- **Generational GC makes short-lived allocations nearly free** — until they survive long enough to be promoted, then they pressure old-gen and drive pauses. Monitor GC pause time as a tail-latency indicator.
+- **`delete` causes a hidden-class transition to slow dictionary mode** — a footgun in hot code; prefer destructuring to a new object.
+- **Closures retain everything in their lexical scope**, even unused variables — a leak source when held by long-lived references.
+- **Typed arrays are 5-50x faster than regular arrays** for numeric work (contiguous buffer vs. potentially holey/boxed).
+- **`for...in` is roughly an order of magnitude slower** than indexed iteration; structure data in arrays for hot paths.
+- **Strings have multiple representations** (Seq/Cons/Sliced/External); concatenation patterns matter, and lazy flattening can surprise you.
+- **Distinguish startup performance from steady-state performance** — different optimization tiers, different concerns.
+- **Profile before optimizing.** Use CPU and heap profilers; read `--trace-opt`/`--trace-deopt`/`--trace-ic` output; use heap snapshots (and the three-snapshot technique) to find retainers. Guesses are usually wrong. Then keep shapes uniform, prefer monomorphic call sites (split overloaded functions if needed), and reuse buffers/objects in hot loops.
 
-## Final Mental Model
+## Interview angle
 
-> **V8 is a contract: "give me code with stable types and stable shapes, and I'll generate machine code that runs nearly as fast as C. Give me chaos, and I'll fall back to interpretation."**
+What gets tested:
 
-Most JavaScript code, written by people who've never thought about V8, lives in the slow lane — not because the language is slow, but because the engine's optimizations require *predictability* the code doesn't provide. The few teams who internalize hidden classes, inline caches, and deoptimization end up with JavaScript code that runs at speeds Java engineers would respect.
+1. **"Explain hidden classes."** Tests basic V8 literacy. Bonus for explaining how property addition order creates different classes.
+2. **"What's an inline cache and what are its states?"** Senior candidates name mono/poly/megamorphic and explain the performance impact.
+3. **"Why is this code slow?"** Given a function with conditional property addition or polymorphic argument types, the candidate should diagnose IC degradation.
+4. **"Explain V8's GC."** Generational, mostly concurrent, with copy-collect young gen and mark-sweep-compact old gen. Bonus for naming Orinoco.
+5. **"How do you debug a memory leak?"** Heap snapshots, retainer paths, the three-snapshot technique.
+6. **"What's deoptimization?"** Speculative optimization based on observed types; fall back when assumption breaks. Bonus for naming `--trace-deopt`.
+7. **"How would you optimize this hot path?"** Tests practical V8 awareness: monomorphic shapes, avoid closures-in-loops, typed arrays, object pooling.
 
-You don't have to think about V8 to write working JavaScript. You do have to think about V8 to write *fast* JavaScript at scale. The difference between "Node is fine" and "Node is amazing" is measured in monomorphic call sites and stable hidden classes. Once you see it, you can't unsee it.
-
-That's V8 internals. That's the engine humming under every browser and most modern servers. That's the difference between using JavaScript and *exploiting* it.
+Common traps: believing JS is "interpreted"; thinking GC is uniformly expensive (it's mostly free for young allocations); assuming all object shapes are equivalent; not knowing that `delete` is dangerous in hot code.

@@ -54,25 +54,6 @@ The pattern: each generation moved more capability to the edge. Static → dynam
 
 ---
 
-## Core Mental Models
-
-**1. Latency is bounded by light speed.**
-Frankfurt to Sydney is ~16,000 km. Round trip at light speed in fiber: 160ms. Real networks add 30-50%. You cannot beat this with software. Edge moves the endpoint.
-
-**2. The edge is geographically distributed.**
-Hundreds to thousands of points-of-presence (PoPs) globally. Each PoP serves users in its region. The architecture must work in this distributed model.
-
-**3. Edge runtimes are constrained.**
-Memory limits (often 128MB). Time limits (often 50ms). No filesystem. No native code (V8 isolates, not full Node.js). Designs that depend on these don't work at the edge.
-
-**4. Caching is the basic edge primitive.**
-Even with compute at the edge, the highest-leverage edge work is *caching*. Avoiding origin trips altogether is faster than any compute.
-
-**5. State at the edge is hard.**
-The edge runs in many places simultaneously. State coherence across PoPs is a distributed-systems problem. Most edge architectures push state to a central origin or use eventually-consistent edge databases.
-
----
-
 ## Deep Technical Explanation
 
 ### CDN basics
@@ -224,14 +205,6 @@ What goes wrong:
 - **The state-at-edge consistency bug.** Edge KV is eventually consistent. Code assumed strong consistency. Race conditions across PoPs caused incorrect behavior.
 - **The edge-deploy cost surprise.** Moving heavy compute to edge: per-request CPU billed. Higher than origin. Bills triple. Not all workloads are economic at edge.
 
-The senior engineer's habits:
-- **Plan cache keys** carefully; minimize variation.
-- **Use surrogate keys** for tag-based purging.
-- **Size content for edge runtimes** explicitly.
-- **Measure cold-start and warm-path latency**.
-- **Handle eventual consistency at edge state**.
-- **Cost-model edge usage**; not always cheaper than origin.
-
 ---
 
 ## Failure Scenarios
@@ -296,72 +269,41 @@ The unifying observation: **edge computing is the geographic dimension of distri
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **edge runtimes are constrained** (memory, time, APIs).
-- That **cache keys must be designed**.
-- That **purges are eventually consistent globally**.
-- That **edge state has weak consistency** by default.
-- That **edge compute costs more per CPU-second** than origin.
-- That **`Vary` header** controls cache key variation.
-- That **anycast routing** is the typical CDN dispatch mechanism.
-- That **cold starts exist** even at edge (V8 isolate init).
+**Core mental models**
+- Latency is bounded by light speed; edge moves the endpoint closer to the user rather than making the network faster.
+- The edge is geographically distributed across hundreds to thousands of PoPs; the architecture must work in that distributed model.
+- CDN = static caching; edge compute = running your code at PoPs, not just serving cached files.
+- Caching is the highest-leverage edge primitive — avoiding origin trips altogether beats any edge compute.
+- Tiered caching (edge → regional → origin) reduces origin load; a small fraction of requests reach origin even at low hit rates.
 
----
+**The constraints that bite**
+- Edge runtimes are constrained: memory limits (~128MB), CPU/time limits (~50ms), no filesystem, no native code (V8 isolates, not full Node.js). Test against the actual runtime, not just locally.
+- Cold starts exist even at the edge (V8 isolate init, 5-50ms), though they are fast relative to container-based runtimes.
+- Cache keys must be designed to avoid uniqueness explosion (cookies/session in the key → near-zero hit rate) and cross-user leakage; the `Vary` header controls which headers enter the key.
+- Purges are eventually consistent globally (seconds to tens of seconds to propagate across PoPs).
+- Edge state is eventually consistent by default; coherence across PoPs is a distributed-systems problem. Most architectures push state to origin or use eventually-consistent edge KV/databases.
+- Edge compute costs more per CPU-second than origin; not all workloads are economic at the edge.
 
-## What Senior Engineers Instinctively Notice
+**Senior habits and instincts**
+- Design cache keys explicitly and minimize variation; use surrogate keys for tag-based batch invalidation.
+- Size content for edge runtime limits before deploying.
+- Measure both cold-start and warm-path latency, edge vs origin, continuously; monitor cache hit rate as a primary metric (aim 90%+; below 70% signals misconfiguration).
+- Plan for eventual consistency of edge state; cost-model edge vs origin.
+- Distinguish what fits at the edge (auth, geo-routing, A/B bucketing, image optimization, simple personalization, rate limiting) from what doesn't (heavy compute, large datasets, strict consistency, complex DB queries) — and use anycast for automatic failover and proximity-based routing.
 
-- They **design cache keys** explicitly.
-- They **use surrogate keys** for batch invalidation.
-- They **size content for edge runtimes** before deploying.
-- They **measure latency at edge vs origin** continuously.
-- They **plan for eventual consistency** of edge state.
-- They **cost-model edge usage** vs origin.
-- They **distinguish what fits at edge** from what doesn't.
-- They **monitor cache hit rate** as a primary metric.
-
----
-
-## Interview Perspective
+## Interview angle
 
 What gets tested:
+1. **"What's a CDN?"** — basic literacy.
+2. **"What's edge computing?"** — compute at PoPs; differs from CDN by running code, not just serving cache.
+3. **"How do you design a cache key?"** — avoid uniqueness explosion; use `Vary`; include only what matters.
+4. **"What can't run at the edge?"** — long compute; full DBs; large memory; native code.
+5. **"How does state work at edge?"** — eventually consistent; KV stores; or fall through to origin.
+6. **"Anycast vs DNS?"** — anycast for failover and latency; DNS for routing decisions.
+7. **"When wouldn't you use edge?"** — heavy compute; not latency-sensitive; cost ineffective.
 
-1. **"What's a CDN?"** Tests basic literacy.
-2. **"What's edge computing?"** Compute at PoPs; differs from CDN by running code, not just serving cache.
-3. **"How do you design a cache key?"** Avoid uniqueness explosion; use `Vary`; include only what matters.
-4. **"What can't run at the edge?"** Long compute; full DBs; large memory; native code.
-5. **"How does state work at edge?"** Eventually consistent; KV stores; or fall through to origin.
-6. **"Anycast vs DNS?"** Anycast for failover and latency; DNS for routing decisions.
-7. **"When wouldn't you use edge?"** Heavy compute; not latency-sensitive; cost ineffective.
+Common traps: believing edge is always faster; not knowing about runtime constraints; treating purge as instantaneous.
 
-Common traps:
-- Believing edge is always faster.
-- Not knowing about runtime constraints.
-- Treating purge as instantaneous.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Latency is bounded by light speed; edge moves the endpoint closer.**
-2. **CDN = static caching; edge compute = code at PoPs.**
-3. **Cache keys must avoid uniqueness explosion.**
-4. **Edge runtimes are constrained** (memory, time, APIs).
-5. **Edge state is eventually consistent.**
-6. **Surrogate keys** for batch purging.
-7. **Anycast routing** for automatic failover.
-8. **Cold starts exist** at edge but are fast (V8 isolates).
-9. **Edge compute costs more** per CPU-second than origin.
-10. **Tiered caching** (edge → regional → origin) reduces origin load.
-
----
-
-## Final Mental Model
-
-> **Edge computing is geography weaponized for latency. The constraints (small runtime, weak state) are the price of being everywhere. The benefit (5ms instead of 200ms) is worth it for user-facing paths and only sometimes worth it for everything else.**
-
-The senior architect designing for global scale doesn't put everything at the edge — they put the *latency-critical, cacheable, lightweight* logic there, and leave the heavy lifting at origin. Auth checks, geo-routing, A/B bucketing, image optimization, simple personalization: edge. Complex queries, large transactions, ML inference: origin. The architecture matches the constraints.
-
-Teams that "go all-in on edge" without considering constraints discover them painfully — runtime limits, state coherence, cost models. Teams that ignore the edge entirely leave latency on the table for global users. The mature middle is using edge where it pays and origin where it doesn't.
-
-That's edge computing. That's CDNs. That's the geographic axis of system design — the one that turns "the internet is global, but my server is in Virginia" into "users in Singapore see 5ms responses too."
+> **Edge computing is geography weaponized for latency.** The constraints (small runtime, weak state) are the price of being everywhere; the benefit (5ms instead of 200ms) is worth it for user-facing paths and only sometimes worth it for everything else. The mature architecture puts latency-critical, cacheable, lightweight logic at the edge and leaves heavy lifting (complex queries, large transactions, ML inference) at origin — neither going all-in on edge nor ignoring it entirely.

@@ -52,25 +52,6 @@ The pattern: web protocols evolved from "request-response only" to first-class p
 
 ---
 
-## Core Mental Models
-
-**1. WebSocket = persistent bidirectional channel.**
-After upgrade, both sides send messages anytime.
-
-**2. SSE = server-to-client stream.**
-Simpler than WebSocket; one-way; HTTP-compatible.
-
-**3. Connections cost memory.**
-Each open connection is some KB on the server.
-
-**4. Scaling persistent connections is different.**
-Load balancers, sticky sessions, fan-out — all have specific patterns.
-
-**5. Reconnection is normal.**
-Networks blip; mobile networks switch; clients should reconnect.
-
----
-
 ## Deep Technical Explanation
 
 ### WebSocket protocol
@@ -350,59 +331,27 @@ The unifying observation: **real-time protocols turn the web from request-respon
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **persistent connections cost memory**.
-- That **load balancers need WebSocket support**.
-- That **heartbeats are mandatory**.
-- That **reconnection storms** must be handled.
-- That **fan-out scales differently**.
+- **WebSocket = bidirectional persistent channel.** After the HTTP upgrade, both sides send messages anytime.
+- **SSE = server-to-client stream.** Simpler, one-way, HTTP-compatible (works through proxies). Enough for notifications and live updates.
+- **Persistent connections cost memory.** Each open connection is ~10KB+ (kernel socket) plus app state; 1M connections = ~10GB+ just for sockets. Juniors miss this.
+- **Heartbeats are mandatory.** Ping/pong detects silently-dead connections (NAT timeouts, half-open, mobile tunnels); declare dead on missed pong and reconnect. Intervals typically 15-60s.
+- **Reconnect with backoff.** Exponential backoff, auth re-establishment, resume from last-seen offset, idempotent message handling for duplicates.
+- **Load balancers need WebSocket support.** L4 (TCP) works; L7 must handle the upgrade (nginx, HAProxy, AWS ALB).
+- **Sticky sessions are typical** (state lives on a specific server). Cost: a server's failure loses its connections; clients must reconnect. Mitigate with an external session store or stateless design.
+- **Fan-out scales differently** than request-response. In-memory broadcast locally; across servers use Redis pub/sub or Kafka. Shard hot channels across servers / use an intermediate fan-out tier.
+- **Bound buffers with drop policies.** Slow clients cause buffer bloat → OOM. Use bounded queues, coalescing, lossy delivery for non-critical streams.
+- **Handle reconnection storms.** A restart triggers all clients reconnecting at once; stagger and rate-limit reconnects, keep capacity buffer.
+- **Tune kernel limits** (`ulimit -n` / file descriptors, ephemeral ports). Modern runtimes (Erlang/Elixir, Go, Node, Java+Loom) hold millions of connections per box.
+- **Test on lossy networks** — failure modes only show up there.
+- **WebRTC** for P2P audio/video (ICE, DTLS, SCTP/RTP, WebSocket signaling). **gRPC streaming** for service-to-service (over HTTP/2). **WebTransport** emerging over QUIC — multiple streams, datagrams, no TCP head-of-line, connection migration; may replace WebSocket for new apps.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **tune kernel limits**.
-- They **plan reconnection**.
-- They **design fan-out** explicitly.
-- They **bound buffers**.
-- They **test on lossy networks**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"WebSocket vs HTTP?"** Persistent vs request-response.
-2. **"WebSocket vs SSE?"** Bidirectional vs server-to-client.
-3. **"How do you scale WebSockets?"** Sticky sessions; fan-out; sharding.
-4. **"Heartbeats?"** Detect dead connections.
-5. **"Reconnection?"** Exponential backoff; resume.
-
-Common traps:
-- Forgetting connection memory cost.
-- Not handling reconnection.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **WebSocket = bidirectional persistent channel**.
-2. **SSE = server-to-client stream**.
-3. **Heartbeats** to detect dead connections.
-4. **Reconnect with backoff**.
-5. **Bounded buffers** with drop policies.
-6. **Sticky sessions** typical.
-7. **Fan-out scales differently** than request-response.
-8. **WebRTC** for P2P audio/video.
-9. **gRPC streaming** for services.
-10. **WebTransport** emerging over QUIC.
-
----
-
-## Final Mental Model
-
-> **Real-time protocols turn the web's request-response into bidirectional flows. The new operational concerns — connection memory, fan-out scaling, reconnection storms, backpressure — are real and different. Engineers who master them ship the chat apps, collaborative tools, and live-update features that define modern web UX.**
-
-That's WebSockets. That's real-time. That's the substrate under every chat app, every live dashboard, every collaborative document — and the scaling discipline that makes them work at scale.
+- **"WebSocket vs HTTP?"** Persistent bidirectional vs request-response.
+- **"WebSocket vs SSE?"** Bidirectional vs server-to-client only.
+- **"How do you scale WebSockets?"** Sticky sessions; fan-out via pub/sub; sharding.
+- **"Heartbeats?"** Detect dead connections via ping/pong.
+- **"Reconnection?"** Exponential backoff; offset-based resume.
+- Common traps: forgetting connection memory cost; not handling reconnection.

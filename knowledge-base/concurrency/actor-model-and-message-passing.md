@@ -54,25 +54,6 @@ The pattern: every generation realized that *isolation + messages* is a more rob
 
 ---
 
-## Core Mental Models
-
-**1. Each actor is a single-threaded thing.**
-Within one actor, code runs sequentially, processing one message at a time, with full access to its private state. *No concurrent access to that actor's state can occur.* This eliminates an entire class of bugs.
-
-**2. Communication is message passing.**
-Actors don't call each other's methods; they send messages. The receiver decides when to process. This decoupling — temporal, spatial, and semantic — is the source of most of the model's benefits.
-
-**3. State is encapsulated.**
-Each actor owns its data. To change another actor's state, you ask via a message. There's no `if` clause where two actors can race to update the same variable, because no two actors *share* a variable.
-
-**4. Failure is local, supervised, and recoverable.**
-When an actor crashes (uncaught exception, invariant violation), it dies. A *supervisor* — typically another actor — decides what to do: restart, replace, escalate, give up. This is "let it crash" — the philosophy that you can write simpler code by accepting that failures happen and handling them at a higher level.
-
-**5. Location transparency.**
-An actor's message protocol doesn't depend on whether the actor is in the same process or on a different machine. The same code that works locally can scale to distributed systems. The framework handles the network.
-
----
-
 ## Deep Technical Explanation
 
 ### The actor primitive
@@ -217,15 +198,6 @@ What goes wrong in actor systems:
 - **The location-transparency surprise.** Code works locally, fails distributed. Reason: in-process messages were always-delivered; remote messages aren't. Always-delivered was an accidental property of locality.
 - **Stale ActorRefs after restart.** After an actor restarts, references to the old instance still appear valid but messages go to a new instance with fresh state. Subtle bugs.
 
-The senior engineer's habits:
-- **Bound all mailboxes**.
-- **Design supervision hierarchies explicitly**, with escalation and backoff.
-- **Distinguish at-most-once from at-least-once** in critical message paths.
-- **Use persistence** (Akka Persistence, Orleans grain persistence) for actors with important state.
-- **Avoid request-response patterns that block** the actor; prefer fire-and-forget with callbacks.
-- **Monitor mailbox sizes** as a primary metric — saturation indicator.
-- **Plan for actor placement** in distributed deployments — locality matters.
-
 ---
 
 ## Failure Scenarios
@@ -292,72 +264,33 @@ The unifying observation: **the actor model takes "share nothing, communicate ex
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **actors don't share memory** — `state` is private to the actor.
-- That **default messaging is at-most-once** — message loss is possible.
-- That **unbounded mailboxes are deferred crashes**.
-- That **actor supervision is structured failure handling**, not an exception substitute.
-- That **request-response patterns can deadlock** if not designed carefully.
-- That **"let it crash" is a discipline**, not "ignore errors."
-- That **hot actors are scalability bottlenecks**.
-- That **location transparency is leaky** — distributed differs from local.
+**The core model**
+- **Each actor is single-threaded** with private, encapsulated state — code runs sequentially, one message at a time, so no concurrent access to that state can occur. This eliminates an entire class of bugs (race conditions, lock convoys, deadlocks-on-shared-data).
+- **Communication is message passing**, never direct method calls — the receiver decides when to process. This temporal/spatial/semantic decoupling is the source of most of the model's benefits. To change another actor's state, you ask via a message; no two actors share a variable.
+- **Supervision** structures failure handling: when an actor crashes, a supervisor decides restart/stop/escalate/resume. **"Let it crash" is a discipline, not "ignore errors"** — failures propagate to supervisors with the context to recover, yielding simpler code with explicit failure boundaries at architectural seams.
+- **Location transparency**: the message protocol doesn't depend on whether the actor is local or remote — but it is *leaky*. Local messages were always-delivered; remote ones aren't. Distributed differs from local.
+- **Virtual actors** (Orleans grains) simplify lifecycle management — activated on demand, state persisted, reactivated as needed.
 
----
+**Production discipline**
+- **Bound all mailboxes** by default; unbounded mailboxes are deferred crashes (OOM). Monitor mailbox sizes as a primary saturation metric.
+- **Default messaging is at-most-once** — message loss is possible. Distinguish at-most-once from at-least-once for each critical path; design for loss with acks or persistent queues when it matters.
+- **Hot actors are scalability bottlenecks** — a singleton caps throughput at one CPU. Shard them across instances.
+- **Design supervision hierarchies explicitly**, with escalation, backoff, and max restart counts (a misconfigured supervisor restart loop burns CPU while accomplishing nothing).
+- **Distinguish persistent from ephemeral actors**; use persistence (Akka Persistence, Orleans grain persistence) for important state.
+- **Use async patterns; never block in a handler.** Synchronous request-response (`ask`/`await` from inside a handler) can deadlock two actors waiting on each other.
+- **Plan actor placement** in distributed deployments — locality matters.
 
-## What Senior Engineers Instinctively Notice
+## Interview angle
 
-- They **bound mailboxes** by default.
-- They **design supervision hierarchies** explicitly.
-- They **distinguish persistent from ephemeral actors**.
-- They **shard hot actors** across many instances.
-- They **use async patterns** rather than synchronous `ask` everywhere.
-- They **monitor mailbox sizes** as a primary metric.
-- They **understand at-most-once vs at-least-once** for their use case.
-- They **plan actor placement** in distributed systems.
+- **"Explain the actor model."** Tests basic literacy. Bonus for naming Erlang, Akka, the isolation property.
+- **"How does an actor handle concurrency?"** Single-threaded within the actor; messages serialized via the mailbox.
+- **"What's 'let it crash'?"** Failures propagate to supervisors; supervisors decide recovery; simpler code with explicit failure boundaries.
+- **"Actors vs threads + locks?"** Senior answer: tradeoffs in failure modes, not just performance.
+- **"How do actors scale across nodes?"** Location transparency, cluster sharding, location-aware routing.
+- **"What's a virtual actor?"** Activated on demand; state persisted; reactivated as needed. Orleans pattern.
+- **"How do you handle backpressure?"** Bounded mailboxes; rejection or blocking on full; explicit flow control.
+- **Common traps:** believing actors eliminate *all* concurrency bugs (deadlocks via messaging still happen); confusing actors with goroutines (same family, different specifics); assuming default messaging is at-least-once.
 
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Explain the actor model."** Tests basic literacy. Bonus for naming Erlang, Akka, the isolation property.
-2. **"How does an actor handle concurrency?"** Single-threaded within actor; messages serialized via mailbox.
-3. **"What's 'let it crash'?"** Failures propagate to supervisors; supervisors decide recovery; simpler code with explicit failure boundaries.
-4. **"Actors vs threads + locks?"** Tests practical understanding. Senior answer: tradeoffs in failure modes, not just performance.
-5. **"How do actors scale across nodes?"** Location transparency, cluster sharding, location-aware routing.
-6. **"What's a virtual actor?"** Activated on demand; state persisted; reactivated as needed. Orleans pattern.
-7. **"How do you handle backpressure in an actor system?"** Bounded mailboxes; rejection or blocking on full; explicit flow control.
-
-Common traps:
-- Believing actors eliminate concurrency bugs entirely (they eliminate *some*; deadlocks via messaging are still possible).
-- Confusing actors with goroutines (similar family; different specifics).
-- Assuming default messaging is at-least-once.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Each actor is single-threaded** with private state.
-2. **Communication is messages**, never direct method calls.
-3. **Bounded mailboxes** are mandatory in production.
-4. **Supervision** structures failure handling.
-5. **"Let it crash"** is a discipline, not chaos.
-6. **At-most-once messaging** by default — design for loss when it matters.
-7. **Hot actors are bottlenecks**; shard them.
-8. **Location transparency is leaky** — local ≠ remote.
-9. **Virtual actors** simplify lifecycle management.
-10. **Use async patterns**; don't block in handlers.
-
----
-
-## Final Mental Model
-
-> **Actors trade shared state for explicit messages. The bug categories shift: no race conditions, no lock convoys, no deadlocks-on-shared-data. In their place: lost messages, mailbox bombs, supervision misconfigurations. The new bugs are usually easier to diagnose and the new code is usually easier to reason about — at the cost of structural changes in how you write systems.**
-
-The senior engineer evaluating "should we use actors?" doesn't ask "are actors better?" — they ask "what concurrency bugs are we currently fighting?" If the answer is "lock contention, race conditions, deadlocks across services," actors solve real problems. If the answer is "we don't actually have much concurrency," actors are overengineering.
-
-Erlang's 30+ years of running telecom infrastructure, WhatsApp's billion-user scale on a small Erlang cluster, Discord's voice chat infrastructure — these are not curiosities. They're proof that for certain classes of system (high concurrency, fault tolerance, long uptime), actor-based design beats threading-with-locks decisively. The pattern doesn't fit every problem. Where it fits, it fits powerfully.
-
-That's the actor model. That's message passing. That's what concurrency looks like when you stop trying to share memory and start designing protocols instead.
+**The decision heuristic:** the right question isn't "are actors better?" but "what concurrency bugs are we currently fighting?" If it's lock contention, race conditions, or deadlocks across services, actors solve real problems. If you don't actually have much concurrency, actors are overengineering. Erlang's 30+ years of telecom infrastructure, WhatsApp's billion-user scale on a small cluster, and Discord's voice infrastructure prove that for high-concurrency, fault-tolerant, long-uptime systems, actor-based design beats threading-with-locks decisively — where it fits.

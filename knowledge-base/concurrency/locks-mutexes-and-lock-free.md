@@ -52,25 +52,6 @@ The pattern: each generation either *added a synchronization primitive* or *elim
 
 ---
 
-## Core Mental Models
-
-**1. A lock protects an *invariant*, not a variable.**
-The mistake most beginners make: locking a single variable. The right model: identify the invariant ("the linked list's pointers are consistent"), determine what must be atomic to preserve it, and lock the entire critical section. Locking less is unsafe; locking more is slow.
-
-**2. Lock granularity is a fundamental tradeoff.**
-Coarse locks (one lock for everything) are simple but contended. Fine-grained locks (one per object) are scalable but error-prone (deadlock risk, more complex). The right granularity depends on the workload's contention pattern, not on intuition.
-
-**3. The hardware is doing things you don't see.**
-Caches, write buffers, instruction reordering — modern CPUs aggressively reorder memory operations. Without explicit memory barriers (or language-level acquire/release semantics), you cannot assume your writes are visible to other threads in the order they appear in your code.
-
-**4. Lock-free ≠ wait-free ≠ fast.**
-Lock-free guarantees the system makes progress; some thread always advances. Wait-free guarantees *every* thread makes progress in bounded steps. Both are weaker than "absence of locks" suggests; both can be slower than locks for low-contention workloads. Algorithm complexity often outweighs primitive efficiency.
-
-**5. Contention is the cost.**
-A lock with no contention is essentially free (microseconds). A lock with heavy contention serializes throughput to one thread's worth of work. The work isn't "wait" — it's *coherence traffic between CPU caches*, which is slow, invisible, and underappreciated.
-
----
-
 ## Deep Technical Explanation
 
 ### Mutex — the fundamental primitive
@@ -317,73 +298,35 @@ The unifying insight: **synchronization is what happens when state is shared. Th
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **`x++` is not atomic** in most languages.
-- That **the compiler can reorder** memory operations.
-- That **thread-safe doesn't mean correct** in your specific use.
-- That **adding a lock can cause deadlock** with existing locks.
-- That **fine-grained locks aren't always faster** — overhead and complexity matter.
-- That **holding a lock while doing I/O** is a recipe for outages.
-- That **debug mode hides race conditions** that release mode exposes.
-- That **lock-free is hard** and "we'll write our own" is rarely the answer.
+- **A lock protects an *invariant*, not a single variable.** Identify what must stay consistent (e.g. "the linked list's pointers"), make the whole critical section atomic. Locking less is unsafe; locking more is slow.
+- **Lock granularity is a fundamental tradeoff.** Coarse locks are simple but contended; fine-grained locks are scalable but deadlock-prone and complex. The right choice depends on the workload's contention pattern, not intuition — and fine-grained is not automatically faster.
+- **The hardware reorders what you don't see.** Caches, write buffers, and instruction reordering mean writes are not guaranteed visible in source order without memory barriers / acquire-release semantics. The compiler reorders too. This is the bug behind the data race that "works": a flag cached in a register, invisible in debug builds, intermittent in release.
+- **Lock-free ≠ wait-free ≠ fast.** Lock-free = the system always makes progress; wait-free = *every* thread progresses in bounded steps. Both can be slower than locks under low contention because the CAS retry loop adds overhead. Algorithm complexity often outweighs primitive efficiency. Lock-free is hard — "we'll write our own" is rarely the answer.
+- **Contention is the real cost.** An uncontended lock is essentially free (~10–50ns). The cost of contention is *cache-coherence traffic between CPUs* — slow, invisible, underappreciated — and applies to any shared mutable state, locked or atomic.
+- **Lock ordering** is the standard deadlock prevention (breaks the circular-wait Coffman condition). Document it explicitly in any codebase with multiple locks.
+- **`x++` is not atomic** in most languages (load-modify-store); concurrent increments lose updates. Use an explicit atomic or lock.
+- **Never hold a lock across I/O, callbacks, or unknown code** — a recipe for outages and surprise deadlocks (e.g. logging from inside a critical section).
+- **False sharing** silently kills performance: independent variables on the same 64-byte cache line cause coherence bouncing. Pad/align hot variables.
+- **Thread-safe ≠ correct** for your specific use. Respect the gap between "thread-safe" and "concurrent and correct."
+- **Partitioning beats optimizing locks** for scalability: per-thread / per-shard data (work-stealing) avoids the contention question entirely. Reader-writer locks for read-heavy workloads; RCU/MVCC for extreme cases.
+- **Prefer higher-level primitives by default** — atomics, channels, futures, immutable data, message passing — which avoid most lock pitfalls.
 
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **document lock ordering** explicitly.
-- They **prefer immutable data** and channels to shared mutable state.
-- They **partition data per-thread** when scalability matters.
-- They **profile lock contention** as a regular discipline.
-- They **never hold locks across I/O or callbacks**.
-- They **use higher-level primitives** (atomics, channels, futures) by default.
-- They **know about false sharing** and pad accordingly when it matters.
-- They **respect the difference between "thread-safe" and "concurrent and correct."**
+> **A lock is a confession that you're sharing mutable state. Every other technique — partitioning, immutability, channels, MVCC — is a way to confess less.** The senior instinct on seeing concurrent code is not to add a lock but to ask: *do these threads need to share this state at all?* Concurrency bugs survive code review, pass tests, and surface only under irreproducible load — so the discipline is to minimize the surface area on which they can occur: less shared mutable state, fewer locks, clearer ownership, higher-level abstractions. Boring concurrent code is the only kind that survives production.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
-What gets tested:
+Common questions and the answer depth expected:
 
-1. **"What's a deadlock?"** Tests basics. Bonus for naming the four Coffman conditions and lock ordering as the standard prevention.
-2. **"What's a lock convoy?"** Mid-level. Senior candidates explain it as serialization through a single mutex.
-3. **"Explain the ABA problem."** Tests lock-free awareness. The right answer involves CAS seeing the same value despite intermediate changes.
-4. **"What's false sharing?"** Tests hardware awareness. Right answer: cache-line bouncing from independent variables.
+1. **"What's a deadlock?"** Name the four Coffman conditions; lock ordering as the standard prevention.
+2. **"What's a lock convoy?"** Serialization through a single mutex — throughput collapses to one thread's worth.
+3. **"Explain the ABA problem."** CAS sees the same value before and after despite an intermediate change (and change-back). Mitigations: hazard pointers, version counters, epoch-based reclamation, RCU.
+4. **"What's false sharing?"** Cache-line bouncing from independent variables sharing a line.
 5. **"How would you make a thread-safe counter?"** Junior: mutex around a variable. Senior: atomic increment. Staff: per-CPU counters with periodic aggregation, depending on workload.
-6. **"What's the difference between lock-free and wait-free?"** Lock-free: system makes progress. Wait-free: every thread bounded.
-7. **"When wouldn't you use locks?"** Senior answer: when you can partition, when you can use immutable data, when channels work, when atomics are sufficient.
+6. **"Lock-free vs wait-free?"** Lock-free: system makes progress. Wait-free: every thread bounded.
+7. **"When wouldn't you use locks?"** When you can partition, use immutable data, use channels, or atomics suffice.
 
-Common traps:
-- Using `volatile` thinking it's a lock.
-- Believing `synchronized` makes everything thread-safe.
-- Confusing atomic operations with locks.
-- Not knowing about memory ordering.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **A lock protects an invariant**, not a single variable.
-2. **Lock ordering** prevents deadlock. Document it.
-3. **Don't hold locks across I/O** or unknown code.
-4. **CAS** is the foundation of lock-free programming.
-5. **Memory ordering matters**: writes can be reordered without barriers.
-6. **False sharing** kills performance silently.
-7. **Partitioning > optimizing locks** for scalability.
-8. **Lock-free is not always faster** under low contention.
-9. **Higher-level primitives** (channels, immutable data, async) avoid most lock pitfalls.
-10. **Reader-writer locks** for read-heavy workloads; RCU/MVCC for extreme cases.
-
----
-
-## Final Mental Model
-
-> **A lock is a confession that you're sharing mutable state. Every other technique — partitioning, immutability, channels, MVCC — is a way to confess less.**
-
-The senior engineer's instinct, looking at concurrent code, isn't to add another lock. It's to ask: *do these threads need to share this state?* Often, the answer is no — and the "fix" is partitioning, copying, or restructuring rather than locking. When sharing is genuinely required, locks are a tool, but never the only tool. Atomics, channels, message passing, immutable snapshots, and lock-free structures all have their place.
-
-Concurrency bugs are the bugs that survive code review, pass tests, and ship to production — and surface only under load that nobody could reproduce locally. The defensive discipline is to *minimize the surface area* on which they can occur. Less shared mutable state. Fewer locks. Clearer ownership. Higher-level abstractions.
-
-That's locks. That's lock-free. That's the discipline of making concurrent code as boring as you can — because boring code is the only code that survives the chaos of production.
+Common traps: using `volatile` thinking it's a lock; believing `synchronized` makes everything thread-safe; confusing atomic operations with locks; ignoring memory ordering.

@@ -56,25 +56,6 @@ The pattern: reliability moved from vibes to measurements to operational decisio
 
 ---
 
-## Core Mental Models
-
-**1. SLO = the contract; SLI = the measurement.**
-The SLO is the goal; the SLI is what you measure to know if you're hitting it. Each SLO needs a clear, measurable, agreed-upon SLI.
-
-**2. The error budget makes reliability tradeable.**
-1 - SLO = error budget. With a 99.9% SLO, you have 0.1% to spend. This budget is what lets you ship — risky deploys, experiments, edge-case features. Without the framework, every change requires a debate; with it, the budget governs.
-
-**3. Page on user-facing impact; ticket on internal symptoms.**
-A high CPU alert is not a page. A spike in customer-facing 500s is. Tie pages to SLO violations. Everything else is a ticket.
-
-**4. Alerting on burn rate beats alerting on threshold.**
-"Error rate > 1%" is a poor alert. "We'll burn the entire 28-day error budget in 6 hours at this rate" is meaningful. Burn-rate alerts integrate over time, fire at appropriate urgencies, and avoid both noise and missed incidents.
-
-**5. SLOs evolve. They're not gospel.**
-Set them; review them; adjust them as the business changes. Too tight? Too loose? Both are signals. The right SLO is one that's *useful* — one that produces meaningful conversations and decisions.
-
----
-
 ## Deep Technical Explanation
 
 ### SLI selection
@@ -319,52 +300,6 @@ The unifying observation: **SLOs are the bridge between engineering metrics and 
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That **SLIs must reflect user experience**, not internal metrics.
-- That **SLOs are business decisions** as much as technical ones.
-- That **error budgets are a tradeoff mechanism**, not a "we're allowed to fail" license.
-- That **alerts must be actionable**.
-- That **burn-rate alerting** is better than threshold-based.
-- That **100% availability is wrong** as a target.
-- That **SLOs depend on dependency SLOs** (multiplicatively).
-- That **SLOs should be reviewed and adjusted** periodically.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **define SLIs from the user's perspective**.
-- They **set SLOs from data and business need**.
-- They **use burn-rate alerts**.
-- They **page only on customer impact**.
-- They **track error-budget burn** continuously.
-- They **tie release decisions to budget state**.
-- They **review SLOs quarterly**.
-- They **understand dependency-SLO composition**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's an SLO?"** Tests basic literacy.
-2. **"What's an error budget and how do you use it?"** Tests practical understanding.
-3. **"What's burn-rate alerting?"** Tests modern alerting awareness.
-4. **"How do you choose an SLO target?"** Tests judgment: data + business need + dependencies.
-5. **"What's the difference between page and ticket?"** Tests operational maturity.
-6. **"Why is 100% the wrong target?"** Tests SRE-philosophy literacy.
-7. **"How do you compose SLOs across dependencies?"** Tests math + architecture awareness.
-
-Common traps:
-- Setting SLOs by gut feel.
-- Measuring the wrong SLI.
-- Page on every metric.
-- Believing tighter is always better.
-
----
-
 ## Worked Example — Designing SLOs for a Checkout Service
 
 You own checkout for an e-commerce site. Need to define SLOs that drive engineering priorities.
@@ -552,27 +487,22 @@ The framework's value isn't the math. It's the *aligned conversation* between en
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **SLO = goal; SLI = measurement.**
-2. **Error budget = 1 - SLO**, the slack you can spend.
-3. **Page on customer impact**; ticket otherwise.
-4. **Burn-rate alerts** > threshold alerts.
-5. **Multi-window multi-burn-rate** is the gold standard.
-6. **100% is wrong**; target user-meaningful reliability.
-7. **SLOs compose multiplicatively** across dependencies.
-8. **Review SLOs quarterly.**
-9. **Error-budget policies** create real tradeoffs.
-10. **User-journey SLOs** > per-service SLOs for customer experience.
+- **SLO = the goal/contract; SLI = the measurement.** Each SLO needs a clear, measurable, agreed-upon SLI.
+- **SLIs must reflect user experience, not internal metrics.** Measure as close to the user as possible; CPU is not an SLI. Measuring backend success while users see CDN errors leaves the SLO "green" while customers complain.
+- **SLOs are business decisions as much as technical ones** — derived from historical data, user expectations, and dependency reality, not gut feel.
+- **Error budget = 1 - SLO**, the slack you can spend. It is a tradeoff mechanism (permission to take risks, ship, experiment), not a "we're allowed to fail" license. Without the framework, every change is a debate; with it, the budget governs.
+- **Page on customer impact; ticket on internal symptoms.** A CPU spike is a ticket; customer-facing 500s threatening the SLO are a page. Pages must be actionable ("I'll look tomorrow" is not a page); tickets must actually be reviewed.
+- **Burn-rate alerts beat threshold alerts**, and **multi-window multi-burn-rate is the gold standard.** Threshold alerts give false positives (brief spikes) and false negatives (sustained low-grade degradation). The long window confirms sustained behavior; the short window confirms it's currently happening; both must fire.
+- **100% is the wrong target** — infinitely expensive, impossible, and counterproductive (your customers' own systems fail more often than your budget). Target user-meaningful reliability; each extra "9" costs ~10×.
+- **SLOs compose multiplicatively across dependencies.** N dependencies at SLO X give ≈ X^N. You can't promise tighter than your dependencies, and this surfaces actionable architectural insight.
+- **User-journey SLOs beat per-service SLOs** for customer experience — a service can hit its SLO while the journey it's part of fails.
+- **Error-budget policies create real tradeoffs.** Start soft (notify, voluntary pause) and harden (auto-block deploys, leadership sign-off) as the practice matures.
+- **SLOs evolve; review them quarterly**, after major incidents, and after product changes. Too tight (constant violations, ignored alerts) and too loose (budget never depletes, real pain hidden) are both calibration signals.
+- **An SLO needs an owner** with authority to make tradeoffs; without one, business pressure overrides it and the SLO becomes theater.
+- **SLOs are a cultural change, not just a metric.** They only work if violations have consequences, definitions stay fresh, and alerts stay calibrated. Teams that commit ship faster *and* more reliably — the two stop being in conflict and become explicit tradeoffs with a measurable currency.
 
----
+## Interview angle
 
-## Final Mental Model
-
-> **SLOs turn reliability from a religion into engineering. The error budget is the unit of trade between reliability and velocity. The burn rate is the early-warning system. Combined, they let an organization make rational reliability decisions instead of arguing.**
-
-The senior engineer adopting SLOs treats them as a *cultural* change, not just a metric. The framework only works if the organization commits to it: SLO violations have consequences (release freezes, attention shifts), SLO definitions are reviewed (not stale), alerts are calibrated (not noise). Without that commitment, SLOs become theater — numbers reported but not acted upon.
-
-The teams that internalize this discipline ship faster *and* more reliably than teams that don't. Faster, because the error budget gives them permission to take risks. More reliably, because budget burn forces real reliability work when it matters. The two stop being in conflict; they become explicit tradeoffs with a measurable currency.
-
-That's SLOs. That's error budgets. That's alerting tied to user-facing reality. That's the practice that turns "is this important?" debates into "here's the burn rate" decisions — and that, in the long run, is what produces engineering organizations that survive scale.
+Commonly tested: define an SLO; explain what an error budget is and how you use it; explain burn-rate alerting; how to choose an SLO target (data + business need + dependencies); the difference between page and ticket; why 100% is the wrong target; how to compose SLOs across dependencies. Classic traps: setting SLOs by gut feel, measuring the wrong SLI, paging on every metric, and believing tighter is always better.

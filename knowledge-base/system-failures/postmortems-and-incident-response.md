@@ -54,25 +54,6 @@ The pattern: incident response evolved from heroic to structured to tool-support
 
 ---
 
-## Core Mental Models
-
-**1. Incidents have phases. Roles change with phase.**
-Detection → Response → Mitigation → Recovery → Postmortem → Action items. Different work happens in each phase. Same person in all phases is overloaded; clear handoffs prevent fatigue and missed steps.
-
-**2. The first job is mitigation, not understanding.**
-During the incident, *stop the bleeding*. Customer impact reduction comes before root-cause analysis. There's time for understanding later. There isn't time for both during the outage.
-
-**3. Blameless ≠ accountability-free.**
-Blameless means we don't assume an individual's intent or competence was the failure mode. Accountability remains: the team owns the system; specific changes get made; people are responsible for following through. The discipline is separating "what happened" from "who's at fault."
-
-**4. The postmortem is about *systems*, not *people*.**
-Why did this engineer push that change? Because the deploy process didn't have a check. Why didn't it have a check? Because... etc. Five whys. The answers are about systems, processes, tooling — almost never "this engineer is bad."
-
-**5. Action items are the only durable output of a postmortem.**
-The narrative is useful for learning. The metrics are useful for tracking. But the *follow-through on changes* is the only thing that prevents recurrence. Postmortems without tracked, completed action items are theater.
-
----
-
 ## Deep Technical Explanation
 
 ### Incident severity levels
@@ -297,72 +278,34 @@ The unifying observation: **postmortems are the feedback loop that improves all 
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **mitigation comes before investigation**.
-- That **rolling back beats fixing forward** for deploy-correlated outages.
-- That **blameless doesn't mean accountability-free**.
-- That **action items are the durable output**, not the postmortem document.
-- That **the IC's job is coordination, not solving**.
-- That **5 whys is a real technique**, not a slogan.
-- That **postmortems are systems analysis**, not blame meetings.
-- That **alert fatigue is a real failure mode**.
+- **Incidents have phases — and roles change with phase**: Detection → Response → Mitigation → Recovery → Postmortem → Action items. Clear handoffs prevent one overloaded person doing all of it.
+- **Mitigate first; understand second.** Stop the bleeding (roll back, disable flag, drain node, restart) before root-cause analysis. There isn't time for both during the outage.
+- **Roll back deploy-correlated outages immediately** — fixing forward risks a second bug and two changes to debug.
+- **Use the IC structure** for any non-trivial incident: IC coordinates ("what's our next move?"), Ops mitigates, Comms updates, Scribe records. The IC's job is coordination, not solving — and need not be the most senior engineer. **Train juniors as ICs and rotate the role** to remove the single-point-of-failure hero.
+- **Maintain calm, structured comms**: concrete status updates every 15-30 min, not "we're looking into it."
+- **Blameless ≠ accountability-free.** Don't assume an individual's intent or competence was the failure; the team still owns the system and follows through on changes. Postmortems are **systems analysis, not blame meetings** — blame produces silence and lies; blamelessness produces honest analysis. The cultural transition takes years and one punitive response can poison it.
+- **Use the 5 Whys** — don't stop at the first (proximate) "why"; the deeper answers are where systemic fixes live (e.g., a "missing index" is really a deploy-process gap).
+- **Action items are the only durable output.** Make them specific, owned, dated, tracked, and reviewed to completion. Un-completed action items 6 months later signal organizational dysfunction.
+- **MTTR / MTBF / MTTD** are your operational metrics — use them as trends, not absolutes. MTTR/MTBF gives a rough availability figure.
+- **Manage alert fatigue ruthlessly**: tier alerts; only page on user-facing impact, or oncall desensitizes and misses real incidents.
+- **Runbooks live next to alerts** and are tested regularly (e.g., during game days), so failover procedures aren't hunted for mid-incident.
 
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **propose structure** (IC, comms, scribe) early in incidents.
-- They **roll back fast** when deploys correlate with issues.
-- They **maintain calm comms** during chaos.
-- They **drive postmortems** to systemic action items.
-- They **track action items** to completion.
-- They **train juniors as ICs** to spread the load.
-- They **read postmortems** as a learning discipline.
-- They **distinguish proximate from root causes**.
+> **An outage is a teacher.** The team that listens — responding well, then learning calmly — gets more reliable over time; the team that doesn't has the same outage forever in different costumes. Reliable systems come not from smarter engineers but from teams who've internalized these unglamorous disciplines.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
-What gets tested:
+Commonly tested questions:
 
-1. **"How does your team handle incidents?"** Tests whether the candidate has experienced structured response.
-2. **"Walk me through a postmortem you wrote."** Tests practical experience.
-3. **"What's a blameless postmortem?"** Tests conceptual understanding.
-4. **"What are the 5 whys?"** Tests technique knowledge.
-5. **"What's MTTR and MTBF?"** Tests vocabulary.
-6. **"How do you avoid alert fatigue?"** Tests operational maturity.
-7. **"What's the IC's role?"** Coordination, not problem-solving.
+1. **"How does your team handle incidents?"** — looks for experience with structured response.
+2. **"Walk me through a postmortem you wrote."** — practical experience.
+3. **"What's a blameless postmortem?"** — conceptual understanding.
+4. **"What are the 5 whys?"** — technique knowledge.
+5. **"What's MTTR and MTBF?"** — vocabulary.
+6. **"How do you avoid alert fatigue?"** — operational maturity.
+7. **"What's the IC's role?"** — coordination, not problem-solving.
 
-Common traps:
-- Believing postmortems are about assigning blame.
-- Skipping the IC role.
-- Not tracking action items.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Mitigate first; understand second.**
-2. **Use the IC structure** for any non-trivial incident.
-3. **Roll back deploy-correlated outages immediately.**
-4. **Blameless postmortems** = honest analysis.
-5. **5 Whys** for root cause.
-6. **Action items** are the only durable output.
-7. **Track action items to completion.**
-8. **MTTR/MTBF/MTTD** as your operational metrics.
-9. **Manage alert fatigue** ruthlessly.
-10. **Runbooks live next to alerts**, tested regularly.
-
----
-
-## Final Mental Model
-
-> **An outage is a teacher. The team that listens — by responding well, then learning calmly — gets better over time. The team that doesn't listen has the same outage forever, in different costumes.**
-
-The senior engineer treats incidents as opportunities. During the incident: clear roles, fast mitigation, calm comms. After the incident: honest analysis, structural action items, follow-through. The postmortem isn't a chore; it's where the engineering improvement happens.
-
-The reliable systems aren't the ones built by smarter engineers. They're the ones operated by teams who've internalized the disciplines: incident command structure, blameless postmortems, tracked action items, calibrated alerts. Each of these is unglamorous; together they are the difference between teams whose reliability stagnates and teams whose reliability compounds.
-
-That's incident response. That's postmortems. That's the operational practice that turns the inevitable failures of complex systems into the durable improvements of mature engineering organizations.
+Common traps: believing postmortems are about assigning blame; skipping the IC role; not tracking action items.

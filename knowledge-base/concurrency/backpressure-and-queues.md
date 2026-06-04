@@ -56,25 +56,6 @@ The pattern across eras: every generation rediscovers that **buffering without l
 
 ---
 
-## Core Mental Models
-
-**1. Every queue is a buffer between two rates.**
-If the producer rate ≤ consumer rate, the queue stays empty (and you don't really need one). If producer > consumer for any sustained period, the queue grows unboundedly. There is no third option in steady state.
-
-**2. Latency = service time + queueing time.**
-Little's Law: L = λ × W. The number of items in the system equals arrival rate times average time in the system. When the queue grows, latency grows linearly with queue depth. A system with a 10-second queue has 10 seconds of latency, no matter how fast the worker is per-item.
-
-**3. Backpressure is the inverse of buffering.**
-Buffering says "I'll hold your work." Backpressure says "I won't take your work yet." A healthy system uses both, in proportion, with hard limits.
-
-**4. Failure must propagate upstream.**
-A consumer that's overloaded must signal the producer. Otherwise the producer keeps producing, the queue grows, memory fills, the system collapses. The signal *is* backpressure.
-
-**5. Queues hide problems until they don't.**
-A growing queue is the *symptom* of a mismatch. Treating the symptom (bigger queue, more memory) buys time but masks the underlying rate imbalance. The queue is a diagnostic, not a solution.
-
----
-
 ## Deep Technical Explanation
 
 ### Queueing theory in five minutes
@@ -192,13 +173,6 @@ What goes wrong when backpressure is missing or misconfigured:
 - **Queue-of-queues.** Service A enqueues to B. B's consumer is slow. B's queue grows. A's clients retry, growing A's own queue. Pressure accumulates at every layer. This is what cascading failures look like in queue-based architectures.
 - **Sampling without bias awareness.** Telemetry sampled at 1% under load. Errors are 0.1% of traffic. You sample 1 error per 1000 requests. Insufficient signal. The right answer is *priority sampling* — keep all errors, sample successes.
 
-The senior engineer's habits:
-- **Every external call has a timeout, a max concurrency, and a circuit breaker.** No exceptions.
-- **Every queue has a maximum size and a known overflow behavior.**
-- **"Consumer lag" is a primary dashboard metric** for any event-driven architecture.
-- **Load tests include sustained overload**, not just peak. The graceful degradation curve matters more than peak throughput.
-- **Latency percentiles are measured**, not averages. A system with 99th percentile of 30 seconds is broken even if its mean is fine.
-
 ---
 
 ## Failure Scenarios
@@ -265,31 +239,7 @@ The unifying observation: **every system that processes work asynchronously is a
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That **every queue must have a maximum size**. "Unbounded" is a bug, not a feature.
-- That **timeouts are not optional** on external calls.
-- That **retries without backoff cause amplification**, not resilience.
-- That **a slow consumer is more dangerous than a failed one** — failures fail fast; slowness fills queues.
-- That **utilization above 80% is a latency time bomb**, not "efficient resource use."
-- That **batching is a backpressure mechanism**, not just an optimization.
-- That **load testing must include sustained overload**, not just peak.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They look for **timeouts, concurrency limits, and circuit breakers** on every external call before any other code review.
-- They monitor **queue depth and consumer lag** as primary system metrics.
-- They reach for **bounded queues with explicit overflow behavior** by default.
-- They distinguish **bursty load** from **sustained load** in capacity planning.
-- They check **p99 latency**, not means.
-- They know that **adding capacity often fixes nothing** if the backpressure is wrong.
-- They treat **retry policies as a system-wide concern**, not a per-client choice.
-
----
-
-## Interview Perspective
+## Interview angle
 
 What gets tested:
 
@@ -489,27 +439,19 @@ Each arrow has a bound. Each bound has a behavior at the limit (reject, retry, f
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
-
-1. **Every async system is a network of queues. Every queue has a behavior at full.**
-2. **Little's Law: latency = items in system / arrival rate.** Long queues = long waits.
-3. **Utilization above ~80% causes latency to explode.** Run hot at your peril.
-4. **Unbounded queues are deferred crashes.** Always set a limit.
-5. **Backpressure propagates upstream.** A consumer in trouble must signal its producer.
-6. **Retries without backoff and jitter cause amplification.**
-7. **Timeouts on every external call are mandatory.** No exceptions.
-8. **Connection pools are queues with hidden waiter lists.** Bound them.
-9. **Consumer lag is the canonical metric for event-driven architectures.**
-10. **Adaptive concurrency beats fixed pools** in dynamic environments.
-
----
-
-## Final Mental Model
+## Key Takeaways
 
 > **Queues are time machines for work. Backpressure is the rule that says you cannot send infinite work into the future.**
 
-Every system you build accumulates work in queues, named or hidden. The work that piles up in queues you didn't plan for is the work that takes you down. The discipline isn't *avoiding* queues — they're necessary, they're useful, they're how decoupling works. The discipline is *naming* them, *bounding* them, and *propagating their fullness* back to whoever is producing.
-
-A senior engineer looking at a slow system doesn't ask "where's the slow code?" They ask "where's the queue I'm not seeing?" Almost always, the answer is in a place nobody designed: a connection pool, a logger buffer, a TCP receive window, a thread pool's work queue. Surface it. Bound it. Decide what happens when it's full.
-
-That's backpressure. That's flow control. That's the difference between systems that bend and systems that break.
+- **Every async system is a network of queues, and every queue must have a maximum size and a defined behavior at full** (block, reject, drop). "Unbounded" is a bug, not a feature — it's a deferred crash where the system decides under overload, badly.
+- **A queue is a buffer between two rates.** If producer > consumer for any sustained period, the queue grows unboundedly — there is no third option in steady state. A growing queue is the *symptom* of a rate mismatch; bigger queues/more memory mask it rather than fix it.
+- **Little's Law: latency = items in system / arrival rate.** Latency grows linearly with queue depth — a 10-second queue means 10 seconds of latency no matter how fast the per-item worker is.
+- **Utilization above ~80% makes latency explode** (M/M/1: 90% → ~10× service time, 99% → ~100×). You cannot run a server at 100%; target 50–70% steady-state for headroom. Variance kills more than rate — bursty 50%-average traffic can queue worse than steady 99%.
+- **Backpressure is the inverse of buffering** ("I won't take your work yet" vs "I'll hold it"), and it must **propagate upstream** — an overloaded consumer must signal its producer, or the queue grows until collapse.
+- **Retries without exponential backoff and jitter cause amplification, not resilience** — the most common cause of microservice-wide collapse. Treat retry policies as a system-wide concern, not a per-client choice.
+- **Timeouts on every external call are mandatory, alongside a max concurrency and a circuit breaker** — the first thing to check in any review. A slow consumer is more dangerous than a failed one: failures fail fast; slowness fills queues.
+- **Connection pools are queues with hidden waiter lists** — bound them with explicit acquire timeouts. The dangerous queues are the hidden ones: pool waiters, logger buffers, TCP receive windows, thread-pool work queues.
+- **Consumer lag is the canonical primary metric for event-driven architectures**; monitor p99 latency, not means (p99 = 10× p50 signals queueing somewhere).
+- **Batching is a backpressure mechanism** (trades latency for throughput), not just an optimization. **Adaptive concurrency beats fixed pools** in dynamic environments. **Adding capacity often fixes nothing** if the backpressure is wrong, since the scaling ceiling is whatever is downstream.
+- **Load testing must include sustained overload, not just peak** — the graceful-degradation curve matters more than peak throughput.
+- **The senior diagnostic question for a slow system isn't "where's the slow code?" but "where's the queue I'm not seeing?"** Surface it, bound it, decide what happens when it's full. That is the difference between systems that bend and systems that break.

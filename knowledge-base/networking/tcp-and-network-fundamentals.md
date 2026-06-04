@@ -57,25 +57,6 @@ The pattern: TCP is a half-century-old protocol still used unchanged for most tr
 
 ---
 
-## Core Mental Models
-
-**1. TCP turns packets into streams.**
-The application sees an ordered, reliable byte stream. The network sees lossy, reordering packets. TCP is the translation.
-
-**2. Connection establishment costs RTT.**
-Three-way handshake = 1 RTT before you can send data. TLS adds 1-2 more. Connection reuse matters at scale.
-
-**3. Congestion control is fairness.**
-TCP backs off when it senses loss. This isn't politeness — it's how the internet doesn't collapse under load.
-
-**4. Flow control is per-connection.**
-Receiver advertises window: "I can take this many more bytes." Sender stops at the window. Independent of congestion control.
-
-**5. Connection state machines are subtle.**
-TIME_WAIT, CLOSE_WAIT, FIN_WAIT — these states explain a lot of "weird network bugs."
-
----
-
 ## Deep Technical Explanation
 
 ### The three-way handshake
@@ -256,14 +237,6 @@ What goes wrong:
 - **The connection pool too small.** App opens new TCP connections per request; each is 1 RTT + TLS. Fix: connection pooling.
 - **The CDN connection breakage.** TCP connections through CDN are persistent; certificates rotate; connections must reconnect; cascading reconnect storm. Mitigation: gradual rollout.
 
-The senior engineer's habits:
-- **Connection pooling** for outbound connections.
-- **Tune kernel parameters** for high-load servers.
-- **`TCP_NODELAY`** for latency-sensitive workloads.
-- **Monitor TIME_WAIT** count.
-- **Understand TLS handshake costs**.
-- **Use HTTP/2 or HTTP/3** to reduce connection overhead.
-
 ---
 
 ## Failure Scenarios
@@ -328,67 +301,28 @@ The unifying observation: **TCP is the layer between every application and the n
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **connections cost 1 RTT** to establish.
-- That **TIME_WAIT** accumulates with high churn.
-- That **Nagle + delayed ACK** causes 200ms latency.
-- That **MTU issues** cause silent failures.
-- That **slow start after idle** is a real cost.
-- That **default kernel params are low** for production.
-- That **TLS handshakes** add multiple RTTs.
+- **TCP turns lossy, reordering packets into an ordered, reliable byte stream.** That translation is the whole point; every guarantee (in-order, no dupes, no loss, fairness) is something the protocol works for behind your application.
+- **Connection establishment costs RTT.** Three-way handshake = 1 RTT before any data; TLS 1.2 adds 2, TLS 1.3 adds 1, 0-RTT adds 0 (with replay risk). For services hitting many backends per request, connection pooling is mandatory.
+- **Congestion control vs flow control are distinct.** Congestion control is network-driven (sender backs off on loss; this is what keeps the internet from collapsing). Flow control is receiver-driven (advertised window: "my buffer is X bytes"). Effective rate = min(receive window, congestion window).
+- **Slow start ramps exponentially** (modern IW10 initial window, doubling per RTT until loss); **AIMD** then adds 1/RTT and halves on loss (the sawtooth). **CUBIC** is the Linux default; **BBR** ignores loss as a signal and models bandwidth/RTT, outperforming CUBIC by up to ~5x on lossy mobile/wireless links — often a kernel-tuning win with no code change.
+- **Nagle + delayed ACK** can stack into 40-200ms latency on small writes; disable with `TCP_NODELAY` for latency-sensitive paths.
+- **TIME_WAIT** accumulates under high connection churn (2 × MSL, ~60-120s) and can exhaust ephemeral ports. Mitigate with connection reuse, larger port range, `SO_REUSEADDR`/`SO_REUSEPORT`.
+- **Window scaling** (RFC 1323) is required for high bandwidth-delay-product links; without it a single connection is BDP-capped (64KB window → ~640KB/s on a 100ms link).
+- **Slow start after idle** re-ramps cwnd from the initial window, making the first request after an idle period slow; disable with `net.ipv4.tcp_slow_start_after_idle = 0`.
+- **MTU/PMTUD failures cause blackholes**: connections establish on small SYNs but silently drop large data packets (common after VPNs/tunnels). Fix with MTU clamping and unblocked ICMP.
+- **Default kernel params are low for production.** Tune `net.core.somaxconn`, `net.ipv4.tcp_max_syn_backlog`, and `ulimit -n`; a slow `accept()` loop overflows the backlog and drops SYNs.
+- **Connection state machines explain "weird network bugs."** TIME_WAIT, CLOSE_WAIT, FIN_WAIT states are diagnostic gold; monitor connection-state counts.
+- **Use HTTP/2 or HTTP/3** to reduce per-connection overhead; HTTP/3 (QUIC over UDP) avoids TCP's head-of-line blocking, where one lost packet stalls all later data.
+- **Senior instinct:** pool connections by default, tune the kernel, monitor TIME_WAIT, plan for TLS handshake cost. TCP problems usually arrive wearing application-level disguises — pool exhaustion, mystery latency, reconnect storms, MTU blackholes — which is why understanding the layer below your application is foundational, not optional.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **pool connections** by default.
-- They **tune kernel parameters** for production.
-- They **disable Nagle** for latency-sensitive paths.
-- They **monitor TIME_WAIT** and connection states.
-- They **plan for TLS handshake costs**.
-- They **use HTTP/2+** to reduce connection overhead.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Walk me through TCP handshake."** Tests fundamental.
-2. **"What's TIME_WAIT?"** Connection state after close.
-3. **"What's Nagle's algorithm?"** Buffer small writes.
-4. **"Congestion control vs flow control?"** Network vs receiver.
-5. **"What's slow start?"** Exponential ramp-up.
-6. **"BBR vs CUBIC?"** Different congestion algorithms.
-
-Common traps:
-- Not knowing about TLS handshake costs.
-- Confusing flow and congestion control.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **TCP turns packets into streams.**
-2. **Three-way handshake = 1 RTT.**
-3. **TLS adds 1-2 more RTTs.**
-4. **Connection pooling** is mandatory.
-5. **Nagle + delayed ACK** = latency bug; use TCP_NODELAY.
-6. **TIME_WAIT** accumulates; tune.
-7. **Window scaling** required for high-BDP links.
-8. **Slow start after idle** restarts cwnd.
-9. **MTU issues** cause blackhole failures.
-10. **BBR for lossy** networks; CUBIC default.
-
----
-
-## Final Mental Model
-
-> **TCP is the most successful piece of distributed-systems engineering ever shipped. Every connection, every API call, every database query runs on it. Its quirks — connection setup, flow control, congestion control, TIME_WAIT — shape modern application architecture in ways most developers don't notice. The senior engineer who understands TCP can diagnose problems the application-layer view can't see.**
-
-Most application engineers don't need to think about TCP. The ones building anything at scale eventually have to. Connection pool exhaustion, mysterious latency, cascading reconnect storms, MTU blackholes — these are TCP problems wearing application-level disguises.
-
-The protocol is half a century old; its modern descendants (QUIC) keep its core ideas while improving the implementation. Understanding TCP is understanding the layer that makes the internet work — and the layer that occasionally makes your application not work, in subtle ways that look like everything else first.
-
-That's TCP. That's network fundamentals. That's the foundation under every distributed system you've ever shipped — quietly working until it doesn't.
+- **"Walk me through the TCP handshake."** SYN / SYN-ACK / ACK; sequence-number exchange; 1 RTT before data.
+- **"What's TIME_WAIT?"** Post-close state (2 × MSL) preventing stale packets from corrupting a new connection on the same port pair.
+- **"What's Nagle's algorithm?"** Buffers small writes while unacked data is outstanding; interacts badly with delayed ACK.
+- **"Congestion control vs flow control?"** Network-driven vs receiver-driven — a common trap is confusing the two.
+- **"What's slow start?"** Exponential cwnd ramp at connection start.
+- **"BBR vs CUBIC?"** Loss-based (CUBIC) vs bandwidth/RTT-model-based (BBR), the latter better on lossy links.
+- Common trap: not accounting for TLS handshake RTT costs on top of the TCP handshake.

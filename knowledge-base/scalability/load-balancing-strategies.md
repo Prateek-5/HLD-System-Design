@@ -58,25 +58,6 @@ The pattern: each generation moved the routing decision closer to the request. F
 
 ---
 
-## Core Mental Models
-
-**1. Load balancing happens at multiple layers.**
-DNS, L4 (TCP/UDP), L7 (HTTP), service mesh, client-side. Each layer adds capability and overhead. Modern stacks use several in series.
-
-**2. The "right" algorithm depends on workload shape.**
-Uniform requests → round robin or least connections. Skewed requests → least latency or least busy. Cacheable requests → consistent hashing. Long-lived connections → sticky sessions. There is no universal best.
-
-**3. Health checks determine availability.**
-The load balancer's job is to *not* send traffic to dead or degraded instances. Health checks must be accurate (true positives/negatives), low-latency, and not themselves cascade failures.
-
-**4. Slow is worse than down.**
-A failed instance fails fast; the load balancer routes around it. A *slow* instance still responds, accumulates queues, and degrades the requests routed to it. Sophisticated load balancers detect slowness and shed traffic before timeout.
-
-**5. Connection state shapes the strategy.**
-Stateless requests can go anywhere. Stateful (sticky-session, cache-warmed, connection-pooled) requests have penalties for switching servers. Acknowledge this in design or accept the cost.
-
----
-
 ## Deep Technical Explanation
 
 ### L4 vs L7 load balancing
@@ -238,15 +219,6 @@ What goes wrong:
 - **The health-check race.** Newly-deployed instance starts; LB sends traffic before warm-up is complete. First requests fail. Mitigation: a "ready" probe distinct from "alive" probe (Kubernetes' liveness vs readiness pattern).
 - **The DNS TTL trap.** Old DNS responses cached in clients for hours. New backend deployed; clients still hit old IPs. Mitigation: short TTLs; service discovery instead of DNS for dynamic systems.
 
-The senior operator's habits:
-- **Layer health checks**: liveness (process alive), readiness (can serve), deep (deeper integration).
-- **Use P2C or least-latency** by default — better than round robin for variable workloads.
-- **Avoid sticky sessions** unless externally-stored sessions aren't an option.
-- **Locality-aware routing** in multi-zone deployments.
-- **Monitor distribution**, not just aggregate request rate. P99 of *least-loaded* and *most-loaded* instances should be close.
-- **Rate limit at the LB** to protect backends from upstream surges.
-- **Connection draining on shutdown** — let in-flight requests finish before terminating instances.
-
 ---
 
 ## Failure Scenarios
@@ -313,73 +285,35 @@ The unifying observation: **load balancing is the visible face of distribution.*
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **round robin is rarely best** at scale.
-- That **health checks must reflect serving capacity**, not just process aliveness.
-- That **slow instances are worse than dead ones** for round robin.
-- That **sticky sessions multiply failure impact**.
-- That **DNS TTL matters** for failover speed.
-- That **hot keys break consistent hashing**.
-- That **connection draining** matters for graceful shutdown.
-- That **TLS termination is CPU-heavy**.
+**Mental models**
+- Load balancing happens at multiple layers in series — DNS, L4 (TCP/UDP), L7 (HTTP), service mesh, client-side. Each adds capability and overhead.
+- The "right" algorithm is downstream of workload shape: uniform → round robin / least connections; skewed → least latency / least busy; cacheable → consistent hashing; long-lived connections → sticky sessions. There is no universal best.
+- A load balancer is a continuous, adaptive decision process about where work goes; the skill is choosing which signals to trust and which to ignore. Ask: what's the workload? the failure model? the latency budget? what state do servers carry?
 
----
+**Core facts (the 20% that covers 80%)**
+- **L4 = TCP/IP routing; L7 = HTTP-aware** (path, headers, TLS termination).
+- **Round robin is the baseline and rarely best at scale**; P2C or least-latency adapts to variable request cost.
+- **Consistent hashing** gives cache-friendly routing; adding/removing nodes moves only ~1/N of keys.
+- **Slow is worse than down** — a failed instance fails fast and gets routed around; a slow one still responds, queues, and degrades its share of traffic indefinitely under round robin.
+- **Health checks must reflect serving capacity, not just process aliveness, and must not depend on shared resources** (a check that probes the DB makes a DB blip mark every instance unhealthy).
+- **Distinguish liveness from readiness** (Kubernetes pattern) so traffic isn't sent before warm-up completes.
+- **Sticky sessions multiply failure impact** (lost session on failover, imbalance from popular sessions, no help to existing sessions when scaling). Prefer external session stores (Redis); keep instances stateless.
+- **Connection draining on graceful shutdown** lets in-flight requests finish.
+- **TLS termination is CPU-heavy** — isolate it; terminate at the LB for external traffic, mTLS internally.
+- **Locality-aware routing** in multi-zone deployments cuts latency and cross-zone bandwidth cost.
+- **Service meshes push LB to per-call decisions** with retries, circuit breakers, and outlier detection.
+- **Monitor per-instance distribution, not just aggregate request rate** — P99 of least-loaded and most-loaded instances should be close.
+- **DNS TTL governs failover speed**; hot keys break consistent hashing (mitigate by bucketing the hot key across ring positions).
 
-## What Senior Engineers Instinctively Notice
+## Interview angle
 
-- They **monitor per-instance distribution**, not just aggregate.
-- They **distinguish liveness from readiness**.
-- They **avoid sticky sessions** when possible.
-- They **prefer P2C or least-latency** to round robin.
-- They **plan for hot keys** in consistent hashing.
-- They **use locality-aware routing** in multi-zone setups.
-- They **drain connections** on graceful shutdown.
-- They **rate-limit at the edge** to protect backends.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Round robin vs least connections vs P2C — when each?"** Tests algorithmic awareness.
-2. **"How do you health-check?"** Layered: liveness, readiness, deep checks. Avoid checks that depend on shared resources.
-3. **"What's consistent hashing?"** Hash to ring; closest node clockwise. Adding nodes moves only 1/N keys. Bonus for explaining hot-key mitigations.
-4. **"Sticky sessions — when to use?"** Answer: rarely; prefer external session stores. Tests practical judgment.
-5. **"How do you do failover?"** Health checks, connection draining, possibly Anycast.
-6. **"Where does TLS terminate?"** At the LB for external; mTLS internally for service-to-service.
-7. **"How would you load-balance gRPC traffic?"** Client-side load balancing or service mesh; gRPC's HTTP/2 multiplexing breaks naive L4 LBs.
-
-Common traps:
-- Treating load balancing as "just round robin."
-- Health checks that probe dependencies.
-- Believing sticky sessions are free.
-- Not knowing about gRPC's specific LB challenges.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **L4 = TCP/IP routing**; **L7 = HTTP-aware**.
-2. **Round robin is the baseline**; P2C or least-latency adapts to variability.
-3. **Consistent hashing** for cache-friendly routing.
-4. **Health checks must not depend on shared resources**.
-5. **Sticky sessions multiply failure pain**. Avoid where possible.
-6. **Connection draining** on shutdown.
-7. **TLS termination** is a CPU cost — isolate it.
-8. **Locality-aware routing** in multi-zone deployments.
-9. **Service meshes** push LB to per-call decisions.
-10. **Monitor per-instance distribution**, not just totals.
-
----
-
-## Final Mental Model
-
-> **A load balancer is a continuous decision-making process about where work should go. The naive version makes one rule and applies it forever. The mature version watches the system, notices what's working, and adapts. The skill is in choosing what signals to trust — and what to ignore.**
-
-The senior architect, designing load balancing, asks: *what's the workload? what's the failure model? what's the latency budget? what state do servers carry?* The answers shape the strategy. There's no universal best — only "what fits this system" and "what's the cost of the wrong choice."
-
-The systems that scale gracefully are the ones with thoughtful load balancing layered through DNS, network, application, and mesh — each making decisions appropriate to its scope. The systems that struggle are the ones with one round-robin rule and the silent assumption that all instances are equivalent. Reality is rarely that uniform.
-
-That's load balancing. That's the layer that turns "many machines" into "one service." That's the part of the system the user never sees — until it stops working, and they suddenly see it everywhere.
+- **"Round robin vs least connections vs P2C — when each?"** Tests algorithmic awareness against workload variability.
+- **"How do you health-check?"** Layered: liveness, readiness, deep checks; never depend on shared resources.
+- **"What's consistent hashing?"** Hash to ring; closest node clockwise; adding nodes moves only 1/N keys. Bonus: hot-key mitigations.
+- **"Sticky sessions — when to use?"** Rarely; prefer external session stores. Tests practical judgment.
+- **"How do you do failover?"** Health checks, connection draining, possibly Anycast.
+- **"Where does TLS terminate?"** At the LB for external; mTLS internally for service-to-service.
+- **"How would you load-balance gRPC traffic?"** Client-side LB or service mesh; gRPC's HTTP/2 multiplexing breaks naive L4 LBs.
+- Common traps: treating LB as "just round robin"; health checks that probe dependencies; believing sticky sessions are free; not knowing gRPC's specific LB challenges.

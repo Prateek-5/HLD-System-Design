@@ -50,25 +50,6 @@ The pattern: each generation formalized response. The methodology is well-docume
 
 ---
 
-## Core Mental Models
-
-**1. Security incidents have phases distinct from operational incidents.**
-Detection → Containment → Eradication → Recovery → Lessons Learned. Each has security-specific work.
-
-**2. The attacker may be watching.**
-Monitor your monitoring. Communicate via secure channels. Don't tip them off until containment is ready.
-
-**3. Evidence matters.**
-For forensics, for legal, for understanding what happened. Don't wipe before preserving.
-
-**4. Containment ≠ eradication.**
-Cutting off access ≠ removing the threat. The attacker may have multiple footholds.
-
-**5. Disclosure has timelines.**
-GDPR: 72 hours. SEC: 4 days. State laws vary. Missing these has regulatory consequences.
-
----
-
 ## Deep Technical Explanation
 
 ### The phases
@@ -331,68 +312,27 @@ The unifying observation: **security incidents are operational incidents with ad
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **disclosure timelines are legal**.
-- That **evidence must be preserved**.
-- That **attackers may be watching**.
-- That **containment ≠ eradication**.
-- That **service accounts need rotation too**.
-- That **air-gapped backups** matter.
-- That **tabletop exercises** are real preparation.
+- **IR lifecycle**: Preparation → Detection → Containment → Eradication → Recovery → Lessons Learned. Each phase has security-specific work distinct from operational incidents.
+- **Security incidents are operational incidents in a hostile environment**: the attacker is intelligent, the timeline is regulatory, the evidence is fragile, and the consequences span legal, brand, and customer trust.
+- **The attacker may be watching** — monitor your monitoring, and don't tip them off until containment is ready.
+- **Containment ≠ eradication.** Cutting off access (stop the bleeding) is not the same as removing the threat; attackers maintain multiple footholds.
+- **Preserve evidence before remediation.** Wiping/rebuilding before forensics image the system destroys the investigation.
+- **Disclosure timelines are legal obligations**: GDPR 72 hours (clock starts on awareness), SEC 4 business days, HIPAA 60 days, state laws vary. Missing them adds fines on top of the breach.
+- **Service accounts need rotation too** — rotating user passwords while forgetting service accounts, API keys, and embedded credentials leaves the attacker in.
+- **Use out-of-band, secure communication** during incidents (not email/Slack if those may be compromised).
+- **Air-gapped, immutable backups** are essential for ransomware recovery; backups on the same network get encrypted too.
+- **Tabletop exercises** (quarterly) are real, cheap preparation; documented runbooks and established vendor relationships (DFIR, legal, PR) matter.
+- **Cyber insurance** is now standard and shapes response (insurer notification, mandated vendors).
+- **Forensics matter** for reconstructing scope — "they entered here, did this, took this" — used for postmortem, legal, and disclosure.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **practice tabletop exercises**.
-- They **maintain incident runbooks**.
-- They **preserve evidence** before remediation.
-- They **track disclosure timelines**.
-- They **use out-of-band communication**.
-- They **have established vendor relationships**.
-- They **understand cyber insurance** terms.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's the IR lifecycle?"** Tests fundamental.
-2. **"What's containment?"** Stop the bleeding without tipping off.
-3. **"What's evidence preservation?"** Before remediation.
-4. **"What's a tabletop exercise?"** Simulated response.
-5. **"GDPR notification timeline?"** 72 hours.
-6. **"How do you handle ransomware?"** Tests practical knowledge.
-
-Common traps:
-- Treating security incidents as operational ones.
-- Believing immediate containment is enough.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **IR phases**: Prep → Detect → Contain → Eradicate → Recover → Learn.
-2. **Preserve evidence** before remediation.
-3. **Containment ≠ eradication.**
-4. **Disclosure timelines are legal**: 72h GDPR.
-5. **Out-of-band communication** during incidents.
-6. **Air-gapped backups** for ransomware.
-7. **Service accounts** need rotation too.
-8. **Tabletop exercises** prepare teams.
-9. **Cyber insurance** is now standard.
-10. **Forensics matter** for understanding scope.
-
----
-
-## Final Mental Model
-
-> **Security incidents are operational incidents in a hostile environment. The attacker is intelligent; the timeline is regulatory; the evidence is fragile; the consequences span legal, brand, and customer trust. The teams that handle them well have rehearsed; the teams that haven't make mistakes that compound. The cost of preparation is small relative to the cost of unpreparedness.**
-
-The senior security-aware engineer treats IR as a discipline alongside operational IR. Rehearse. Document runbooks. Preserve evidence. Communicate carefully. Disclose on schedule. Verify eradication before recovery.
-
-The teams that survive their first major security incident gracefully are the ones who prepared. The teams that bumble through learn lessons painfully. The framework is well-established; following it is the difference between an incident and a catastrophe.
-
-That's security incident response. That's the discipline that handles the days you hope never come — and the practice that determines whether your company's first major breach is a footnote or a defining event.
+- **"What's the IR lifecycle?"** — Prep → Detect → Contain → Eradicate → Recover → Learn.
+- **"What's containment?"** — Stop the bleeding without tipping off the attacker.
+- **"What's evidence preservation?"** — Capture before remediation.
+- **"What's a tabletop exercise?"** — Simulated, walked-through incident response.
+- **"GDPR notification timeline?"** — 72 hours.
+- **"How do you handle ransomware?"** — Tests practical knowledge of containment, air-gapped backups, and recovery.
+- **Common traps**: treating security incidents as operational ones; believing immediate containment is enough.

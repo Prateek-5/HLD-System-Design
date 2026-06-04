@@ -57,25 +57,6 @@ The pattern across eras: each generation of tooling answered a question the prev
 
 ---
 
-## Core Mental Models
-
-**1. Observability is a property of the system, not the tools.**
-A system is observable if you can answer arbitrary questions about its behavior from its outputs. This is a *design property* — emitted by instrumentation choices, not bought from a vendor.
-
-**2. The three pillars have different cost models.**
-Metrics are cheap (pre-aggregated, bounded cardinality). Logs are expensive (variable, high volume, full-text indexed). Traces are *very* expensive at full fidelity (every span of every request). Sampling is non-negotiable for the latter two at scale.
-
-**3. Cardinality is the unit of cost and value.**
-Cardinality = number of unique combinations of attribute values. A metric tagged by `endpoint` (10 endpoints) is cheap. The same metric tagged by `user_id` (1M users) is *six orders of magnitude* more expensive. High cardinality is what lets you slice; high cardinality is also what breaks budgets.
-
-**4. SLOs are the contract; SLIs are the measurement.**
-SLOs (Service Level Objectives): "99.9% of requests served under 200ms." SLIs (Service Level Indicators): the metric that proves it. Error budgets are the implication: 0.1% failure is allowed; failures beyond that cost feature-velocity until the budget refills. This framework comes from Google SRE and has become industry standard.
-
-**5. Most production debugging is "what is this customer's request doing?"**
-Optimize for that question. Customer ID searchable in logs. Trace ID propagated everywhere. Timeline view across services. If a senior engineer can answer "why was customer X's request slow at 3:47pm?" in under a minute, your observability is working. If not, it isn't — regardless of dashboard count.
-
----
-
 ## Deep Technical Explanation
 
 ### Metrics
@@ -311,73 +292,33 @@ The unifying observation: **observability is the meta-discipline for everything 
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **structured logs are non-negotiable** at production scale.
-- That **averages hide tails** — measure percentiles.
-- That **cardinality is cost** in metrics systems.
-- That **a missing trace context propagation** breaks the entire trace.
-- That **log levels matter** — DEBUG in production is a cost trap.
-- That **alerts must be tied to user-facing impact**, not resource-level metrics.
-- That **dashboards must be owned and maintained** or they become misleading.
-- That **trace IDs in log lines** is the single highest-leverage instrumentation choice.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **define SLOs first**, then choose what to measure.
-- They **read p99**, not means.
-- They **hunt cardinality** as a regular discipline.
-- They **see alert fatigue** as a debugging problem, not an alerting problem.
-- They **demand trace propagation** in shared libraries.
-- They **use error budgets** as a prioritization tool.
-- They **know which one of the three pillars** answers each kind of question.
-- They **distinguish the question they're asking** ("trend?" vs "cause?" vs "where?") and reach for the right pillar.
+- **Three pillars, three questions:** metrics (what's the trend?), logs (what exactly happened?), traces (why was this request slow / what happened together?). Knowing which pillar answers a given question — "trend?" vs "cause?" vs "where?" — is the core skill.
+- **Observability is a design property of the system, not a tool you buy.** A system is observable if you can answer arbitrary questions about its behavior from its outputs. Mediocre tools with excellent instrumentation choices beat the best tools with poor choices.
+- **The three pillars have different cost models.** Metrics are cheap (pre-aggregated, bounded cardinality); logs are expensive (high volume, full-text indexed); traces are very expensive at full fidelity. Sampling is non-negotiable for logs and traces at scale — tail-sample to keep all errors and slow requests, head-sample the rest.
+- **Cardinality is the unit of cost and value.** Cardinality = unique combinations of attribute values. Tagging by `endpoint` (10 values) is cheap; tagging by `user_id` (1M values) is six orders of magnitude more expensive. High-cardinality fields belong in logs/traces, never on metrics. Hunt cardinality as a regular discipline.
+- **Measure distributions, not averages** — averages hide tails. p50/p95/p99 is the canonical reporting triple.
+- **Structured logs are non-negotiable** at production scale; free-text is a `grep` nightmare. Log levels matter — DEBUG in production is a cost trap.
+- **Trace IDs in every log line** is the single highest-leverage instrumentation choice; it connects the pillars.
+- **A single missing context propagation breaks the entire trace tree** — enforce propagation in shared libraries.
+- **SLOs are the contract; SLIs are the measurement; error budgets are the prioritization tool.** Define SLOs first, then choose what to measure. Full budget → ship features; depleted budget → freeze releases. (Google SRE framework.)
+- **Alerts must be actionable, symptom-based ("users see errors," not "CPU at 80%"), and tied to SLO burn rate.** Alert fatigue is a debugging problem, not an alerting problem.
+- **The four golden signals:** latency, traffic, errors, saturation. RED (Rate, Errors, Duration) for services; USE (Utilization, Saturation, Errors) for resources.
+- **The litmus test:** can you answer "why was customer X's request slow at 3:47pm?" in under a minute, without a deploy? If not, the observability gap is the highest-priority engineering work — because every minute of an incident with poor observability is a minute spent guessing.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
-What gets tested:
+What gets tested (and the senior-level answer):
 
-1. **"What's the difference between metrics, logs, and traces?"** Tests basic literacy. Bonus for explaining the cost/value tradeoffs.
-2. **"How do you measure latency?"** Senior answer: distribution, p50/p95/p99, never just averages.
-3. **"Explain SLOs and error budgets."** Senior candidates explain the prioritization framework, not just the math.
-4. **"How do you debug 'this customer's request was slow'?"** Tests practical instrumentation. Right answer: trace ID propagation, then jump to the trace, then to logs at the slow span.
-5. **"What's cardinality and why does it matter?"** Tests metrics literacy. Right answer: cost scales with cardinality; high-cardinality fields belong in logs/traces, not metrics.
-6. **"How do you alert?"** Senior answer: SLO-based, symptom-based, actionable. Tied to user-facing impact.
-7. **"How would you sample traces?"** Senior answer: tail sampling for errors and slow requests, head sampling for the rest.
+1. **"Difference between metrics, logs, and traces?"** Basic literacy; bonus for the cost/value tradeoffs.
+2. **"How do you measure latency?"** Distribution, p50/p95/p99 — never just averages.
+3. **"Explain SLOs and error budgets."** Explain the prioritization framework, not just the math.
+4. **"How do you debug 'this customer's request was slow'?"** Trace ID propagation → jump to the trace → logs at the slow span.
+5. **"What's cardinality and why does it matter?"** Cost scales with cardinality; high-cardinality fields belong in logs/traces, not metrics.
+6. **"How do you alert?"** SLO-based, symptom-based, actionable, tied to user-facing impact.
+7. **"How would you sample traces?"** Tail sampling for errors and slow requests, head sampling for the rest.
 
-Common traps:
-- Treating monitoring and observability as synonyms.
-- Recommending dashboards as the solution to debugging.
-- Believing more alerts = better.
-- Not knowing the cost model of metrics vs logs vs traces.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Three pillars: metrics (what?), logs (when/exactly?), traces (why together?).**
-2. **Cardinality is cost.** High-cardinality fields belong in logs/traces, not metrics.
-3. **Measure distributions, not averages.** p50/p95/p99.
-4. **SLOs define the contract; error budgets prioritize.**
-5. **Structured logs only.** Free-text is a debugging trap at scale.
-6. **Trace IDs in every log line.** Connects pillars.
-7. **Sampling is mandatory** at scale. Tail-sample errors and slow requests.
-8. **Alerts must be actionable, symptom-based, tied to SLOs.**
-9. **The four golden signals**: latency, traffic, errors, saturation.
-10. **Observability is a design property** of the system. Not bought; built.
-
----
-
-## Final Mental Model
-
-> **Observability is the discipline of making your system explain itself. The questions you didn't anticipate are the questions you'll need to answer at 3am — and the only way to answer them is to have instrumented for them in advance.**
-
-The three pillars are tools. The real work is *deciding what's worth measuring*: which SLIs reflect customer experience, which dimensions reveal causality, which signals are leading vs lagging. A team with mediocre tools and excellent instrumentation choices outperforms a team with the best tools and poor choices, every time.
-
-The senior operator's instinct, looking at any service: *if this fails right now, can I diagnose it without a deploy?* If the answer is no, the observability gap is the highest-priority engineering work — higher than the next feature, higher than the optimization. Because every minute of an incident with poor observability is a minute spent guessing.
-
-That's metrics, logs, and traces. That's how production systems become legible. That's the difference between an outage that's resolved in 15 minutes and one that takes 4 hours.
+Common traps: treating monitoring and observability as synonyms; recommending dashboards as the solution to debugging; believing more alerts = better; not knowing the cost model of metrics vs logs vs traces.

@@ -52,25 +52,6 @@ The pattern: the industry oscillated between centralized (monolith), decentraliz
 
 ---
 
-## Core Mental Models
-
-**1. Conway's Law is destiny.**
-"Organizations design systems that mirror their communication structures." If your team is one team, a monolith fits. If your team is twelve teams that need to ship independently, microservices fit. Trying to fight Conway's Law produces architectures that look right on paper and feel wrong in practice.
-
-**2. The cost of microservices is mostly operational.**
-Code-wise, microservices and modular monoliths can look similar. The cost is in deployment infrastructure, observability, networking, on-call rotations, integration testing — none of which the architecture diagram shows.
-
-**3. Service boundaries follow domain, not technology.**
-Splitting "by tier" (frontend service, backend service, database service) is *not* microservices — it's a distributed monolith with all the costs and none of the benefits. Splitting by business capability (Orders, Payments, Inventory) is microservices.
-
-**4. Small services are easier to reason about; large systems of small services are harder.**
-Each service is simpler. The whole is more complex. The complexity moves from inside services to between them. Network protocols, data consistency, deployment ordering, version compatibility — these are now first-class concerns.
-
-**5. The right granularity is not "as small as possible."**
-"Microservice" doesn't mean "tiny." A service that does one trivial thing creates more cross-service traffic than it eliminates internal complexity. The right size is "the smallest unit that can be developed, deployed, and operated independently by one team."
-
----
-
 ## Deep Technical Explanation
 
 ### The monolith — clarified
@@ -308,52 +289,6 @@ The unifying observation: **microservices are a distributed system; monoliths ar
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That **microservices are a distributed system** with all that implies.
-- That **the operational tax is real** and often underestimated.
-- That **service boundaries follow domain, not technology**.
-- That **"microservices because Netflix"** is not a reason.
-- That **small services don't always mean simpler systems**.
-- That **modular monoliths exist** as a middle ground.
-- That **Conway's Law is destiny**.
-- That **synchronous chains amplify failures**.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **start from team structure**, not architecture diagrams.
-- They **prefer modular monoliths** until proven otherwise.
-- They **audit service coupling** as the primary concern.
-- They **invest in observability** before extracting services.
-- They **distinguish microservices from distributed monoliths**.
-- They **resist premature splitting**.
-- They **measure architectural overhead** (CI time, deploy coordination, debugging difficulty).
-- They **know when consolidation is the right move**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Microservices vs monolith — when each?"** Senior answer covers team size, operational maturity, deployment requirements, domain shape.
-2. **"What's a distributed monolith and why is it bad?"** Tests anti-pattern awareness.
-3. **"How would you split a monolith?"** Bounded contexts, ownership, change frequency.
-4. **"What's the operational cost of microservices?"** Network, observability, deployment, debugging.
-5. **"What's Conway's Law?"** Tests classic literacy.
-6. **"When would you NOT use microservices?"** Senior candidates volunteer "most of the time."
-7. **"How do microservices change failure modes?"** Cascading failures; need for circuit breakers, retries, sagas.
-
-Common traps:
-- Saying microservices are "always more scalable."
-- Recommending splitting based on technology, not domain.
-- Underestimating operational cost.
-- Believing small services solve every problem.
-
----
-
 ## Worked Example — When to Extract
 
 You have a Rails monolith. 30 engineers, growing to 50. The team is feeling pain: 30-minute CI; merge conflicts daily; deploys touch all features; one team's bug crashes others. Should you extract services?
@@ -545,27 +480,33 @@ The path is incremental. The end state is bespoke to your needs. The companies w
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **Architecture follows team structure** (Conway's Law).
-2. **Microservices are a distributed system.**
-3. **The cost is operational**: deploy, observability, networking, on-call.
-4. **Service boundaries follow domain**, not technology layer.
-5. **Modular monolith** is the middle ground.
-6. **Default to monolith** until pain forces a split.
-7. **Distributed monolith is the worst of both worlds.**
-8. **Synchronous chains amplify failures.**
-9. **Each service should be one team's scope.**
-10. **Consolidation is sometimes the right move.**
+- **Architecture follows team structure (Conway's Law).** Organizations design systems that mirror their communication structures. Start from the org chart, not the architecture diagram; fighting Conway's Law produces systems that look right on paper and feel wrong in practice.
+- **Microservices are a distributed system; monoliths are not.** Every distributed-systems concept — network failures, retries, idempotency, sagas, tracing — applies to microservices and largely doesn't to monoliths. That's the real cost.
+- **The cost of microservices is mostly operational** — deployment infrastructure, observability, networking, on-call rotations, integration testing — none of which the architecture diagram shows, and which teams routinely underestimate.
+- **Service boundaries follow domain, not technology.** Splitting by business capability (Orders, Payments, Inventory) is microservices; splitting "by tier" (frontend/backend/database service) is a distributed monolith — all the costs, none of the benefits.
+- **Small services are easier to reason about; large systems of small services are harder.** Complexity moves from inside services to between them. The right granularity is not "as small as possible" — it's the smallest unit one team can develop, deploy, and operate independently.
+- **The modular monolith is the recommended starting point** for most teams and a middle ground: one deploy, but strict enforced module boundaries that make later extraction module-by-module straightforward.
+- **Default to monolith until real pain forces a split.** Resist premature splitting and the "service per developer" / "microservices because Netflix" instinct; most "we need microservices" pains have monolith-friendly fixes (parallelize CI, feature flags, modules with ownership).
+- **The distributed monolith is the worst of both worlds** — services that share a database or chain synchronously such that they can't deploy independently.
+- **Synchronous chains amplify failures**: A→B→C→D→E with a 1% error rate at E gives A a much higher effective error rate.
+- **Each service should be one team's scope**, with one source of truth for each piece of data.
+- **Consolidation is sometimes the right move** — don't be precious about service count. Senior engineers measure architectural overhead (CI time, deploy coordination, debugging difficulty) and know when to merge services back.
+- **There is no architecture that's better in a vacuum — only architecture that fits** the team, domain, operational maturity, and the scale you're at *and* heading toward. The question is never "should we be microservices?" but "where do the costs and benefits flip for us?" Ask: what's hard now, what's hard 12 months out, what does the team and org look like?
 
 ---
 
-## Final Mental Model
+## Interview angle
 
-> **There is no architecture that's better than another in a vacuum. There is only architecture that fits — fits the team, fits the domain, fits the operational maturity, fits the scale you're at *and* the scale you're going to. The question isn't "should we be microservices?" — it's "where do the costs and benefits flip for us?"**
+What gets tested:
 
-The senior architect, looking at a system, asks: *what's hard right now? what's hard 12 months from now? what does the team look like? what does the org look like?* The answers point to the right architecture. Sometimes it's microservices. Often it's a monolith. Frequently it's "extract these three services from the monolith and leave the rest."
+1. **"Microservices vs monolith — when each?"** Senior answer covers team size, operational maturity, deployment requirements, domain shape.
+2. **"What's a distributed monolith and why is it bad?"** Tests anti-pattern awareness.
+3. **"How would you split a monolith?"** Bounded contexts, ownership, change frequency.
+4. **"What's the operational cost of microservices?"** Network, observability, deployment, debugging.
+5. **"What's Conway's Law?"** Tests classic literacy.
+6. **"When would you NOT use microservices?"** Senior candidates volunteer "most of the time."
+7. **"How do microservices change failure modes?"** Cascading failures; need for circuit breakers, retries, sagas.
 
-The teams that thrive aren't the ones with the trendiest architecture. They're the ones whose architecture matches their organizational reality — and who change architecture only when the pain of the current shape outweighs the cost of changing.
-
-That's microservices vs monolith. That's the most religious debate in software architecture. That's a question whose answer has more to do with people than with code — and getting it right starts with admitting that.
+Common traps: saying microservices are "always more scalable"; recommending splitting based on technology rather than domain; underestimating operational cost; believing small services solve every problem.

@@ -54,25 +54,6 @@ The pattern: each generation rediscovered that **systems must explicitly handle 
 
 ---
 
-## Core Mental Models
-
-**1. Coupling is the fault line along which cascades spread.**
-Tightly coupled services fail together. Loosely coupled services contain damage. The first design question is "what does this service do when its dependency is broken?" — not "what does it do when the dependency works?"
-
-**2. Failure modes are not symmetric.**
-A failed dependency is easy: errors propagate, callers fail fast, the problem is visible. A *slow* dependency is the killer. It absorbs resources from upstream services, fills queues, exhausts pools, and makes the *caller* look broken. Slowness is more dangerous than failure.
-
-**3. Retries amplify; backoff dampens.**
-Naive retry triples or quadruples load on a degraded service. Exponential backoff with jitter is not optional — it's the difference between a service that recovers and a service that the retries finish off.
-
-**4. Bulkheads contain damage.**
-Borrowed from naval architecture: compartmentalize the system so a leak in one section doesn't sink the ship. In software: separate thread pools, separate connection pools, per-tenant queues. The compartments must be *truly* independent — shared resources defeat the bulkhead.
-
-**5. Graceful degradation > heroic recovery.**
-The best response to overload is to *do less*: serve cached data, return defaults, skip non-essential work, drop low-priority requests. A degraded service is infinitely better than a down service. Building this in is engineering work; defaulting to it is engineering culture.
-
----
-
 ## Deep Technical Explanation
 
 ### The anatomy of a cascade
@@ -199,13 +180,6 @@ What 3am outages look like:
 - **The thundering recovery.** Cache cluster restarts. All instances retry simultaneously when the cluster comes back. Cluster crashes again under the retry storm. Without jitter, recovery itself becomes a DoS.
 - **The DNS-induced cascade.** A flaky internal DNS resolver. Lookups slow from 5ms to 5s. Every service call now takes 5s to start. Pools fill. Multi-team outage from a single DNS issue.
 
-The senior engineer's habits:
-- **Review every external call** for timeout, circuit breaker, and concurrency limit.
-- **Practice failure** — Game Days, chaos engineering, regional failover drills.
-- **Design for partial degradation** — what does the homepage look like if recommendations are down?
-- **Ban infinite retries**. Retry policies are a system property, not a per-client convenience.
-- **Watch the retry budget** at the service mesh layer. A retry budget of 10% means retries cost ≤10% of base traffic; beyond that, the system is in the cascade zone.
-
 ---
 
 ## Failure Scenarios
@@ -267,51 +241,6 @@ The unifying observation: **resilience is not the absence of failure but the iso
 - **Netflix's chaos engineering papers:** documented cases of services that "should have been resilient" but weren't, discovered only by deliberately failing things in production.
 - **Cloudflare's 2019 regex outage:** catastrophic regex backtracking on the request path. No CPU-time backpressure. Workers stuck. Postmortem became a textbook on per-request resource limits.
 - **Slack's 2021 outage:** complex cascade involving DNS, AWS Transit Gateway, and a deploy. A masterclass in how seemingly-isolated infrastructure components are actually deeply coupled.
-
----
-
-## What Junior Engineers Usually Miss
-
-- That **"add a retry" is rarely the right answer** — it's usually the cause of the next outage.
-- That **slow is more dangerous than down** — failed dependencies fail fast; slow dependencies hold resources.
-- That **shared resources are shared failures** — a single connection pool is a single point of failure.
-- That **timeouts are mandatory** on every external call.
-- That **circuit breakers must be tuned** to the specific dependency's baseline error rate.
-- That **load tests don't reveal cascade behavior** unless they include sustained overload and partial failures.
-- That **graceful degradation is a feature** that requires code, not just configuration.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **draw the dependency graph** before reasoning about reliability.
-- They look for **shared resources** and treat them as suspects.
-- They reflexively check **timeouts, retries, and circuit breakers** in code review.
-- They distinguish **"slow"** from **"down"** and design for both.
-- They **practice failure** — game days, chaos drills, regional failover.
-- They **classify traffic by priority** before they need to.
-- They **read postmortems** as a regular discipline, not just their own team's.
-- They know that **observability of failure modes** matters more than observability of success.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Walk me through a cascading failure you've seen."** Tests whether the candidate has lived through one and understands the dynamics. Bonus for naming the phases (trigger → degradation → resource exhaustion → propagation → retry storm).
-2. **"How does a circuit breaker work?"** Junior: states the three states. Senior: discusses tuning, false alarms, and integration with retries.
-3. **"You have a slow dependency. What do you do?"** The right answer is *not* "scale it." It's "bound the concurrency to it, time out aggressively, circuit-break, and have a fallback."
-4. **"Design retries for a financial system."** Tests idempotency awareness. The right answer involves idempotency keys, careful classification of retryable errors, and a max-retry budget.
-5. **"How would you isolate failures across customers?"** Tests bulkhead thinking. Per-tenant queues, per-tenant rate limits, per-tenant circuit breakers, ultimately cellular architecture.
-6. **"What's wrong with this retry policy: 3 retries with no backoff?"** Senior candidates immediately call out amplification and recommend exponential backoff with jitter.
-7. **"What metrics do you watch for cascade prediction?"** Saturation (utilization), latency percentiles, error rate, retry rate, circuit breaker state, queue depth.
-
-Common traps:
-- Recommending "more capacity" as the solution to a cascade.
-- Treating timeouts and retries as independent — they interact.
-- Not knowing the difference between idempotent and non-idempotent operations.
-- Confusing health checks (signal) with dependency checks (action).
 
 ---
 
@@ -454,27 +383,36 @@ Each layer has its bound. Each layer fails fast. The cascade is contained.
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
-
-1. **Failures cascade through coupling, not random chance.** Identify shared resources.
-2. **Slow is worse than down.** A timeout is mercy.
-3. **Circuit breakers fail fast on degraded dependencies.** Mandatory pattern.
-4. **Bulkheads isolate failure to one compartment.** Separate pools, queues, regions.
-5. **Retries must use exponential backoff with jitter.** Always.
-6. **Timeouts must decrease from outer to inner layer.** Outer 5s → inner 2s.
-7. **Graceful degradation > heroic recovery.** Build fallbacks for every dependency.
-8. **Health checks must not share resources with traffic** — or they cascade with it.
-9. **Untested failover is broken failover.** Practice failure regularly.
-10. **The fix during an incident is reducing inbound load.** Not adding capacity.
-
----
-
-## Final Mental Model
+## Key Takeaways
 
 > **Reliability isn't preventing failures. It's bounding their blast radius. Every defensive pattern — circuit breakers, bulkheads, timeouts, load shedding — is an answer to one question: when this fails, what else does it take down?**
 
-A senior engineer designs systems by asking that question of every dependency, every shared resource, every coupling. The answer is rarely "nothing else" — and that's the work. Add the bulkhead. Add the timeout. Add the fallback. Make the failure local.
+- **Failures cascade through coupling, not random chance.** Tightly coupled services fail together; loosely coupled ones contain damage. The first design question is "what does this service do when its dependency is broken?" Identify shared resources and treat them as suspects — a single connection pool is a single point of failure.
+- **Slow is worse than down.** A failed dependency fails fast and is visible; a slow dependency silently holds resources, fills queues, exhausts pools, and makes the *caller* look broken. A timeout is mercy. Design for both "slow" and "down."
+- **Timeouts are mandatory on every external call**, and must *decrease* from outer to inner layer (client 5s → service 4s → DB 2s) so each layer has time to handle the failure.
+- **Circuit breakers fail fast on degraded dependencies** — a mandatory pattern, but they must be tuned to the dependency's baseline error rate, or the breaker itself becomes the outage (false alarms).
+- **Bulkheads isolate failure to one compartment** — separate pools, queues, regions. Compartments must be *truly* independent; a shared resource is a shared failure mode.
+- **Retries amplify; backoff dampens.** "Add a retry" is rarely the right answer — it's usually the cause of the next outage. Always use exponential backoff with jitter, cap with a retry budget, and ban infinite retries. Retry policy is a system property, not a per-client convenience.
+- **Graceful degradation > heroic recovery.** Build fallbacks (cached data, defaults, read-only mode) for every dependency. It's a *feature* requiring code, not just configuration.
+- **Health checks must not share resources with traffic** — or they cascade with it. Don't confuse health checks (signal) with dependency checks (action).
+- **The fix during an incident is reducing inbound load**, not adding capacity. Restarting instances often re-saturates them immediately.
+- **Practice failure** — game days, chaos drills, regional failover. Untested failover is broken failover. Read postmortems as a regular discipline. Load tests don't reveal cascade behavior unless they include sustained overload and partial failures.
+- **Classify traffic by priority before you need to**, and draw the dependency graph before reasoning about reliability. Observability of failure modes matters more than observability of success.
 
-The 2003 blackout, the AWS S3 outage, the Facebook BGP incident, the Cloudflare regex bug — they're all the same story. Coupling lets local failure become global failure. The discipline of resilience is the discipline of *uncoupling at the right places*.
+The 2003 blackout, the AWS S3 outage, the Facebook BGP incident, the Cloudflare regex bug — they're all the same story. Coupling lets local failure become global failure; the discipline of resilience is the discipline of *uncoupling at the right places*. That's how production systems survive the second year.
 
-That's cascading failures. That's circuit breakers. That's how production systems survive the second year.
+---
+
+## Interview angle
+
+What gets tested:
+
+1. **"Walk me through a cascading failure you've seen."** Tests whether the candidate has lived through one and understands the dynamics. Bonus for naming the phases (trigger → degradation → resource exhaustion → propagation → retry storm).
+2. **"How does a circuit breaker work?"** Junior: states the three states. Senior: discusses tuning, false alarms, and integration with retries.
+3. **"You have a slow dependency. What do you do?"** The right answer is *not* "scale it." It's "bound the concurrency to it, time out aggressively, circuit-break, and have a fallback."
+4. **"Design retries for a financial system."** Tests idempotency awareness — idempotency keys, careful classification of retryable errors, and a max-retry budget.
+5. **"How would you isolate failures across customers?"** Tests bulkhead thinking — per-tenant queues, per-tenant rate limits, per-tenant circuit breakers, ultimately cellular architecture.
+6. **"What's wrong with this retry policy: 3 retries with no backoff?"** Senior candidates immediately call out amplification and recommend exponential backoff with jitter.
+7. **"What metrics do you watch for cascade prediction?"** Saturation (utilization), latency percentiles, error rate, retry rate, circuit breaker state, queue depth.
+
+Common traps: recommending "more capacity" as the solution to a cascade; treating timeouts and retries as independent (they interact); not knowing idempotent vs non-idempotent operations; confusing health checks (signal) with dependency checks (action).

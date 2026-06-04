@@ -49,25 +49,6 @@ The pattern: each generation produced more sophisticated migration techniques, o
 
 ---
 
-## Core Mental Models
-
-**1. The legacy system is alive; treat it that way.**
-You cannot freeze the old system while you build the new one. Users keep using it; bugs keep getting fixed; features keep getting added. The migration must coexist with ongoing development.
-
-**2. Migrations are routes, not blocks.**
-Replace one route, function, or capability at a time. Each migration is small enough to ship and rollback in a day, not a year.
-
-**3. There is no "switchover day."**
-The cutover is gradual. Users move to the new system imperceptibly, by URL, by feature flag, by traffic split. There's no single moment of risk; there are many small moments of small risk.
-
-**4. The old system survives until it's empty.**
-Don't aim for a deletion date. Aim for "the old system has nothing left that anyone uses." Then delete it. Often the last 10% takes longer than the first 90% — that's normal.
-
-**5. Migration is a project of decommissioning, not building.**
-The win condition isn't "new system has all features." It's "old system can be turned off." Frame the work that way.
-
----
-
 ## Deep Technical Explanation
 
 ### The strangler fig pattern
@@ -230,29 +211,6 @@ This is the long-tail outcome: the new system handles current load; the old syst
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The big rewrite that took 4 years.** Started as 18-month project. Old system kept evolving; new system always 6 months behind on features. Eventually scrapped. Years of work lost.
-- **The long-tail trap.** New system handles 95% of traffic. Last 5% is too painful. Both systems run for 5 more years. Maintenance cost doubles indefinitely.
-- **The data migration disaster.** Data backfill from old to new took 3 days; during which business decisions were made on incomplete data. Reports were wrong; financial implications.
-- **The façade that became permanent.** Façade introduced as temporary; nobody ever removed it. New system lives "behind" a translation layer that imposes the legacy system's awkward shape on it.
-- **The buy-in failure.** Engineering "migrated"; product team added new features to the old system in parallel. Migration never catches up. Eventually abandoned.
-- **The shadow-traffic side-effect bug.** Parallel run sent same payment to old and new systems; old charged the card; new tried to charge again; idempotency saved most cases but not all. Customer refunds.
-- **The "we'll add tests later" disaster.** Migration shipped without comprehensive tests. Subtle regressions in edge cases. Customer complaints accumulate.
-
-The senior architect's habits:
-- **Explicitly choose strangler over big rewrite**, every time.
-- **Invest in observability** before the migration starts.
-- **Define "done"** as old system decommissioned, not new system shipped.
-- **Plan the long-tail** explicitly.
-- **Avoid permanent façades.**
-- **Get cross-functional buy-in** before starting.
-- **Test exhaustively** in parallel run before cutover.
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The two-year migration that never finished.**
@@ -314,72 +272,29 @@ The unifying observation: **legacy migration is engineering's hardest problem, n
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **big rewrites usually fail.**
-- That **migrations are routes, not blocks.**
-- That **the old system survives during migration.**
-- That **observability investment is part of migration cost.**
-- That **the long tail is real** and must be planned.
-- That **shadow traffic catches bugs** parallel run wouldn't.
-- That **expand-contract** for database migrations.
-- That **buy-in across teams is mandatory.**
+- **Migration is the discipline of replacing a system that's still running.** The legacy system is alive — users use it, bugs get fixed, features get added — so the migration must coexist with ongoing development rather than freezing the old system.
+- **Big rewrites usually fail.** Default to the strangler fig: grow the new system around the old one until the old withers.
+- **Migrate routes, not blocks.** Replace one route, function, or capability at a time — each step small enough to ship and roll back in a day, not a year.
+- **There is no "switchover day."** Cutover is gradual (by URL, feature flag, traffic split); many small moments of small risk instead of one big one.
+- **A façade routes traffic** between old and new — API gateway, reverse proxy, feature-flagged code path, or service mesh. Avoid permanent façades that impose the legacy system's awkward shape on the new one.
+- **Branch by abstraction** is the in-process variant: introduce an interface, swap the implementation behind it, then delete the old one.
+- **Expand-contract** is the safe pattern for database schema migration; each step is independently deployable and reversible.
+- **Parallel run / shadow traffic** validates the new system in production with no customer impact — but watch compute cost (doubled load) and non-idempotent side effects (don't charge the card twice).
+- **Observability is mandatory** — per-route, per-cohort comparison of old vs new is part of the migration cost, not an extra.
+- **Define "done" as the old system decommissioned**, not the new system shipped. Measure progress by what's *deleted*, not what's built.
+- **The long tail is real** — the last 5-10% can take as long as everything before it. Explicitly choose between pushing through and running two systems indefinitely; don't drift into the long-tail trap by accident.
+- **Cross-team buy-in is mandatory** before starting; without it, product keeps adding features to the old system and the migration never catches up.
+- **Saying no is sometimes the senior move.** "It's old" or "we don't like the framework" rarely justifies migration cost; old code that works is precious.
+- **Migrations take months to years.** If you estimate less, you're being optimistic.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **prefer strangler over rewrite** by default.
-- They **invest in observability** before starting.
-- They **define done** as old system decommissioned.
-- They **plan the long tail** explicitly.
-- They **avoid permanent façades.**
-- They **get cross-team alignment** before starting.
-- They **test exhaustively** during parallel run.
-- They **choose carefully which migrations to do**, often saying no.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"How would you migrate a legacy system?"** Senior answer: strangler fig; not rewrite.
-2. **"What's a strangler fig?"** Tests pattern literacy.
-3. **"How do you handle database schema migration?"** Expand-contract.
-4. **"What's parallel run / shadow traffic?"** Tests safety-technique awareness.
-5. **"When wouldn't you migrate?"** Old code that works is often best left alone.
-6. **"What's branch by abstraction?"** In-process variant of strangler.
-7. **"How long should a migration take?"** Months to years; if estimating less, you're optimistic.
-
-Common traps:
-- Recommending big rewrites.
-- Underestimating migration timelines.
-- Not planning the long tail.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Big rewrites usually fail.** Default to strangler.
-2. **Façade routes traffic** between old and new.
-3. **Each migration step is small and reversible.**
-4. **Define done** as old system decommissioned.
-5. **Expand-contract** for database schemas.
-6. **Parallel run / shadow traffic** validates new system.
-7. **Observability is mandatory** for migration.
-8. **Long tail is real**; plan for it.
-9. **Buy-in across teams** before starting.
-10. **Saying no to migrations** is sometimes correct.
-
----
-
-## Final Mental Model
-
-> **Migration is the discipline of replacing a system that's still running. The strangler fig is the only pattern that consistently works at scale — because it accepts the legacy system as a peer that won't pause while you build, and grows the new system around it gradually until the old one withers.**
-
-The senior architect doesn't propose rewrites. They propose strangler-fig migrations with explicit phases, observability, rollback plans, and decommissioning targets. They negotiate buy-in across product and engineering. They measure progress by what's *deleted*, not what's built.
-
-Migrations that succeed are the ones treated as projects with discipline equal to feature work. Migrations that fail are the ones treated as engineering side-quests. The pattern works; the discipline is hard. The teams that internalize this can transform their systems gracefully; the teams that don't keep producing legacy that future engineers will need to migrate.
-
-That's the strangler fig. That's legacy migration. That's the most under-appreciated pattern in software architecture — and the one that has saved more engineering organizations than any other.
+- "How would you migrate a legacy system?" → strangler fig, not rewrite.
+- "What's a strangler fig?" / "What's branch by abstraction?" → pattern literacy; the latter is the in-process variant.
+- "How do you handle database schema migration?" → expand-contract.
+- "What's parallel run / shadow traffic?" → safety-technique awareness.
+- "When wouldn't you migrate?" → old code that works is often best left alone.
+- "How long should a migration take?" → months to years.
+- Common traps: recommending big rewrites, underestimating timelines, not planning the long tail.

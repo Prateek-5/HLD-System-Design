@@ -54,25 +54,6 @@ The pattern: each generation made profiling cheaper, more automated, and more us
 
 ---
 
-## Core Mental Models
-
-**1. Sampling beats instrumentation for production.**
-Sampling: take a stack trace every X milliseconds. Low overhead; statistical view. Instrumentation: time every function call. Accurate but slow. Modern profilers sample.
-
-**2. Time on CPU ≠ time on the wall.**
-A function that takes 100ms wall-clock could be 10ms on CPU + 90ms blocked on I/O. CPU profiles show the 10ms; off-CPU profiles show the 90ms. Different signals.
-
-**3. Flame graphs are read width-first.**
-Wide bars = lots of time. Tall bars = deep call stacks. The widest bar at any level is where to look first.
-
-**4. Aggregation matters.**
-A profile that shows "100,000 calls, each taking 0.01ms" tells you something different than "10 calls each taking 100ms" — even though total time is the same. Mode of presentation matters.
-
-**5. The profile reflects the workload.**
-Profile under realistic load; under-load profiles miss the actual bottlenecks. Profile what users actually do, not what's easy to test.
-
----
-
 ## Deep Technical Explanation
 
 ### Sampling profilers
@@ -224,15 +205,6 @@ What goes wrong:
 - **The allocation trap.** CPU profile shows GC time as a flat constant. Real issue is allocation rate. Need allocation profiling, not CPU profile, to see it.
 - **The off-CPU blind spot.** Service appears idle (CPU low) but slow. CPU profile shows little because everyone's blocked. Off-CPU profile reveals the lock or I/O wait.
 
-The senior engineer's habits:
-- **Profile before optimizing.**
-- **Profile under realistic load.**
-- **Read flame graphs by width**.
-- **Differential profile** for regressions.
-- **Use both CPU and off-CPU** profiles.
-- **Continuous profile** in production.
-- **Verify optimizations** with after-profiles.
-
 ---
 
 ## Failure Scenarios
@@ -294,69 +266,29 @@ The unifying observation: **profiling closes the gap between intuition and reali
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **profiling is mandatory** before optimization.
-- That **flame graphs are read by width**.
-- That **CPU profile vs off-CPU profile** are different signals.
-- That **allocation profiling** is separate from CPU profiling.
-- That **realistic load matters** for valid profiles.
-- That **continuous profiling** is now standard practice.
-- That **the bottleneck is rarely where intuition says**.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **profile before optimizing**.
-- They **read flame graphs fluently**.
-- They **use differential profiling** for regressions.
-- They **distinguish CPU from off-CPU**.
-- They **profile under realistic load**.
-- They **use continuous profiling** in production.
-- They **verify optimizations** with measurement.
+- **Profile before optimizing — the bottleneck is rarely where intuition says.** Without profiling you optimize what you *think* is slow; with it you optimize what *is* slow.
+- **Sampling beats instrumentation for production.** Take a stack trace every X ms: low overhead (~1-3%), statistical view. Instrumentation times every call — accurate but slow. Modern profilers sample.
+- **Read flame graphs by width, not height.** Width = time spent (where to look first); tall bars = deep call stacks. Reading by height is a classic misdirection.
+- **CPU profile vs off-CPU profile are different signals.** CPU shows where compute happens; off-CPU shows *why* threads wait (locks, I/O, scheduling). A program at 10% CPU but 90% wall-clock is invisible to a CPU profile alone.
+- **Allocation profiling is separate from CPU profiling.** A CPU profile may show GC as a flat constant while the real driver is allocation rate — only allocation/heap profiling reveals it.
+- **Aggregation/presentation matters.** "100,000 calls at 0.01ms each" implies a different fix than "10 calls at 100ms each," even at equal total time.
+- **Profile under realistic, production-like load.** The profile reflects the workload; unrealistic load surfaces the wrong bottlenecks.
+- **Use differential profiling for regression detection.** Compare canary vs reference profiles; the function that went "red" is the regression. Some teams gate deploys on this.
+- **Continuous profiling in production is now standard.** ~1% persistent overhead buys trend detection, regression detection, and incident drill-down.
+- **Verify optimizations with after-profiles.** Measure that the fix actually moved the bottleneck — don't assume.
+- **Tooling without practice is theater.** Collecting a profile and never analyzing it changes nothing.
+- **The flame-graph visualization is universal** across ecosystems (perf, JFR/async-profiler, Go pprof, py-spy, V8, Rust flamegraph), even though each language ships its own profiler.
 
 ---
 
-## Interview Perspective
+## Interview Angle
 
-What gets tested:
-
-1. **"How do you find performance bottlenecks?"** Tests methodology.
-2. **"What's a flame graph?"** Tests visualization literacy.
-3. **"CPU vs off-CPU profiling?"** Where time vs why waiting.
-4. **"How do you detect performance regressions?"** Differential profiling.
-5. **"What's continuous profiling?"** Always-on, low-overhead.
-6. **"Walk me through a profiling session you did."** Tests practical experience.
-
-Common traps:
-- Optimizing without profiling.
-- Reading flame graphs by height.
-- Using profile from unrealistic load.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Profile before optimizing.**
-2. **Sampling profilers** for low overhead.
-3. **Flame graph width = time**; read width-wise.
-4. **CPU profile** for compute; **off-CPU profile** for waiting.
-5. **Differential profiling** for regressions.
-6. **Continuous profiling** in production.
-7. **Allocation profiling** for memory pressure.
-8. **Profile under realistic load.**
-9. **Verify optimizations** with after-profiles.
-10. **The bottleneck surprises you**; trust the data.
-
----
-
-## Final Mental Model
-
-> **Profiling is how engineering decisions become data-driven. Without it, you optimize what you think is slow. With it, you optimize what is actually slow. The flame graph is the visualization that makes "actually slow" obvious in seconds.**
-
-The senior engineer profiles routinely. They run profiles before optimizing; after optimizing; in production continuously. They read flame graphs as easily as code. They detect regressions automatically. They make performance decisions based on measurement, not intuition.
-
-The teams whose systems get faster over time are profiling teams. The teams whose systems mysteriously slow down are the ones still guessing. The discipline is small; the impact compounds.
-
-That's profiling. That's flame graphs. That's the discipline that turns "I think this is slow" into "I measured; here's the bottleneck; here's the fix; here's the proof it worked." It's the most universal optimization skill — and the one that pays off compoundingly across an engineer's career.
+- **"How do you find performance bottlenecks?"** — methodology: profile first, read by width, fix the dominant cost, re-profile to verify.
+- **"What's a flame graph?"** — sampled stacks rendered as a hierarchy where width = time; read width-first.
+- **"CPU vs off-CPU profiling?"** — where time is spent computing vs why threads are waiting.
+- **"How do you detect performance regressions?"** — differential profiling (canary vs reference).
+- **"What's continuous profiling?"** — always-on, low-overhead production profiling.
+- **"Walk me through a profiling session you did."** — tests real practical experience.
+- Common traps: optimizing without profiling; reading flame graphs by height; using a profile from unrealistic load.

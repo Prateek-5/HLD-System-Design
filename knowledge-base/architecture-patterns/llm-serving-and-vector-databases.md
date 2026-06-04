@@ -54,25 +54,6 @@ The pattern: an entirely new infrastructure category, evolving rapidly. Standard
 
 ---
 
-## Core Mental Models
-
-**1. LLM inference is GPU-bound, latency-variable, expensive.**
-Different from traditional web serving. New constraints; new optimizations.
-
-**2. Vector embeddings represent meaning numerically.**
-Similarity in vector space ≈ similarity in meaning. ANN algorithms find similar vectors fast.
-
-**3. Token-by-token generation is the dominant pattern.**
-Output streams; users see tokens as they're generated. Latency has two distinct components: time-to-first-token (TTFT, the prefill latency before the first token appears) and inter-token latency (TPOT, the per-token streaming rate). Total response time is roughly TTFT + (output tokens × TPOT). Which one matters depends on the use case.
-
-**4. Context windows are limited.**
-Models have token limits (4K, 32K, 128K, 1M). RAG fits relevant context within the window.
-
-**5. Cost per query matters.**
-Traditional API: fractions of a cent. LLM API: cents to dollars. Architecture optimizes around this.
-
----
-
 ## Deep Technical Explanation
 
 ### LLM inference fundamentals
@@ -248,28 +229,6 @@ The doctor has expertise but doesn't know specific patients. They consult charts
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The cost explosion.** Token usage 10× expected. Bills shock the finance team. Mitigation: prompt optimization; caching; cheaper models for simple queries.
-- **The hallucination incident.** LLM confidently asserts wrong answer; user trusts; problem. Mitigation: RAG with cited sources; explicit "I don't know" training.
-- **The context overflow.** RAG retrieves too much; context exceeds limit; query fails. Mitigation: rank and filter; smaller chunks.
-- **The retrieval miss.** Query doesn't match relevant docs in vector space. Mitigation: hybrid search; reranking; better chunking.
-- **The cold-start cliff.** First request after instance startup is slow. Mitigation: keep instances warm; provisioned concurrency.
-- **The quality regression.** Model update changes behavior subtly. Detected by user complaints. Mitigation: regression test suite for prompts.
-- **The cost-per-query at scale.** Each query is $0.10. At a million queries: $100K. Model selection and prompt optimization become primary engineering work.
-
-The senior AI infrastructure engineer's habits:
-- **Cache aggressive**.
-- **Hybrid search** for retrieval quality.
-- **Cite sources** in RAG responses.
-- **Monitor quality** continuously.
-- **Cost-model** queries per usage tier.
-- **Stream responses** for UX.
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The cost shock.**
@@ -332,30 +291,22 @@ The unifying observation: **LLM serving and vector databases are the new infrast
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **LLM serving is GPU-bound**.
-- That **token-by-token generation** is the model.
-- That **context limits matter**.
-- That **chunking quality** drives retrieval quality.
-- That **cost per query** is significant.
-- That **hallucination is a real risk**.
-- That **RAG mitigates but doesn't eliminate**.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **cache aggressively**.
-- They **use hybrid search**.
-- They **stream responses**.
-- They **monitor quality**.
-- They **cost-model** queries.
-- They **plan cold starts**.
+- **LLM inference is GPU-bound, latency-variable, and expensive** — different constraints and optimizations than traditional web serving.
+- **Token-by-token generation is the dominant pattern.** Latency splits into time-to-first-token (TTFT, prefill before the first token) and inter-token latency (TPOT, per-token streaming rate); total response ≈ TTFT + (output tokens × TPOT). Which matters depends on the use case.
+- **Vector embeddings represent meaning numerically**; similarity in vector space ≈ similarity in meaning, and ANN algorithms (HNSW graph-based, IVF cluster-based) find similar vectors fast.
+- **RAG** = retrieve relevant context via semantic similarity, then have the LLM synthesize; the LLM doesn't need to "know" the answer.
+- **Context windows are limited** (4K → 1M tokens); RAG fits relevant context within the window, but limits still bite on complex queries.
+- **Chunking quality drives retrieval quality**; **hybrid search** (vector + keyword/BM25 + reranking) beats vector search alone.
+- **Cost per query is a primary engineering concern** — cents to dollars vs. fractions of a cent for traditional APIs. At a million queries even $0.10 each is $100K; model selection and prompt optimization become primary work.
+- **Hallucination is a real risk**; RAG with cited sources and explicit "I don't know" behavior mitigates but does not eliminate it.
+- Senior practitioners' default habits: **cache aggressively at every layer, use hybrid search, cite sources, stream responses for perceived latency, monitor quality continuously, cost-model queries per usage tier, and plan for cold starts** (keep instances warm / provisioned concurrency).
+- Treat LLM serving as serious infrastructure (cost models, quality monitoring, retrieval tuning, prompt versioning), not magic — that's what turns demos into production systems.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
 What gets tested:
 
@@ -369,28 +320,3 @@ What gets tested:
 Common traps:
 - Treating LLM serving like web serving.
 - Ignoring context limits.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **LLM inference**: token-by-token; GPU-bound.
-2. **RAG**: retrieve context; LLM synthesizes.
-3. **Vector embeddings** for semantic similarity.
-4. **ANN algorithms** (HNSW, IVF) for fast search.
-5. **Chunking quality** matters.
-6. **Hybrid search** beats vector alone.
-7. **Streaming** for UX.
-8. **Cost per query** is a primary concern.
-9. **Caching** at every layer.
-10. **Hallucination** is a real risk; ground via RAG.
-
----
-
-## Final Mental Model
-
-> **LLM serving and vector databases are the AI era's new infrastructure layer. The patterns (RAG, streaming, caching, batching) feel familiar to web engineers; the constraints (GPU memory, context limits, hallucination, cost per query) are new. Teams that succeed treat these as serious infrastructure, not magic.**
-
-The senior AI infrastructure engineer treats LLM serving as a discipline. Cost models. Quality monitoring. Caching. Retrieval tuning. Prompt versioning. The combination is what makes AI products usable at scale rather than expensive demos.
-
-That's LLM serving. That's vector databases. That's the infrastructure under the AI-native applications redefining what software can do — and the engineering discipline that turns "demo magic" into "production system."

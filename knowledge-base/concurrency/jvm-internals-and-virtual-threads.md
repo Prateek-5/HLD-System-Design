@@ -50,25 +50,6 @@ The pattern: the JVM evolved from interpreter to one of the most sophisticated r
 
 ---
 
-## Core Mental Models
-
-**1. JVM = bytecode + interpreter + JIT + GC + threading.**
-Each piece is its own engineering effort. Tuning one affects the others.
-
-**2. JIT compilation tiers escalate.**
-Interpret → C1 (quick compile) → C2 (aggressive optimize). Hot code reaches the top tier.
-
-**3. Garbage collection is configurable.**
-Multiple algorithms; choose for your latency/throughput needs.
-
-**4. Virtual threads change the cost model of threads.**
-Pre-Loom: thread = expensive OS resource. Post-Loom: virtual thread = cheap user-space context.
-
-**5. The JVM is highly observable.**
-JFR, JMC, async-profiler, GC logs. Excellent tooling for production.
-
----
-
 ## Deep Technical Explanation
 
 ### Class loading
@@ -266,28 +247,6 @@ A factory with expensive workers (OS threads) produces inefficiently. New manage
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The GC pause cliff.** Heap too big; major GCs pause for seconds. Switch to ZGC; pauses drop.
-- **The classloader leak.** App server reloading creates classloaders that aren't collected. Memory grows. Famous source of bugs.
-- **The deopt storm.** Hot code's assumption breaks (new type seen); C2 deopts; performance drops. Fix: type stability.
-- **The thread pool starvation.** Pre-Loom: thread pool size too small; requests queue; slow. Post-Loom: virtual threads avoid this.
-- **The pinned virtual thread.** `synchronized` blocks during I/O pin virtual threads to carriers. Loom doesn't help. Fix: ReentrantLock.
-- **The JFR overhead.** Always-on profiling; small but real cost. Tune sampling rate.
-- **The OOM from giant arrays.** Single allocation > heap. Know your data sizes.
-
-The senior JVM engineer's habits:
-- **Use ZGC or G1** for production.
-- **Heap sizing** with `-Xms == -Xmx`.
-- **JFR always on** for production diagnostics.
-- **Virtual threads** for blocking-style services.
-- **Profile** with async-profiler.
-- **Watch GC logs**.
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The full GC nightmare.**
@@ -347,62 +306,25 @@ The unifying observation: **the JVM is one of the most sophisticated production 
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **virtual threads ≠ all problems solved**.
-- That **classloader leaks** exist.
-- That **GC choice matters**.
-- That **JIT deopt** is a real cost.
-- That **JFR** is excellent and free.
-- That **off-heap memory** sometimes matters.
+- **JVM = bytecode + interpreter + JIT + GC + threading.** Each piece is its own engineering effort; tuning one affects the others.
+- **Tiered compilation escalates:** interpret → C1 (quick) → C2 (aggressive optimize). Hot code reaches the top tier and rivals near-native/C++ speed. **Deopt** (a C2 assumption breaking, e.g. an unexpected type) falls back to C1/interpreter and kills performance — type stability matters.
+- **GC is configurable; choice matters.** G1 (default, general), ZGC/Shenandoah (sub-ms pauses, low-latency), Parallel (batch throughput), Serial (small heaps). Pick for your latency/throughput needs.
+- **Virtual threads (Loom, JDK 21) change the cost model:** pre-Loom a thread was an expensive OS resource (~1 MB stack, a few thousand max); post-Loom a virtual thread is a cheap (~KB) user-space context multiplexed onto carrier threads, making blocking-style code idiomatic again. They are not a cure-all — they don't automatically scale everything.
+- **Pinning:** a virtual thread blocking inside `synchronized` can't unmount and stays pinned to its carrier. Mitigate with `ReentrantLock` (JDK 24 / JEP 491 removed this limitation). Native/JNI calls also don't yield. With millions of threads, prefer `ScopedValue` over thread-locals.
+- **The JVM is highly observable.** JFR, JMC, async-profiler, GC logs — excellent, mostly-free production tooling. Keep JFR on (tune the sampling rate; always-on profiling has a small but real cost).
+- **`-Xms == -Xmx`** for predictability; container-aware tuning matters in the cloud.
+- **Classloader leaks** (retained classloaders on app-server reload) are a famous, recurring source of growing memory.
+- **OOM from giant arrays:** a single allocation larger than the heap fails — know your data sizes; off-heap memory (FFM API, Java 22) sometimes matters.
+- **GraalVM** offers AOT native images (millisecond startup, good for serverless/CLI/microservices) and polyglot execution.
+- **Big picture:** the JVM is one of the most sophisticated production runtimes ever built. Virtual threads belatedly bring async-runtime efficiency to its blocking-thread programming model — preserving Java's idioms while solving its scaling limits.
 
----
+### Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **use ZGC for low-latency**.
-- They **tune heap size deliberately**.
-- They **use JFR continuously**.
-- They **adopt virtual threads where appropriate**.
-- They **understand pinning**.
-- They **read GC logs**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"How does JIT work?"** Tiered compilation; profiling; deopt.
-2. **"GC algorithms?"** G1, ZGC, Shenandoah trade-offs.
-3. **"What are virtual threads?"** Loom; cheap multiplexed threads.
-4. **"What's pinning?"** Virtual thread can't unmount during synchronized.
-5. **"How do you tune the JVM?"** Heap, GC, profiling.
-
-Common traps:
-- Believing virtual threads automatically scale everything.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **JVM = bytecode + JIT + GC + threading**.
-2. **Tiered compilation**: interp → C1 → C2.
-3. **G1, ZGC, Shenandoah** are the modern GCs.
-4. **Virtual threads** make blocking idiomatic again.
-5. **Pinning** during `synchronized`.
-6. **JFR** for production profiling.
-7. **`-Xms == -Xmx`** for predictability.
-8. **Container-aware** tuning matters.
-9. **Deopt** kills performance.
-10. **GraalVM** for AOT and polyglot.
-
----
-
-## Final Mental Model
-
-> **The JVM is what production-grade managed runtimes look like. Decades of engineering produce a runtime that JIT-compiles to near-native speed, garbage-collects with sub-millisecond pauses, and (with Loom) handles millions of threads. Java's longevity isn't accident — it's the runtime working harder than any other.**
-
-The senior JVM engineer reaches for virtual threads where they fit. They tune GC for the workload. They use JFR continuously. The JVM rewards discipline; production systems run on it for good reasons.
-
-That's JVM internals. That's virtual threads. That's the runtime under thirty years of enterprise software — and the foundation under modern services that handle a million concurrent users.
+- **"How does JIT work?"** Tiered compilation; profiling; deopt.
+- **"GC algorithms?"** G1, ZGC, Shenandoah trade-offs.
+- **"What are virtual threads?"** Loom; cheap multiplexed threads.
+- **"What's pinning?"** A virtual thread can't unmount during `synchronized`.
+- **"How do you tune the JVM?"** Heap, GC, profiling.
+- **Common trap:** believing virtual threads automatically scale everything.

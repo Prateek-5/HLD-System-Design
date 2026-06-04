@@ -61,25 +61,6 @@ The lesson: every step of this evolution was driven by *operational pain*, not t
 
 ---
 
-## Core Mental Models
-
-**1. Time, not state.**
-A transaction doesn't see "the database." It sees "the database *as of* a specific timestamp." Once you internalize this, half of MVCC clicks. Reads are *time travel queries* into immutable history.
-
-**2. Versions are append-only; deletes are tombstones.**
-Under the hood, an `UPDATE` is `INSERT new version + mark old version as superseded`. A `DELETE` is `mark this version as dead at time T`. The database is fundamentally an append log with garbage collection.
-
-**3. Visibility is a function, not a property.**
-"Is row version V visible?" is computed from (V's creation txid, V's deletion txid, my snapshot, the set of in-flight transactions when my snapshot was taken). It's not a flag on the row. It's a runtime decision per (version, observer) pair.
-
-**4. Isolation levels are a contract about anomalies, not a magic shield.**
-They name *which classes of anomalies you tolerate* in exchange for *which performance properties*. Picking one is a business decision dressed up in database vocabulary.
-
-**5. Writers still need to coordinate.**
-MVCC lets readers off the hook. It does not let writers off the hook. Two transactions writing the same row still need *some* form of conflict resolution — either first-writer-wins with abort, last-writer-wins with risk, or row-level locking on write paths.
-
----
-
 ## Deep Technical Explanation
 
 ### How a row version is stored (Postgres flavor)
@@ -269,46 +250,6 @@ These aren't edge cases. They're the predictable consequences of MVCC's tradeoff
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That the *default* isolation level in their database is probably **not** what they think it is.
-- That `SELECT` doesn't lock — but `SELECT ... FOR UPDATE` does, and using it casually creates lock storms.
-- That vacuum isn't a database luxury; it's on the critical path of correctness.
-- That snapshot isolation does **not** prevent write skew, and the example almost always sounds like "but surely that can't happen in production" right up until it does.
-- That a forgotten `BEGIN` in a connection pool can take down a database 12 hours later.
-- That ORM-generated transactions can hold snapshots far longer than the developer realizes.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They check `pg_stat_activity` for the oldest transaction *before* looking at slow queries.
-- They reach for `SELECT ... FOR UPDATE` *or* an explicit `SERIALIZABLE` block when they see a read-modify-write pattern, and they wire in retry logic from day one.
-- They understand that "the database is slow" usually means "the buffer cache is bloated with dead tuples."
-- They treat retention of the oldest snapshot as a first-class capacity-planning metric.
-- They know the difference between their isolation level's *standard meaning* and their *vendor's actual behavior* — and they read the docs.
-- They design schemas to minimize update frequency on hot rows because they understand the version-creation cost.
-
----
-
-## Interview Perspective
-
-What interviewers actually want when they ask about isolation:
-
-1. **Can you reason about anomalies from first principles?** Given a workload, can you identify which anomalies it's exposed to and what isolation level prevents them?
-2. **Do you understand that MVCC is not free?** A candidate who says "just use MVCC" without mentioning bloat or vacuum has only read the marketing material.
-3. **Can you handle the write skew question?** It's the canonical "are they actually senior" filter. Snapshot isolation prevents most things; the candidate who can articulate exactly what it doesn't prevent has thought about this seriously.
-4. **Do you know your database's actual defaults?** Bonus points for "Postgres defaults to Read Committed which is per-statement snapshot, MySQL defaults to Repeatable Read which is per-transaction snapshot, and that difference matters."
-5. **Can you connect MVCC to distributed consistency?** Staff-level reasoning is recognizing that snapshot isolation is the foundation that distributed databases extend with timestamp protocols.
-
-Common traps:
-- Confusing snapshot isolation with serializability.
-- Thinking "Repeatable Read" means the same thing in every database (it doesn't).
-- Forgetting that writers still need conflict resolution.
-- Missing that locks and snapshots can coexist (and frequently do, as in MySQL InnoDB).
-
----
-
 ## Worked Example — Diagnosing Write Skew
 
 A doctors-on-call schedule. Constraint: at least one doctor must always be on call. Two doctors (Alice and Bob) are both currently on call. Each independently decides to take themselves off.
@@ -372,30 +313,36 @@ This is the canonical write-skew example. It's not academic — variants appear 
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-If you remember nothing else:
+**The mental model**
+- The database isn't a state — it's a log of versions, and a transaction is a viewing angle (a moment in time) into that log. Reads are time-travel queries into immutable history. Locks are pessimism; versions are optimism with bookkeeping.
+- MVCC in one line: readers see snapshots, writers create versions, garbage collection cleans up.
+- An `UPDATE` is `INSERT new version + mark old version superseded`; a `DELETE` is a tombstone. The store is fundamentally an append log with GC.
+- Visibility is computed per (version, observer) pair from creation/deletion txid + snapshot + in-flight set — not a flag stored on the row.
 
-1. **MVCC = readers see snapshots, writers create versions, garbage collection cleans up.**
-2. **A snapshot is a moment in time. Visibility is computed, not stored.**
-3. **Read Committed uses per-statement snapshots; Repeatable Read / Snapshot Isolation uses per-transaction snapshots; Serializable adds cycle detection.**
-4. **Snapshot Isolation does not prevent write skew. Period.**
-5. **The operational cost of MVCC is vacuum. Long-running transactions are vacuum's nemesis.**
-6. **Your database's isolation level names probably don't mean what the SQL standard says.**
-7. **Distributed MVCC = MVCC + a timestamp protocol. Whoever owns the clock owns the bottleneck.**
+**Isolation as a contract**
+- Isolation levels name *which classes of anomalies you tolerate* in exchange for performance — a business decision dressed up in database vocabulary, not a magic shield.
+- Read Committed = per-statement snapshot; Repeatable Read / Snapshot Isolation = per-transaction snapshot; Serializable = snapshot + read-write cycle detection (SSI).
+- **Snapshot Isolation does not prevent write skew. Period.** Two transactions reading overlapping data and writing *disjoint* rows can together violate an invariant (the doctors-on-call case).
+- Your database's isolation level names probably don't mean what the SQL standard says — Oracle "Serializable" is really snapshot isolation; MySQL InnoDB Repeatable Read mixes consistent reads with locking current reads. Read your specific vendor's docs.
+- Writers still need conflict resolution. MVCC frees readers, not writers — use first-writer-wins/abort, `SELECT ... FOR UPDATE`, or `SERIALIZABLE` for read-modify-write patterns, and wire in retry logic from day one.
 
-That's the working set. Everything else is detail you can look up.
+**Operational reality**
+- The operational cost of MVCC is vacuum, and long-running transactions are vacuum's nemesis. A forgotten `BEGIN` (or ORM-held transaction) in a connection pool can fill disk and take a database read-only hours later.
+- Treat retention of the oldest snapshot as a first-class capacity-planning metric; check `pg_stat_activity` for the oldest transaction *before* hunting slow queries. "The database is slow" often means the buffer cache is bloated with dead tuples.
+- Updates touch every index on the row (no HOT for indexes), so design schemas to minimize update frequency on hot rows. `SELECT` doesn't lock, but `SELECT ... FOR UPDATE` does — casual use creates lock storms.
 
----
+**At scale**
+- Distributed MVCC = MVCC + a timestamp protocol. Whoever owns the clock (TrueTime, HLCs, a centralized sequencer) owns the bottleneck or the single point of correctness.
 
-## Final Mental Model
+## Interview angle
 
-> **The database isn't a state — it's a log of versions, and a transaction is a viewing angle into that log.**
+What interviewers are probing for:
+1. **Reasoning about anomalies from first principles** — given a workload, identify which anomalies it's exposed to and which level prevents them.
+2. **Understanding MVCC isn't free** — "just use MVCC" without mentioning bloat/vacuum signals only marketing-level knowledge.
+3. **The write-skew question** — the canonical seniority filter; articulate exactly what snapshot isolation does *not* prevent.
+4. **Knowing your database's actual defaults** — e.g. "Postgres defaults to Read Committed (per-statement snapshot), MySQL to Repeatable Read (per-transaction snapshot), and that difference matters."
+5. **Connecting MVCC to distributed consistency** — staff-level reasoning recognizes snapshot isolation as the foundation distributed databases extend with timestamp protocols.
 
-When you see it that way, isolation levels stop feeling like arbitrary trivia and start feeling like what they are: *negotiations* between you and the database about how much of the log's complexity you want to deal with, in exchange for how much performance.
-
-Locks are pessimism. Versions are optimism with bookkeeping.
-
-The senior engineer's instinct is to reach for *neither blindly* — to look at the workload, identify the anomalies that actually matter to the business, pick the cheapest level that prevents them, and design the application to retry when the database says no.
-
-That's MVCC. That's isolation. That's the rest of your career operating databases.
+Common traps: confusing snapshot isolation with serializability; assuming "Repeatable Read" means the same thing across vendors; forgetting writers still need conflict resolution; missing that locks and snapshots coexist (MySQL InnoDB).

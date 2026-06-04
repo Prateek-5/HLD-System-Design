@@ -52,25 +52,6 @@ The pattern: each generation responded to the previous's failures. CORBA's compl
 
 ---
 
-## Core Mental Models
-
-**1. APIs are contracts, not implementations.**
-The contract — what fields exist, what they mean, when they change — is the durable thing. The implementation can be anything. Treat the contract as a first-class artifact: documented, versioned, owned.
-
-**2. Backward compatibility is the most expensive feature you ship.**
-Adding a field is cheap. Removing a field is a year-long migration. Renaming a field is the same. Every breaking change costs many client-team-weeks. Design APIs assuming you cannot break them.
-
-**3. Latency budgets shape the protocol.**
-The protocol's own overhead (serialization, framing) is usually a small slice of request latency — the bulk is network round-trips, TLS, and downstream work. gRPC/protobuf trims serialization and header overhead versus REST/JSON, which matters most for chatty internal calls and large payloads; it does not turn a 200ms request into a 20ms one if that time was spent in the database. A GraphQL query may aggregate many upstream calls, so its latency is bounded by the slowest dependency. Pick based on where the time actually goes.
-
-**4. Discoverability vs efficiency is the central tradeoff.**
-REST's strength is a curl command works. gRPC's strength is wire-format and type efficiency. The difference shows up at scale and at the boundary between organizations.
-
-**5. The protocol does not solve evolution; design does.**
-Versioning, deprecation, additive evolution — these matter regardless of protocol. A poorly-designed REST API ages worse than a well-designed gRPC one, and vice versa.
-
----
-
 ## Deep Technical Explanation
 
 ### REST in detail
@@ -377,73 +358,35 @@ The unifying observation: **APIs are where the rest of distributed systems theor
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **API contracts outlive the team that designed them**.
-- That **renaming a field is a breaking change**.
-- That **status codes have semantic meaning** that tooling depends on.
-- That **idempotency is mandatory** for retryable state-changing endpoints.
-- That **offset pagination breaks** under modifications.
-- That **GraphQL queries can be unbounded** without protection.
-- That **field tag numbers in protobuf are forever**.
-- That **versioning starts on day one**, not "when we need it."
+**The core distinctions (the 20% that covers 80%):**
+- **REST = resources + HTTP verbs**, public-facing, discoverable.
+- **gRPC = HTTP/2 + protobuf + codegen**, internal, efficient.
+- **GraphQL = client-driven queries**, edge aggregation.
 
----
+**Contracts and evolution:**
+- **APIs are contracts, not implementations** — and the contract outlives the team that designed it. Treat it as a first-class, documented, versioned, owned artifact (OpenAPI / `.proto` / GraphQL schema).
+- **Backward compatibility is the most expensive feature you ship.** Anything wire-visible — including renaming a field — is a breaking change requiring existing clients to update. Design assuming you cannot break clients.
+- **The protocol does not solve evolution; design does.** Versioning, deprecation, and additive change matter regardless of protocol. A poorly-designed REST API ages worse than a well-designed gRPC one. **Versioning starts day one**, not "when we need it" — use what your protocol supports.
+- **Protobuf field tag numbers are forever** — never reuse them; enforce in code review.
+- **Migrating clients off a deprecated endpoint**: long deprecation window, deprecation headers, usage metrics to know when removal is safe, eventual hard cutoff.
 
-## What Senior Engineers Instinctively Notice
+**The unglamorous essentials (protocol-agnostic, arguably more important than the wire format):**
+- **Cursor-based pagination** for any non-trivial list; offset pagination breaks under modifications.
+- **Idempotency keys** are mandatory for retryable state-changing operations.
+- **Status codes are semantic** and tooling depends on them — never return 200 with an error body. 5xx is retryable; 4xx is not.
+- **Standardized error format**: machine-readable code + human message + doc link, consistent across all APIs.
+- **Limit GraphQL query complexity** at the gateway (depth limits, complexity scoring, persisted queries); GraphQL does not eliminate backend complexity.
 
-- They **document the API contract** as a first-class artifact.
-- They **version explicitly** and plan deprecations.
-- They **use cursor pagination** by default.
-- They **standardize error formats** across all APIs.
-- They **enforce protobuf evolution rules** in code review.
-- They **limit GraphQL complexity** at the gateway.
-- They **provide idempotency keys** for state changes.
-- They **distinguish public from internal API design** (different tradeoffs).
+**Latency reality:** Protocol overhead (serialization, framing) is usually a small slice of request latency; the bulk is network round-trips, TLS, and downstream work. gRPC/protobuf trims serialization and header overhead — biggest win on chatty internal calls and large payloads — but won't turn a 200ms DB-bound request into 20ms. A GraphQL query's latency is bounded by its slowest dependency.
 
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"REST vs gRPC vs GraphQL — when each?"** Senior answer: public discoverability → REST; internal performance → gRPC; client-driven shape → GraphQL.
-2. **"How would you version this API?"** Multiple acceptable answers; the candidate should articulate tradeoffs.
-3. **"How do you handle pagination?"** Cursor-based; explain why.
-4. **"How do you handle errors?"** Status code + structured body + machine-readable error code.
-5. **"What's a breaking change?"** Anything that requires existing clients to update.
-6. **"How would you migrate clients off a deprecated endpoint?"** Long deprecation window, metrics, deprecation headers, eventual hard cutoff.
-7. **"How do you design an idempotent POST?"** Idempotency keys; explain.
-
-Common traps:
-- Returning 200 with `{ "error": "..." }`.
-- Reusing protobuf field tags.
-- Believing GraphQL "eliminates" backend complexity.
-- Treating PUT as POST or vice versa.
+**The central tradeoff:** discoverability (a curl command just works) vs wire/type efficiency. Pick the protocol for the boundary, not for the company — public APIs need discoverability, internal services need efficiency, edge aggregators need flexibility. The right architecture often uses all three at once, and the engineering work is at the seams. Distinguish public from internal API design; they carry different tradeoffs.
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Interview angle
 
-1. **REST = resources + HTTP verbs**, public-facing.
-2. **gRPC = HTTP/2 + protobuf + codegen**, internal, fast.
-3. **GraphQL = client-driven queries**, edge aggregation.
-4. **Versioning starts day one**. Use what your protocol supports.
-5. **Cursor pagination only** for any non-trivial list.
-6. **Idempotency keys** for state-changing ops.
-7. **Status codes are semantic**. Don't return 200 for errors.
-8. **Error formats: code + message + doc link**.
-9. **Protobuf field tags are forever.**
-10. **Limit GraphQL query complexity**.
+Common questions: *"REST vs gRPC vs GraphQL — when each?"* (public discoverability → REST; internal performance → gRPC; client-driven shape → GraphQL); *"How would you version this API?"* (articulate tradeoffs — multiple answers acceptable); *"How do you handle pagination?"* (cursor-based, explain why); *"How do you handle errors?"* (status code + structured body + machine-readable code); *"What's a breaking change?"* (anything requiring existing clients to update); *"How would you migrate clients off a deprecated endpoint?"*; *"How do you design an idempotent POST?"* (idempotency keys).
 
----
-
-## Final Mental Model
-
-> **Pick the protocol for the boundary, not for the company. Public APIs need discoverability. Internal services need efficiency. Edge aggregators need flexibility. The right architecture often uses all three at once — and the engineering work is at the seams.**
-
-The senior API designer thinks first about *who's calling*, then about *how often it'll change*, then about *what failures look like*, then about the protocol. Usually the protocol decision is straightforward once those questions are answered. The hard work is in the contract: pagination, idempotency, errors, versioning, deprecation. These are protocol-agnostic and arguably more important than the wire format.
-
-The systems that age gracefully are the ones with disciplined API contracts. The systems that calcify under their own weight are the ones with inconsistent versions, ad-hoc errors, and breaking changes shipped under "small refactors." The protocol is a tool. The contract is the architecture.
-
-That's API design. That's the layer between every two services in production. That's the part of the system that touches every user, every client, every integration — and the part where engineering discipline pays compound interest for years.
+Common traps to avoid: returning 200 with `{ "error": "..." }`; reusing protobuf field tags; believing GraphQL "eliminates" backend complexity; treating PUT as POST or vice versa.

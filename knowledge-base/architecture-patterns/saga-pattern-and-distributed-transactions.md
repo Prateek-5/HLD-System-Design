@@ -57,25 +57,6 @@ The pattern: each generation realized that ACID guarantees across distrust bound
 
 ---
 
-## Core Mental Models
-
-**1. Atomicity is a property bought with coordination.**
-2PC achieves atomicity by holding locks across nodes until everyone agrees. This is expensive and fragile. Sagas achieve a *weaker* property — eventual consistency with semantic recovery — at much lower coordination cost.
-
-**2. Compensation is not rollback.**
-A rolled-back transaction is invisible. A compensated saga is *visible* — both the committed step and the compensating step are recorded. If you charged a customer and refunded them, the books show both. This is fundamental and often missed by teams transitioning from monolith.
-
-**3. Idempotency is the prerequisite.**
-Every saga step must be idempotent. Re-running it must produce the same effect. Without idempotency, retries create duplicates. With idempotency, retries are safe.
-
-**4. Saga steps must commit local state changes immediately.**
-Unlike 2PC, sagas don't hold locks across steps. Each step commits. The world sees intermediate state. Designs must accept this — there is no "isolation" property, full stop.
-
-**5. Failure is normal, not exceptional.**
-A saga is a recipe for handling failures, not just for happy-path flow. The compensation logic is *most* of the engineering effort. Treating it as an afterthought guarantees production pain.
-
----
-
 ## Deep Technical Explanation
 
 ### Two-Phase Commit (2PC) — for context
@@ -312,52 +293,6 @@ The unifying observation: **sagas are how systems handle change across boundarie
 - **Airbnb's payment system**: documented case of moving from synchronous distributed transactions to saga-based payment flows for reliability and clarity.
 - **Booking.com's reservation system**: long-published examples of multi-provider sagas (flight + hotel + car) with compensation logic for partial bookings.
 - **The XA-to-saga migration in finance**: many large financial institutions have moved from XA-coordinated cross-system transactions to saga-style flows for performance and operational reasons. Migration efforts spanning years are common.
-
----
-
-## What Junior Engineers Usually Miss
-
-- That **compensation is a separate transaction**, not a rollback.
-- That **idempotency is a hard prerequisite** for every saga step.
-- That **2PC blocks under coordinator failure** — not "edge case," routine.
-- That **intermediate states are visible** in saga execution.
-- That **compensation can itself fail** and must be designed for.
-- That **the pivot transaction** is a real concept and matters.
-- That **choreography looks simpler but is harder to debug** at scale.
-- That **distributed transactions across organizations** are essentially impossible — you must use sagas.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **design compensations alongside transactions**, not after.
-- They **identify pivots** in every multi-step flow.
-- They **reach for idempotency keys** by reflex.
-- They **prefer orchestration for complex flows**, choreography for simple ones.
-- They **monitor incomplete sagas** as a primary signal.
-- They **avoid 2PC across services** without exception.
-- They **use the outbox pattern** for reliable event publication.
-- They **recognize that "we need a transaction across these services" usually means "we need to redesign these services' boundaries."**
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Why not 2PC?"** Senior candidates discuss blocking, coordinator failure, performance.
-2. **"What's a saga?"** Tests basic literacy. Bonus for explaining compensation as semantic undo, not rollback.
-3. **"Orchestration vs choreography?"** Both have merits; the candidate should articulate when each fits.
-4. **"How do you handle a payment failure mid-saga?"** Tests practical thinking. Right answer: compensate prior steps; design pivot to make payment late or first.
-5. **"What's an idempotency key?"** Tests retry-safety awareness. Right answer: a unique ID per operation that lets the receiver dedupe retries.
-6. **"What's the outbox pattern?"** Senior candidates explain the dual-write problem and how the outbox solves it.
-7. **"Design a checkout flow."** Tests applied saga design — order, payment, inventory, shipping, with compensation for each.
-
-Common traps:
-- Recommending 2PC for cross-service transactions.
-- Treating saga compensation as rollback.
-- Missing idempotency keys.
-- Not handling compensation failures.
 
 ---
 
@@ -609,27 +544,32 @@ Each service owns its database. Coordination is via the orchestrator's message-p
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **2PC blocks under coordinator failure.** Don't use across services.
-2. **Sagas = sequence of local transactions + compensations.**
-3. **Compensation is semantic undo**, not rollback.
-4. **Idempotency keys are mandatory** for every step.
-5. **Outbox pattern** for reliable event emission.
-6. **Pivot transactions** mark the point of no return.
-7. **Orchestration** for complex flows; **choreography** for simple ones.
-8. **Compensation can fail** — design for that.
-9. **Visible intermediate states** are inherent; UI must accommodate.
-10. **Workflow engines** (Temporal, Step Functions) make sagas easier at scale.
+- **2PC blocks under coordinator failure** — not an edge case, routine. A prepared participant holds locks until the coordinator decides; if it dies, they wait, potentially forever. Don't use 2PC across services or organizations; across orgs, distributed transactions are essentially impossible, so sagas are mandatory.
+- **A saga = a sequence of local transactions + compensations.** Atomicity is a property bought with coordination; sagas trade it for eventual consistency with semantic recovery at far lower coordination cost.
+- **Compensation is semantic undo, not rollback.** A rolled-back transaction is invisible; a compensated saga is *visible* — both the committed step and the compensating step are recorded (charge and refund both show in the ledger). Compensation is a separate transaction, often missed by teams coming from monoliths.
+- **Compensation can itself fail** — design for it (retry, then alert an operator / manual tools). Compensation idempotency is required just like forward idempotency.
+- **Idempotency keys are mandatory** for every step and every retryable external call. A unique ID per operation lets the receiver dedupe retries; keys must be globally unique and stable across consumer versions.
+- **Saga steps commit immediately** — no locks held across steps, so intermediate states are visible. There is no isolation property; UIs and downstream consumers must accommodate "partway through" states.
+- **Pivot transactions mark the point of no return.** Before the pivot all steps are reversible; after it, the saga must roll forward (retry until success). Design the pivot in — e.g. reserve inventory before charging so charging is the pivot.
+- **Outbox pattern** for reliable event emission: write business state and the event row in one local transaction, then a separate poller publishes. Solves the dual-write problem; with idempotent consumers gives effective exactly-once semantics.
+- **Orchestration for complex flows; choreography for simple ones.** Choreography looks simpler but is harder to debug and reason about (ordering, "where's the saga?") at scale.
+- **Failure is the normal path, not the exception.** Compensation logic is most of the engineering effort; treating it as an afterthought guarantees production pain. The right design question is "how do I handle each failure point?" not "how do I make this atomic?" And often "we need a transaction across these services" really means "these services' boundaries are wrong and need redesigning."
+- **Workflow engines** (Temporal, AWS Step Functions, Camunda, Cadence) make sagas easier at scale — state, retries, compensation, and deterministic replay are handled for you.
 
----
+> Mental model: a distributed transaction is a comforting lie; a saga is the engineering work of telling the truth — "things happen in steps; sometimes steps fail; here's how we recover" — with that recovery written as code. ACID across a single database is a gift; ACID across services is a fantasy. The result isn't worse than ACID — it's *honest* about the realities of distribution.
 
-## Final Mental Model
+## Interview angle
 
-> **A distributed transaction is a comforting lie. A saga is the engineering work of telling the truth: "things happen in steps; sometimes steps fail; here's how we recover." That recovery, written as code, is the architecture.**
+Commonly tested questions:
 
-The senior engineer designing a system that crosses boundaries doesn't ask "how do I make this atomic?" — they ask "how do I handle each failure point?" The saga is the answer in code form. Compensation logic is engineering work, not a footnote.
+1. **"Why not 2PC?"** Discuss blocking, coordinator failure, performance.
+2. **"What's a saga?"** Tests basic literacy. Bonus for explaining compensation as semantic undo, not rollback.
+3. **"Orchestration vs choreography?"** Both have merits; articulate when each fits.
+4. **"How do you handle a payment failure mid-saga?"** Compensate prior steps; design the pivot so payment is late or first.
+5. **"What's an idempotency key?"** A unique ID per operation that lets the receiver dedupe retries.
+6. **"What's the outbox pattern?"** Explain the dual-write problem and how the outbox solves it.
+7. **"Design a checkout flow."** Applied saga design — order, payment, inventory, shipping, with compensation for each.
 
-ACID across a single database is a gift. ACID across services is a fantasy. The mature system accepts intermediate states, designs idempotent steps, plans compensations, and uses workflow engines or careful choreography to manage the long-running flow. The result isn't worse than ACID — it's *honest* about the realities of distribution.
-
-That's sagas. That's how distributed transactions actually work in production. That's the pattern beneath every well-designed multi-service workflow that has ever survived its first major failure.
+Common traps: recommending 2PC for cross-service transactions; treating compensation as rollback; missing idempotency keys; not handling compensation failures.

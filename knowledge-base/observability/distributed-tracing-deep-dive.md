@@ -52,25 +52,6 @@ The pattern: each generation extended what could be observed and made it cheaper
 
 ---
 
-## Core Mental Models
-
-**1. A trace is a tree.**
-The root span represents the top-level operation (an incoming HTTP request). Each child span is a sub-operation. The tree shows causality and timing. Reading a trace is reading a system's behavior for one request.
-
-**2. Context propagation is the entire game.**
-A missing trace context propagation breaks the tree. Half the request shows up; the other half is invisible. Universal propagation discipline — in HTTP, in Kafka, in gRPC, in async work — is what makes tracing useful.
-
-**3. Sampling is a cost-vs-completeness tradeoff.**
-At scale, capturing every span is too expensive. Sampling decides what to keep. Smart sampling (tail-based, error-biased) is dramatically more useful than naive head sampling.
-
-**4. Traces, logs, and metrics are three views of the same events.**
-The trace shows causality. The metric shows trend. The log shows detail. Stitching them together — by trace ID — turns three separate signals into one coherent debug session.
-
-**5. The point of tracing is debugging.**
-Don't optimize the tracing setup for things you can already do with metrics. Optimize for "I have a slow request; I need to find the bottleneck across services." That's the irreplaceable use case.
-
----
-
 ## Deep Technical Explanation
 
 ### Span anatomy
@@ -344,52 +325,6 @@ The unifying observation: **distributed tracing is the *only* observability tool
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That **a missing propagation breaks the trace** entirely.
-- That **head sampling at 1% misses interesting traces**.
-- That **trace IDs in log lines** is the highest-leverage instrumentation choice.
-- That **async work needs explicit context handoff**.
-- That **span attributes can become PII**.
-- That **clock skew across services** can confuse traces.
-- That **auto-instrumentation gives breadth; manual gives depth**.
-- That **traces visualize causality** — a different signal than logs or metrics.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **demand context propagation** in shared libraries.
-- They **prefer tail sampling for errors and slow requests**.
-- They **correlate traces with logs** via trace IDs.
-- They **manually instrument business-critical paths**.
-- They **watch for trace gaps** as instrumentation bugs.
-- They **size trace storage** based on retention and sample rate.
-- They **redact sensitive data** at instrumentation time.
-- They **read waterfalls fluently** — bottleneck detection is muscle memory.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's a span?"** Tests basic literacy. Bonus for explaining the tree structure.
-2. **"What's context propagation?"** Tests practical understanding. Headers; W3C Trace Context.
-3. **"How would you sample traces?"** Senior answer: tail sampling for errors and slow requests; head sampling for steady state.
-4. **"How do traces, logs, and metrics relate?"** Different views; correlation via trace ID.
-5. **"How do you debug 'why is this request slow'?"** Trace; waterfall; identify the slow span; drill into logs from that span's time window.
-6. **"What goes wrong with async tracing?"** Context propagation through queues; parent-child semantics with wall-clock gaps.
-7. **"How do you design tracing for new services?"** OTel SDK + auto-instrumentation; semantic conventions; trace IDs in logs; manual spans for business logic.
-
-Common traps:
-- Believing 1% sampling is enough.
-- Not propagating through async work.
-- Adding high-cardinality data as attributes.
-- Treating tracing as optional infrastructure.
-
----
-
 ## Worked Example — Debugging a Slow Customer Request
 
 A customer reports: "Yesterday at 14:23 UTC, my checkout was slow." Walk through using traces to find the cause.
@@ -563,27 +498,36 @@ This is the killer feature. Tracing exists for exactly this debugging session.
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **Trace = tree of spans** sharing a trace ID.
-2. **Context propagation everywhere** — HTTP, gRPC, queues, async.
-3. **W3C Trace Context** is the standard format.
-4. **Tail sampling** for errors and slow requests; head sampling for steady state.
-5. **Trace IDs in every log line.** Connects pillars.
-6. **Span status field** marks errors explicitly.
-7. **Waterfall view** is the diagnostic UI.
-8. **Auto-instrumentation for breadth**; manual for depth.
-9. **Async work** uses span links or careful parent-child.
-10. **Redact sensitive attributes** at instrumentation.
+- **A trace is a tree of spans sharing a trace ID.** The root span is the top-level operation; child spans are sub-operations. Reading a trace is reading the system's behavior for one request. It is the *only* observability tool that respects causality across service boundaries — logs and metrics are per-service, traces are per-request, end-to-end.
+- **Context propagation is the entire game.** A single missing propagation breaks the tree: half the request shows up, the other half is invisible. Propagate everywhere — HTTP, gRPC, Kafka, async work — enforced in shared libraries. Async work needs *explicit* context handoff, where most propagation bugs live.
+- **W3C Trace Context** (`traceparent` / `tracestate` headers) is the standard format.
+- **Sampling is a cost-vs-completeness tradeoff.** Head sampling at 1% statistically misses the interesting requests (errors, slow ones are rare). Prefer tail sampling for errors and slow requests; head sampling for steady state. Use sticky user-ID sampling to keep VIP traces.
+- **Trace IDs in every log line** is the highest-leverage instrumentation choice — it stitches the three pillars into one debug session (trace shows causality, metric shows trend, log shows detail).
+- **Modern systems derive metrics from span data** (request rate, latency, error rate) — single source of truth, multiple views. Honeycomb's wide-event model is the cleanest expression.
+- **Span status field marks errors explicitly** (plus exception events and `error.*` attributes); throwing/catching exceptions alone is not enough.
+- **The waterfall view is the diagnostic UI.** Long bar = slow op; sequential-where-parallel = optimization; gaps = instrumentation holes; child longer than parent = clock skew. Reading waterfalls fluently is muscle memory.
+- **Auto-instrumentation gives breadth; manual instrumentation gives depth** on business-critical paths. If even one service in the path is uninstrumented, the trace has a gap.
+- **Async work uses span links or careful parent-child** to handle wall-clock gaps; clock skew across services can also confuse trace timing (mitigate with NTP).
+- **Span attributes can become PII** (auth tokens in URLs, card numbers in payloads). Redact at instrumentation time and treat trace storage as regulated data. Avoid high-cardinality tags (e.g., raw `user_id`) that explode storage.
+- **The point of tracing is debugging the irreplaceable case:** "I have a slow request; find the bottleneck across services." Don't optimize for what metrics already do.
+- **Treat tracing as a product:** onboarding a new service is a readiness checklist, and instrumentation discipline is a cultural norm — add it as soon as you have more than two services, not when you're "advanced."
+
+> **A trace is a single request's story, told across every service it touched. Without it, microservices debugging is guesswork dressed up as analysis. With it, the system explains itself, one span at a time — telling you in seconds, not hours, which service was slow, which dependency failed, which query took too long.**
 
 ---
 
-## Final Mental Model
+## Interview angle
 
-> **A trace is a single request's story, told across every service it touched. Without it, microservices debugging is mythology — guesswork dressed up as analysis. With it, the system explains itself, one span at a time.**
+What gets tested:
 
-The senior engineer designing a new service makes tracing a checkbox of readiness — not metrics or logs alone. The instrumentation discipline (propagate everywhere, tag carefully, redact sensitively) is a cultural norm, not an individual choice. The result: when a 3am alert fires, a trace tells you which service was slow, which dependency was failing, which database query took longer than expected — in seconds, not hours.
+1. **"What's a span?"** Basic literacy; bonus for explaining the tree structure.
+2. **"What's context propagation?"** Headers; W3C Trace Context.
+3. **"How would you sample traces?"** Tail sampling for errors and slow requests; head sampling for steady state.
+4. **"How do traces, logs, and metrics relate?"** Different views; correlation via trace ID.
+5. **"How do you debug 'why is this request slow'?"** Trace; waterfall; identify the slow span; drill into logs from that span's time window.
+6. **"What goes wrong with async tracing?"** Context propagation through queues; parent-child semantics with wall-clock gaps.
+7. **"How do you design tracing for new services?"** OTel SDK + auto-instrumentation; semantic conventions; trace IDs in logs; manual spans for business logic.
 
-Distributed tracing isn't infrastructure you add when you're "advanced." It's infrastructure you add *as soon as you have more than two services*. The cost compounds slowly; the benefit compounds quickly. Every team that has run microservices without tracing has stories. Every team that finally added it wonders how they lived without it.
-
-That's distributed tracing. That's the request's journey, made legible. That's the one observability artifact whose absence is most visible — and most expensive — at exactly the moment you need it most.
+Common traps: believing 1% sampling is enough; not propagating through async work; adding high-cardinality data as attributes; treating tracing as optional infrastructure.

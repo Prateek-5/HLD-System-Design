@@ -328,71 +328,31 @@ The unifying observation: **observability is bounded not by what you'd like to m
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **cardinality is the dominant cost**.
-- That **adding a label can multiply storage** by orders of magnitude.
-- That **logs and traces have different cost models**.
-- That **retention compounds** over time.
-- That **sampling is mandatory at scale**.
-- That **DEBUG in production is expensive**.
-- That **dead metrics cost forever**.
-- That **structured logs query better than free text**.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **audit cardinality** as a discipline.
-- They **distinguish low-card from high-card** dimensions.
-- They **tier retention** by query patterns.
-- They **bias sampling toward errors**.
-- They **monitor observability cost**.
-- They **drop unused metrics**.
-- They **compress at edge**.
-- They **understand the right home** for each piece of data.
+- **Cardinality is the dominant cost driver** — adding one label (e.g., `user_id`) can multiply storage by orders of magnitude, even though the metric "didn't change."
+- **High-cardinality fields belong in logs/traces, not metrics.** Storage on a TSDB scales with series count; logs and traces have different cost models built to handle high cardinality.
+- **Sampling is mandatory at scale.** Tail-sample errors and slow requests rather than uniform head sampling — errors are ~0.1% of traffic but 100% of value.
+- **Tier retention by query frequency** — 99% of queries hit the hot tier (last 24-48h); keep that small and push the rest to cheap cold/archive storage.
+- **Audit cardinality quarterly and drop unused metrics** — 30-80% of metrics in many shops are never queried but cost forever; dead metrics and unbounded labels (full URLs, request IDs) are the usual culprits.
+- **DEBUG in production is pure cost** — filter at the source.
+- **Structured logs beat free-text logs** for both queryability and cost; index specific fields, not full text.
+- **Pre-aggregated metrics are cheap; raw events are flexible** — combine both (aggregates for dashboards/alerting, raw events for ad-hoc debugging).
+- **Compress at the edge / pre-aggregate locally** to cut egress and volume.
+- **Treat observability as a budgeted resource and cost-monitor it as a line item** — capture the *right* things, at the right tier, with the right sampling, for as long as they remain useful. Teams that internalize this have observability that scales with their business; teams that don't have observability that scales with their bill.
+- **Retention compounds over time** — storage grows linearly with retention window.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
-What gets tested:
+Commonly tested questions:
 
-1. **"What's cardinality?"** Tests fundamental literacy.
-2. **"Why is high-cardinality bad on metrics?"** Storage scales with series count.
-3. **"What's tail sampling?"** Tests trace knowledge.
-4. **"How do you control observability cost?"** Cardinality discipline; tiering; sampling.
-5. **"Logs vs metrics vs traces — what's the right home for X?"** Tests judgment.
-6. **"How would you handle a cost surprise?"** Audit; identify drivers; reduce or restructure.
+1. **"What's cardinality?"** — number of unique dimension combinations; tests fundamental literacy.
+2. **"Why is high-cardinality bad on metrics?"** — storage scales with series count.
+3. **"What's tail sampling?"** — buffer all spans, decide after request completes, keep all errors/slow requests.
+4. **"How do you control observability cost?"** — cardinality discipline; tiering; sampling.
+5. **"Logs vs metrics vs traces — what's the right home for X?"** — tests judgment on where each dimension lives.
+6. **"How would you handle a cost surprise?"** — audit; identify drivers; reduce or restructure.
 
-Common traps:
-- Believing more data is always better.
-- Not knowing about cardinality.
-- Treating cost as someone else's problem.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Cardinality is cost.** High-cardinality fields belong in logs/traces, not metrics.
-2. **Sampling is mandatory** at scale.
-3. **Tail-sample errors and slow requests.**
-4. **Tier retention** by query frequency.
-5. **Audit unused metrics**; drop them.
-6. **DEBUG in production is expensive.**
-7. **Structured logs > free-text logs** for queryability and cost.
-8. **Pre-aggregated metrics** are cheap; raw events are flexible.
-9. **Compression at source** saves egress.
-10. **Cost-monitor observability** as a line item.
-
----
-
-## Final Mental Model
-
-> **Observability is a budgeted resource. Every label, every log line, every span costs money. The art isn't capturing everything — it's capturing the *right* things, at the right tier, with the right sampling, for as long as it remains useful. Teams that internalize this have observability that scales with their business; teams that don't have observability that scales with their bill.**
-
-The senior observability engineer reads dashboards while watching costs. They run cardinality audits. They sample with bias. They drop dead metrics. They tier old data. The result: monitoring that answers the questions you need, at a cost that doesn't surprise you.
-
-The bills that arrived with three-digit increases month after month were the teaching moment for many companies. The discipline that emerged is now industry-standard for mature ops shops. Get it right early; pay attention to cardinality; treat observability as a feature with a budget. The alternative is a quarterly cost shock that drives reactive decisions you'd rather not make.
-
-That's cardinality. That's the economics of monitoring. That's the financial reality behind every dashboard, every alert, every trace — the line item that determines whether your observability is sustainable or whether it eventually gets cut for cost.
+Common traps: believing more data is always better; not knowing about cardinality; treating cost as someone else's problem.

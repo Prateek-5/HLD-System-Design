@@ -54,25 +54,6 @@ The pattern: cache hierarchy has been a constant; programmer awareness has grown
 
 ---
 
-## Core Mental Models
-
-**1. Memory access is not uniform.**
-L1 cache: 1ns. Main memory: 100ns. The hierarchy matters profoundly.
-
-**2. Cache lines are the unit of transfer.**
-Typically 64 bytes. Reading 1 byte loads 64.
-
-**3. Coherence has a cost.**
-When one core writes a line, others' copies are invalidated. Subsequent reads on those cores stall.
-
-**4. False sharing is silent.**
-Threads with no logical sharing can suffer if their data colocates in cache lines.
-
-**5. NUMA adds another dimension.**
-Cross-socket memory access is much slower than local.
-
----
-
 ## Deep Technical Explanation
 
 ### Cache hierarchy
@@ -310,60 +291,20 @@ The unifying observation: **the abstraction 'memory is uniform' is a useful lie.
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **memory access is not uniform**.
-- That **cache lines are 64 bytes**.
-- That **false sharing exists**.
-- That **NUMA matters** on big servers.
-- That **alignment can dramatically affect performance**.
+- **Memory access is not uniform.** The hierarchy is registers → L1 (~1ns) → L2 (~3ns) → L3 (~10ns) → main memory (~100ns), with NUMA remote at ~200ns. The ~100:1 L1-to-memory gap means memory layout often dominates performance.
+- **Cache lines (typically 64 bytes) are the unit of transfer.** Reading one byte loads the whole line. Spatial locality is what makes sequential access fast and linked lists cache-hostile.
+- **Coherence (MESI: Modified/Exclusive/Shared/Invalid) has a cost.** When one core writes a line, other cores' copies are invalidated and their next read stalls — the line bounces between cores.
+- **False sharing is silent.** Different, logically-unrelated variables that land in the same cache line force coherence traffic even with no real sharing. Fix by padding/aligning hot data to cache-line boundaries (`alignas(64)`, Java `@Contended`, etc.).
+- **NUMA matters on multi-socket machines.** Cross-socket access is far slower than local; pin threads and memory to the same node, use per-core/per-socket data structures.
+- **Measure, don't guess.** Profile with cache-aware tools (`perf c2c`, Intel VTune); sublinear scaling on more cores is a classic false-sharing or NUMA symptom.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **align hot data**.
-- They **pad thread-local data**.
-- They **use cache-aware tools** (perf c2c).
-- They **NUMA-pin** when needed.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's a cache line?"** 64-byte block.
-2. **"What's false sharing?"** Different vars same line.
-3. **"MESI?"** Coherence protocol states.
-4. **"NUMA?"** Non-uniform memory access.
-5. **"How to fix false sharing?"** Padding/alignment.
-
-Common traps:
-- Not knowing about cache lines.
-- Treating multi-core as automatically scalable.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Cache hierarchy**: registers → L1 → L2 → L3 → memory.
-2. **64-byte cache lines** are the unit.
-3. **False sharing** = different vars same line.
-4. **MESI** maintains coherence.
-5. **Pad hot data** to cache lines.
-6. **NUMA** matters on multi-socket.
-7. **Spatial locality** matters.
-8. **Linked lists are cache-hostile**.
-9. **Per-core data** for scaling.
-10. **Profile with cache-aware tools**.
-
----
-
-## Final Mental Model
-
-> **The CPU's cache hierarchy is the silicon-level reality your multi-threaded code runs on. False sharing, NUMA effects, cache contention — these aren't edge cases; they're the everyday performance reality at scale. Engineers who understand the hardware write code that scales; those who don't keep wondering why more cores don't help.**
-
-The senior performance engineer thinks about layout. They pad. They align. They profile cache effects. The result: code that scales to many cores instead of plateauing.
-
-That's CPU caches. That's false sharing. That's the layer below the language — the layer that determines whether your concurrent code actually runs in parallel.
+- **"What's a cache line?"** A 64-byte block — the unit loaded on any memory access.
+- **"What's false sharing?"** Different variables in the same cache line, causing coherence invalidations between cores that touch them.
+- **"What is MESI?"** The cache-coherence protocol with Modified/Exclusive/Shared/Invalid line states.
+- **"What is NUMA?"** Non-uniform memory access — memory latency depends on which socket owns the memory relative to the accessing core.
+- **"How do you fix false sharing?"** Pad/align the contending data so each lands in its own cache line.
+- **Common traps:** not knowing cache lines exist; assuming multi-core code automatically scales linearly.

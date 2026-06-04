@@ -52,25 +52,6 @@ The pattern: each release adds capability without breaking compatibility. Postgr
 
 ---
 
-## Core Mental Models
-
-**1. Process per connection.**
-Each connection is an OS process. Cheap to fork; not free. Hundreds of connections is fine; thousands stress the system. Use a connection pooler.
-
-**2. MVCC with vacuum.**
-Versions accumulate; vacuum reclaims. Long-running transactions block vacuum; bloat accumulates. The #1 operational concern.
-
-**3. WAL is the truth.**
-Every change is WAL-logged before applied. Recovery is replay. Replication ships WAL.
-
-**4. The planner is statistics-driven.**
-Run `ANALYZE` after bulk loads. Watch for plan flips when stats drift.
-
-**5. Postgres is configurable; defaults are conservative.**
-Production tuning matters. Not "set and forget."
-
----
-
 ## Deep Technical Explanation
 
 ### The process architecture
@@ -336,27 +317,6 @@ A bank records every transaction in a journal (WAL) before applying. The journal
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The connection storm.** App scaled to 100 instances; each opens 50 connections. 5000 connections × 20MB = 100GB of overhead. Recovery: introduce PgBouncer.
-- **The wraparound near-miss.** Vacuum disabled "for performance." TXID approaches wraparound. Database emergency-vacuums for hours. Lesson: don't disable autovacuum.
-- **The plan flip.** Stats drift after migration; planner switches from index scan to seq scan; query goes from 5ms to 5s. Fix: `ANALYZE`.
-- **The sync-replication latency.** Sync replication enabled across regions; commit latency 200ms instead of 5ms. Mitigation: only sync to local replica; async to remote.
-- **The orphaned slot.** Logical replication slot for a deleted subscriber; WAL accumulates; disk fills. Mitigation: monitor `pg_replication_slots`; drop unused.
-- **The TOAST surprise.** Large JSON column; TOAST table is 10× the heap; queries slow because of TOAST decompression. Mitigation: query without large columns; consider separate table.
-
-The senior Postgres operator's habits:
-- **Connection pooler** mandatory.
-- **Monitor `pg_stat_activity`** for long transactions.
-- **`ANALYZE`** after bulk operations.
-- **Watch replication lag**.
-- **Tune autovacuum** for workload.
-- **`pg_repack`** for periodic compaction.
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The wraparound.**
@@ -417,63 +377,33 @@ The unifying observation: **Postgres is a coherent system. The pieces — proces
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **vacuum is mandatory**.
-- That **long transactions block vacuum**.
-- That **connection limits are real**.
-- That **`ANALYZE`** after bulk loads.
-- That **synchronous_commit has options**.
-- That **replication slots can fill disk**.
+The 20% that delivers 80% of understanding:
 
----
+- **Process per connection.** Each connection is an OS process (~10-20MB minimum) — cheap to fork but not free. Hundreds is fine; thousands stress the scheduler and memory. A connection pooler (PgBouncer) is mandatory past ~100 connections; junior engineers miss that connection limits are real.
+- **MVCC with vacuum.** Versions accumulate; vacuum reclaims. Long-running transactions block vacuum and let bloat accumulate — the #1 operational concern. Senior operators monitor `pg_stat_activity` for forgotten long transactions.
+- **WAL is the truth.** Every change is WAL-logged before applied; recovery is replay; replication ships WAL. `synchronous_commit` is the durability boundary (`on`/`off`/`remote_write`/`remote_apply`) — and it has options juniors overlook.
+- **Cost-based planner is statistics-driven.** Run `ANALYZE` after bulk loads; watch for plan flips when stats drift (e.g. index scan flipping to seq scan, 5ms to 5s).
+- **Wraparound is real.** 32-bit XIDs require freezing; autovacuum is mandatory, never disable it — disabling it is the classic trap and cause of emergency single-user vacuums.
+- **Streaming replication** for HA; **logical replication** for cross-version upgrades and selective/ETL replication. Watch replication lag; orphaned/obsolete replication slots can fill the disk. Avoid synchronous replication across regions (commit latency jumps from ~5ms to ~200ms); prefer sync to a local replica and async to remote.
+- **Index types matter** — B-tree, GIN, GiST, BRIN (and SP-GiST, Hash, Bloom) for different workloads.
+- **TOAST** stores large fields out-of-line and compressed; the TOAST table can dwarf the heap and slow queries via decompression.
+- **Postgres is configurable; defaults are conservative.** Production tuning matters, but don't tune until you've measured a problem. `pg_repack` for periodic online compaction.
+- **Monitoring is non-optional**; plan PITR as part of DR.
 
-## What Senior Engineers Instinctively Notice
-
-- They **monitor `pg_stat_activity`** for long transactions.
-- They **use connection poolers**.
-- They **tune autovacuum** for workload.
-- They **read execution plans**.
-- They **monitor replication lag**.
-- They **plan PITR** as part of DR.
+> **Postgres is what an open-source database looks like after thirty years of disciplined engineering. Its architecture is internally coherent; its trade-offs are documented; its pitfalls are well-known. Operating it well is a discipline; operating it badly is the cause of most "Postgres is slow" stories.** The database rewards discipline; the alternative is slow degradation.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
 What gets tested:
 
 1. **"How does Postgres MVCC work?"** Tuple versions; visibility; vacuum.
-2. **"What's autovacuum?"** Background reclamation.
+2. **"What's autovacuum?"** Background reclamation of dead tuples.
 3. **"How does Postgres replicate?"** WAL streaming; sync vs async.
 4. **"What's the planner doing?"** Statistics + cost model.
 5. **"Why use a connection pooler?"** Process-per-connection limits.
 
-Common traps:
-- Disabling autovacuum.
-- No connection pooler.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Process per connection** — pool with PgBouncer.
-2. **MVCC with vacuum** — long transactions are the enemy.
-3. **WAL is durable** — synchronous_commit is the boundary.
-4. **Streaming replication** for HA.
-5. **Logical replication** for cross-version.
-6. **Cost-based planner** — `ANALYZE` after bulk.
-7. **Index types matter** — B-tree, GIN, GiST, BRIN.
-8. **TOAST** for large fields.
-9. **Wraparound is real** — autovacuum mandatory.
-10. **Monitoring** is non-optional.
-
----
-
-## Final Mental Model
-
-> **Postgres is what an open-source database looks like after thirty years of disciplined engineering. Its architecture is internally coherent; its trade-offs are documented; its pitfalls are well-known. Operating it well is a discipline; operating it badly is the cause of most "Postgres is slow" stories.**
-
-The senior Postgres operator respects vacuum, uses a connection pooler, tunes autovacuum, monitors lag, plans PITR. The database rewards discipline; the alternative is slow degradation.
-
-That's Postgres internals. That's the workhorse open-source RDBMS. That's the database under more production systems than people realize — handling far more than its critics expect, with the right operational care.
+Common traps: disabling autovacuum; running without a connection pooler.

@@ -54,25 +54,6 @@ The pattern: each generation reduced GC pauses, increased throughput, or both �
 
 ---
 
-## Core Mental Models
-
-**1. The weak generational hypothesis.**
-Most objects die young. Generational GC exploits this by collecting young space frequently and cheaply.
-
-**2. Pause time vs throughput is the central trade-off.**
-Stop-the-world is fast (less coordination overhead) but pauses kill latency. Concurrent collectors keep pauses short but use more CPU.
-
-**3. Allocation rate matters as much as live size.**
-A program allocating 1GB/sec creates GC pressure even if its live set is small. Reducing allocations is often the highest-leverage optimization.
-
-**4. GC tuning is application-specific.**
-The right GC algorithm and parameters depend on heap size, allocation rate, latency requirements, throughput goals.
-
-**5. GC is not a black box.**
-Modern runtimes provide extensive instrumentation. Reading GC logs, understanding generational counts, recognizing common patterns — all are operational skills.
-
----
-
 ## Deep Technical Explanation
 
 ### Reference counting
@@ -317,63 +298,27 @@ The unifying observation: **GC trades programmer-time for runtime-time. The runt
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **GC pauses dominate tail latency**.
-- That **allocation rate matters**.
-- That **heap size has trade-offs**.
-- That **GC algorithms differ** dramatically.
-- That **leaks happen in GC'd languages** too.
-- That **reading GC logs** is a skill.
+- **GC reclaims unreachable memory** automatically — but reachable-but-unused objects are leaks the GC will never collect (unbounded caches, long-lived collections, unregistered listeners, over-capturing closures).
+- **The weak generational hypothesis**: most objects die young. Generational GC exploits this by collecting young space frequently and cheaply, promoting survivors to a rarely-collected old space.
+- **Pause time vs throughput is the central trade-off.** Stop-the-world is fast (less coordination overhead) but pauses kill tail latency; concurrent collectors keep pauses short but cost more CPU (typically 10-30%).
+- **Allocation rate matters as much as live size.** A program allocating 1GB/sec creates GC pressure even with a small live set. Reducing allocations (pooling, buffer reuse) in hot paths is often the highest-leverage optimization.
+- **GC pauses dominate tail latency** — a senior reading "high p99" investigates full GCs early.
+- **GC tuning is application-specific.** The right algorithm and parameters depend on heap size, allocation rate, latency requirements, and throughput goals. Heap size cuts both ways: too small means frequent GCs, too big means long pauses. Profile first, tune on data.
+- **GC algorithms differ dramatically** — and modern ones (ZGC, Shenandoah) achieve sub-millisecond pauses on multi-TB heaps.
+- **GC is not a black box.** Reading GC logs, monitoring pause times, understanding generational counts, and distinguishing leaks from sizing issues are routine operational skills.
 
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **monitor GC pause times**.
-- They **read GC logs** as routine practice.
-- They **reduce allocations** in hot paths.
-- They **tune** for application's latency goals.
-- They **distinguish leaks from sizing issues**.
+> **Mental model:** Garbage collection is the runtime contract that frees programmers from memory management — but the contract has fine print: pauses, allocation pressure, throughput cost. Production engineers read the fine print; novices treat GC as magic. Modern GCs are excellent — when configured for the workload. GC trades programmer-time for runtime-time, handling billions of allocations per second invisibly, until it doesn't and you have to understand how it actually works.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
-What gets tested:
-
-1. **"How does GC work?"** Mark-and-sweep, generational, concurrent.
-2. **"What's the weak generational hypothesis?"** Most objects die young.
-3. **"Stop-the-world vs concurrent?"** Trade-offs.
-4. **"Why is allocation rate important?"** Drives GC frequency.
-5. **"How do you debug GC pauses?"** Profile, read logs, tune.
-6. **"G1 vs ZGC?"** Region-based vs concurrent.
-
-Common traps:
-- Believing GC is "free."
-- Not knowing about generational GC.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **GC reclaims unreachable** memory.
-2. **Reference counting** vs **mark-sweep**.
-3. **Generational**: young dies young.
-4. **Concurrent GC** reduces pauses.
-5. **Allocation rate** is a key driver.
-6. **Pauses kill tail latency**.
-7. **Tune** based on workload.
-8. **Leaks happen** with reachable-but-unused.
-9. **Modern GCs** can be sub-millisecond pause.
-10. **Read GC logs** as a practice.
-
----
-
-## Final Mental Model
-
-> **Garbage collection is the runtime contract that frees programmers from memory management. The contract has fine print: pauses, allocation pressure, throughput cost. Production engineers read the fine print; novices treat GC as magic. Modern GCs are excellent — when configured for the workload.**
-
-The senior engineer reading "high p99 latency" investigates GC pauses early. They reduce allocations in hot paths. They size heaps appropriately. They choose GC algorithms based on requirements. The discipline pays off; the alternative is mysterious latency spikes nobody explains.
-
-That's GC. That's memory management at the runtime level. That's the layer that handles billions of allocations per second invisibly — until it doesn't, and you have to understand how it actually works.
+- **"How does GC work?"** Mark-and-sweep, generational, concurrent.
+- **"What's the weak generational hypothesis?"** Most objects die young.
+- **"Stop-the-world vs concurrent?"** Trade-offs (pause time vs CPU cost).
+- **"Why is allocation rate important?"** It drives GC frequency.
+- **"How do you debug GC pauses?"** Profile, read logs, tune.
+- **"G1 vs ZGC?"** Region-based vs concurrent low-latency.
+- Common traps: believing GC is "free"; not knowing about generational GC.

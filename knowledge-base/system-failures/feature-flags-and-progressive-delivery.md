@@ -54,25 +54,6 @@ The pattern: each generation reduced the unit of risk. From "the whole release" 
 
 ---
 
-## Core Mental Models
-
-**1. Deploy ≠ release.**
-A deploy puts code in production. A release exposes code to users. With flags, these are separable. Deploy continuously; release deliberately.
-
-**2. The unit of risk is the user cohort.**
-A new feature behind a flag exposes risk to whoever sees it. Limit the cohort initially; grow as confidence grows. 1% → 10% → 50% → 100% is a typical ramp.
-
-**3. Flags have lifecycles.**
-A flag is created for a purpose; serves it; should be removed. Stale flags are technical debt. The flag system needs lifecycle policies as much as the code does.
-
-**4. Flags are configuration, not code.**
-Changing a flag should not require a deploy. The flag system is part of runtime; misconfigured flags can take down the system as effectively as bad code.
-
-**5. The goal is reducing blast radius, not avoiding bugs.**
-Bugs will ship. Flags ensure bugs affect 1% of users for 5 minutes, not 100% for 5 hours. Mean-time-to-recover collapses from hours to minutes.
-
----
-
 ## Deep Technical Explanation
 
 ### Types of feature flags
@@ -246,15 +227,6 @@ What goes wrong:
 - **The flag that controls infrastructure.** Flag set wrong; entire service broken. Lesson: critical flags need extra protections (multiple approvers, gradual rollout of flag changes).
 - **The flag-as-code-comment.** Flag named "WIP_NEW_THING" with no description. Six months later, nobody knows what it does. Toggle? At your peril. Lesson: rich metadata; ownership; documentation.
 
-The senior engineer's habits:
-- **TTL every release flag** at creation.
-- **Automated cleanup** of flags past TTL.
-- **Per-variant metrics** by default.
-- **Targeting consistency** (stable user ID hashing).
-- **Flag dependencies tracked** explicitly.
-- **Critical flags have safeguards** (slow rollout, approval).
-- **Flag platform is uptime-critical** infrastructure.
-
 ---
 
 ## Failure Scenarios
@@ -319,72 +291,22 @@ The unifying observation: **feature flags decouple risk from deploy by making re
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **flags must be removed** after rollout.
-- That **flag systems are critical infrastructure** themselves.
-- That **targeting consistency** requires stable hashing.
-- That **per-variant metrics** are mandatory.
-- That **flag dependencies** must be tracked.
-- That **kill switches** are permanent infrastructure.
-- That **deploy ≠ release**.
-- That **flag debt is real** and accumulates.
+- **Deploy ≠ release.** A deploy puts code in production; a release exposes it to users. Flags separate the two — deploy continuously, release deliberately.
+- **The unit of risk is the user cohort.** Limit who sees a new feature initially, then grow as confidence grows (typical ramp: 1% → 10% → 50% → 100%).
+- **The goal is reducing blast radius, not avoiding bugs.** Bugs will ship; flags ensure they affect 1% of users for 5 minutes, not 100% for 5 hours. Mean-time-to-recover collapses from hours to seconds.
+- **Flags are configuration, not code.** Changing one should not require a deploy — but a misconfigured flag can take down a system as effectively as bad code, so the flag platform is uptime-critical infrastructure (it must be more reliable than the features it gates).
+- **Flags have lifecycles; manage flag debt actively.** Set a TTL on release flags at creation, track flag age/owner on a dashboard, automate cleanup past TTL, and remove the dead branch when a feature reaches 100%. Distinguish flag types (release, experiment, operational, permission, canary) and lifecycle each appropriately.
+- **Kill switches are permanent infrastructure.** Operational toggles for emergencies (disable feature, throttle load) live forever; they need naming, ownership, and runbook docs.
+- **Targeting consistency requires stable hashing.** Hash on a globally stable user ID (not session ID), so a user sees the same variant across requests, sessions, and platforms.
+- **Per-variant metrics are mandatory from day one** — exposure, error rate, latency, business metric per variant — otherwise you can't tell whether a rollout is hurting until it's fully ramped.
+- **Track flag dependencies explicitly.** Undocumented coupling between flags causes cascading, surprising behavior when one is toggled independently.
+- **Critical flags need extra safeguards** (multiple approvers, gradual rollout of the flag change itself) and SDK fallbacks/default values for when the flag service is unavailable.
+- **Integrate with SLO-based auto-revert**: guard rollouts by SLO compliance and roll back automatically on error-budget burn.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
+Common questions: *What's a feature flag?* (basic literacy) · *How do you implement consistent targeting?* (stable user-ID hashing) · *How do you handle flag debt?* (TTL, dashboards, cleanup discipline) · *Canary vs blue-green vs feature flags?* (different scopes; complementary) · *What's progressive delivery?* (gradual rollout; risk reduction) · *How do you measure a feature's impact?* (per-variant metrics) · *What's a kill switch?* (operational toggle for emergency).
 
-- They **set TTLs on release flags**.
-- They **track flag age** and clean up.
-- They **wire metrics per variant**.
-- They **hash on stable identifiers**.
-- They **document flag dependencies**.
-- They **treat flag platform as uptime-critical**.
-- They **integrate flags with SLO-based auto-revert**.
-- They **distinguish flag types** and lifecycle them appropriately.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's a feature flag?"** Tests basic literacy.
-2. **"How do you implement consistent targeting?"** Stable user ID hashing.
-3. **"How do you handle flag debt?"** TTL, dashboards, cleanup discipline.
-4. **"Canary vs blue-green vs feature flags?"** Different scopes; complementary.
-5. **"What's progressive delivery?"** Gradual rollout; risk reduction.
-6. **"How do you measure a feature's impact?"** Per-variant metrics.
-7. **"What's a kill switch?"** Operational toggle for emergency.
-
-Common traps:
-- Believing feature flags are temporary code only.
-- Not setting TTLs.
-- Hashing on session ID (inconsistent).
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Deploy ≠ release** with feature flags.
-2. **Flags have lifecycles**; remove release flags promptly.
-3. **Stable hashing** for consistent targeting.
-4. **Per-variant metrics** mandatory.
-5. **Kill switches are permanent infrastructure.**
-6. **Flag platform must be highly reliable.**
-7. **Progressive rollout**: 1% → 10% → 50% → 100%.
-8. **Auto-revert on SLO breach**.
-9. **TTL release flags** at creation.
-10. **Flag debt accumulates**; manage actively.
-
----
-
-## Final Mental Model
-
-> **Feature flags turn deployment from a binary risk into a controlled experiment. The deploy puts code in production; the flag controls who sees it; the metrics tell you whether to ramp up or roll back. Mean-time-to-recover collapses from hours to seconds. The cost: discipline. Without it, you trade deploy risk for flag debt.**
-
-The senior engineer using flags treats them as a tool with a contract: every flag has an owner, a TTL, a metrics setup, a removal plan. The flag system itself is critical infrastructure. The combination — disciplined flags + observability + SLO-driven auto-revert — is what allows mature teams to deploy hundreds of times a day with low risk.
-
-Teams that don't internalize this end up with two failure modes: either they don't use flags (and have deploy fear) or they use flags without discipline (and have flag debt). The mature middle is *flags-as-code*: lifecycle managed, observability included, cleanup automatic, the platform itself uptime-critical.
-
-That's feature flags. That's progressive delivery. That's the practice that turns "scary deploy night" into "Tuesday afternoon's continuous-delivery flow."
+Common traps: believing feature flags are temporary code only; not setting TTLs; hashing on session ID (inconsistent).

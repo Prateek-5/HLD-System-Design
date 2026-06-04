@@ -58,25 +58,6 @@ The pattern: each generation pushed the optimizer to do more — more transforma
 
 ---
 
-## Core Mental Models
-
-**1. The plan is a tree of physical operators.**
-Each node is a specific algorithm: index scan, hash join, sort, filter, aggregate. Data flows up the tree. The plan is the *execution strategy*, not the SQL.
-
-**2. The planner's job is to estimate cost.**
-Cost = expected I/O + CPU + memory. Plans with lower estimated cost win. The estimates are only as good as the statistics.
-
-**3. Statistics are the planner's lens on reality.**
-Histograms, distinct counts, correlation coefficients. Without statistics — or with stale ones — the planner is guessing.
-
-**4. The right operator depends on the data shape.**
-Tiny join → nested loop. Medium join with sorted inputs → merge join. Large unsorted join → hash join. Index-friendly filter → index scan. Bulk filter → sequential scan. The plan reflects the data, or it should.
-
-**5. Plan stability is desirable; plan choice is not always optimal.**
-A "good enough" plan that runs reliably beats an "optimal" plan that occasionally turns into a disaster. Production tuning often means *constraining* the planner more than freeing it.
-
----
-
 ## Deep Technical Explanation
 
 ### Reading an execution plan
@@ -248,30 +229,6 @@ A query planner explores plan space similarly: enumerate, score, prune, return t
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The plan flip after a deploy.** New release ships; queries that were fast are now slow. Investigation: a schema change subtly altered statistics; planner chose a different plan; the new plan is worse for production data shape.
-- **The forgotten ANALYZE.** Bulk-load a table; statistics are still empty/stale. Subsequent queries get wildly bad plans. The "first query after migration" disaster.
-- **The correlated columns trap.** `WHERE region = 'us-east' AND service = 'web'` — both heavily correlated in real data. Planner's independence assumption produces 100× misestimate. Plans cascade.
-- **The parameter-sniffing problem.** Prepared statement first executed with an unusual parameter; that plan is cached. Subsequent calls with usual parameters get the bad plan.
-- **The ORM laziness disaster.** A loop iterates orders, each access triggers a query. 1000 orders = 1001 queries. Page load times balloon. Fix: eager loading, joins, batched fetches.
-- **The missing index discovery.** EXPLAIN reveals seq scan on a 100M-row table. Add index; query goes from 30s to 30ms.
-- **The over-indexing surprise.** 12 indexes on a heavy-write table. INSERTs slow because every index updates. Audit shows 5 unused. Drop them; INSERTs accelerate.
-- **The seq scan that was correct.** Junior engineer adds an index "to fix the seq scan." Index makes things slower because the table is small or selectivity is poor. Sometimes the planner is right and the seq scan is optimal.
-
-The senior DBA's habits:
-- **Read EXPLAIN ANALYZE** for slow queries.
-- **Compare estimated vs actual rows** at each plan node.
-- **Run ANALYZE** after bulk operations.
-- **Audit unused indexes** periodically.
-- **Watch query plan changes** in production.
-- **Use extended statistics** for known correlations.
-- **Consider plan stability features** for predictability-critical queries.
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The catastrophic plan flip.**
@@ -335,73 +292,36 @@ The unifying observation: **the query planner is a small compiler whose output i
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **EXPLAIN ANALYZE is the diagnostic**, not just EXPLAIN.
-- That **estimate vs actual rows** is the key signal.
-- That **stale statistics cause plan disasters**.
-- That **N+1 patterns are about the application, not the planner**.
-- That **functions on columns defeat indexes**.
-- That **prepared statements have parameter-sniffing risks**.
-- That **the planner is sometimes right** when it picks seq scan.
-- That **hints are dangerous** as a default tool.
+**Mental models:**
+- A SQL query is a goal; the execution plan is the strategy. Between them sits a small compiler making decisions you didn't write — driven by statistics that may be stale, cost models that may misestimate, and a search space too large to fully explore. **Most query performance problems are statistics problems wearing a costume.**
+- The plan is a **tree of physical operators** (index scan, hash join, sort, filter, aggregate); data flows up the tree. The plan is the execution strategy, not the SQL.
+- The planner's job is to **estimate cost** = expected I/O + CPU + memory; the lowest-estimated-cost plan wins, and estimates are only as good as the statistics (histograms, distinct counts, correlation coefficients).
+- The **right operator depends on data shape**: tiny join → nested loop; medium sorted join → merge join; large unsorted join → hash join; selective filter → index scan; bulk filter → seq scan.
+- **Plan stability is desirable; plan choice is not always optimal.** A "good enough" plan that runs reliably beats an "optimal" plan that occasionally turns into a disaster. Production tuning often means *constraining* the planner more than freeing it.
 
----
+**Core practices (the 20% that covers 80%):**
+- Use **EXPLAIN ANALYZE** (not just EXPLAIN) on slow queries, and read **estimate vs actual rows** at every node — it is the key signal that the planner misjudged.
+- **Stats drive plans:** run ANALYZE after bulk loads/migrations; the "first query after migration" disaster is stale statistics.
+- **Cardinality estimation** is the critical fragility, especially under correlated columns — use **extended statistics** (`CREATE STATISTICS`) for known correlations.
+- **N+1 is an application problem, not a planner problem;** fix with joins, batching, or eager loading. Detect it in code review (ORMs hide it).
+- **Functions/implicit casts on columns defeat indexes** unless functional indexes exist.
+- **Parameter sniffing** can lock in a bad plan from the first execution's parameter.
+- The planner is **sometimes right** to pick a seq scan (small table, poor selectivity) — don't add an index reflexively.
+- **Hints last, schema changes first:** hints are dangerous as a default and rot as data shifts. Prefer fixing the cause (stats, indexes, schema) over the symptom.
+- Watch out for **over-indexing**: many indexes on a heavy-write table slow INSERTs; audit and drop unused ones.
+- **Monitor plan changes** in production as a first-class signal (a plan flip after deploy is a classic regression).
 
-## What Senior Engineers Instinctively Notice
+## Interview angle
 
-- They **read execution plans fluently**.
-- They **compare estimate to actual** at every node.
-- They **verify ANALYZE has run** after bulk operations.
-- They **detect N+1 patterns** in code review.
-- They **audit unused indexes**.
-- They **use extended statistics** for known correlations.
-- They **prefer schema changes to hints**.
-- They **monitor plan changes** as a production signal.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Walk through this EXPLAIN output."** Tests fluency. Junior reads it; senior interprets it.
-2. **"Why might this query be slow?"** Tests systematic thinking: stats, indexes, plan choice, N+1, etc.
-3. **"What's the difference between nested loop and hash join?"** Tests algorithm awareness.
+Common questions:
+1. **"Walk through this EXPLAIN output."** Fluency test — junior reads it, senior interprets it.
+2. **"Why might this query be slow?"** Systematic thinking: stats, indexes, plan choice, N+1.
+3. **"Difference between nested loop and hash join?"** Algorithm awareness.
 4. **"How does the planner estimate cost?"** Statistics + cost model + cardinality estimation.
-5. **"What's parameter sniffing?"** Plan cached for first parameter; bad fit for later ones.
+5. **"What's parameter sniffing?"** Plan cached for the first parameter; bad fit for later ones.
 6. **"How would you fix an N+1?"** Joins, batching, or eager loading.
 7. **"When wouldn't you add an index?"** Small tables; very high write rate; unused queries.
 
-Common traps:
-- Ignoring the difference between estimate and actual.
-- Adding indexes without measuring.
-- Using hints reflexively.
-- Believing planner is always right or always wrong.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **EXPLAIN ANALYZE** for slow queries. Read estimate vs actual.
-2. **Stats drive plans.** ANALYZE after bulk ops.
-3. **The plan tree is operators**: scans, joins, sorts, aggregates.
-4. **Cardinality estimation** is the critical fragility.
-5. **N+1 is an app problem**, not a planner problem.
-6. **Functions on columns defeat indexes** unless functional indexes exist.
-7. **Parameter sniffing** can lock in a bad plan.
-8. **Extended statistics** for correlated columns.
-9. **Hints last; schema changes first.**
-10. **Plan stability** sometimes beats plan optimality.
-
----
-
-## Final Mental Model
-
-> **A SQL query is a goal; the execution plan is the strategy. Between them sits a small compiler making decisions you didn't write — driven by statistics that may be stale, cost models that may misestimate, and a search space too large to fully explore. Most query performance problems are statistics problems wearing a costume.**
-
-The senior database engineer treats execution plans as the primary artifact when something is slow. Read the plan; compare estimates to actuals; identify the misjudgment. Fix the cause (stats, indexes, schema), not the symptom (hints). Build a habit of EXPLAIN-driven development for new queries.
-
-The systems that scale gracefully are the ones where engineers know what their queries are doing under the hood. The systems that mysteriously slow down over time are the ones where nobody reads plans until customers complain.
-
-That's query optimization. That's execution plans. That's the bridge between "what I asked for" and "what actually ran." It's the most useful skill no one teaches you in undergraduate databases — and the one that separates engineers who tune SQL from engineers who guess.
+Common traps: ignoring estimate-vs-actual; adding indexes without measuring; using hints reflexively; believing the planner is always right or always wrong.

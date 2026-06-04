@@ -58,25 +58,6 @@ The pattern: each generation expanded JavaScript's parallelism options conservat
 
 ---
 
-## Core Mental Models
-
-**1. Each worker is a separate JavaScript execution context.**
-Its own V8 isolate, its own event loop, its own memory. It can't access the parent's variables.
-
-**2. Communication is by structured cloning.**
-`postMessage` serializes the message; worker deserializes it. Functions, DOM nodes, and other non-cloneable types can't be sent.
-
-**3. Transferable objects move ownership.**
-Some types (ArrayBuffer, MessagePort) can be *transferred* — ownership moves to the receiver; sender no longer has access. Avoids copying.
-
-**4. Workers add parallelism, not concurrency.**
-Each worker still runs single-threaded internally. The cross-worker structure is the parallelism. Within a worker, the same async patterns apply.
-
-**5. Shared memory is a sharp tool.**
-SharedArrayBuffer + Atomics enables true shared state. Race conditions become possible. Used only where the alternative (copying) is too expensive.
-
----
-
 ## Deep Technical Explanation
 
 ### Web Workers
@@ -297,27 +278,6 @@ The reporter (main thread) writes the story; the photo editor (worker) processes
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The over-eager worker.** Engineer creates a worker for every task, even trivial ones. Worker startup cost dominates. Performance worse than single-threaded. Mitigation: worker pools.
-- **The forgotten worker.** Worker created; never terminated; resources leak. Mitigation: explicit `terminate()`; track lifetimes.
-- **The serialization cost.** Large message between main and worker; postMessage's structured clone copies the data. Slower than expected. Mitigation: transferable objects; SharedArrayBuffer.
-- **The shared-memory race.** Multiple workers update SharedArrayBuffer without synchronization. Bizarre bugs. Mitigation: Atomics; lock-free design; or simple worker pools without SharedArrayBuffer.
-- **The cross-origin isolation surprise.** Code uses SharedArrayBuffer; deployed; headers not set; SharedArrayBuffer is undefined; broken in production. Mitigation: deploy COOP/COEP headers; test in production-like environment.
-- **The blocking message handler.** Worker takes a long time per message; messages queue. If main thread expects timely response, it appears hung. Mitigation: bounded message processing time.
-
-The senior engineer's habits:
-- **Worker pools** for repeated work.
-- **Transferable objects** for large binary data.
-- **SharedArrayBuffer + Atomics** only when copying is too slow.
-- **Explicit termination** of workers.
-- **Profile** to ensure workers help.
-- **Test with COOP/COEP** for browser deployment.
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The serialization cost.**
@@ -377,70 +337,36 @@ The unifying observation: **Web Workers and Worker Threads are JavaScript's cont
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **workers don't share regular objects**.
-- That **postMessage copies** by default; transferable objects don't.
-- That **SharedArrayBuffer requires COOP/COEP** in browsers.
-- That **Atomics are needed** for safe shared-memory access.
-- That **worker startup has cost**; pools are usually right.
-- That **DOM access** is unavailable in workers.
-- That **terminate workers** explicitly.
+**Core model**
+- Each worker is a separate execution context — its own V8 isolate, event loop, and memory. No access to the parent's variables; no shared regular objects.
+- Workers add **parallelism, not concurrency within**: each worker is still single-threaded internally, with the same async patterns; the parallelism is *across* workers.
+- DOM access is unavailable in browser workers, and there is no synchronous call into the main thread — `postMessage` is async, and the parent decides when to react.
 
----
+**Communication**
+- `postMessage` uses structured cloning (a deep copy) by default; cost scales with data size, so bound message size to keep clone cost reasonable.
+- **Transferable objects** (ArrayBuffer, MessagePort, ImageBitmap, OffscreenCanvas, streams) move ownership zero-copy — prefer them over cloning for large binary data; the sender's reference is neutered afterward.
+- **SharedArrayBuffer** gives true shared memory between contexts (no serialization); **Atomics** are required for safe access, or you get lost updates and unpredictable races.
+- In browsers, SharedArrayBuffer requires cross-origin isolation (`COOP: same-origin` + `COEP: require-corp`) due to Spectre; without those headers it is `undefined`. Node has no such restriction. A common production failure is deploying SharedArrayBuffer code without the headers — test in a production-like environment / canary.
 
-## What Senior Engineers Instinctively Notice
+**Discipline**
+- Use workers for **CPU-heavy work** that would block the UI or service throughput; they are not needed for I/O.
+- Worker startup costs ~5-50ms, so **pool workers** to amortize it rather than spawning one per trivial task (the over-eager-worker anti-pattern).
+- **Terminate workers** explicitly (or pool and reuse idle ones); a forgotten, never-terminated worker leaks memory.
+- Keep per-message processing time bounded — a slow message handler queues messages and makes the main thread appear hung.
+- **Profile** to verify workers actually help, and identify *all* CPU-heavy paths: offloading one task while leaving heavy work on the main thread still freezes the UI.
 
-- They **use worker pools** for repeated work.
-- They **prefer transferable** over copy for large data.
-- They **reach for SharedArrayBuffer** only when needed.
-- They **profile** to verify workers help.
-- They **bound message size** to keep clone cost reasonable.
-- They **handle errors** in workers.
-- They **terminate idle workers**.
+## Interview angle
 
----
+Common questions and the crisp answers:
 
-## Interview Perspective
+1. **What's a Web Worker?** A separate JS execution context for off-main-thread work.
+2. **How do main thread and worker communicate?** `postMessage`; structured clone (or transfer).
+3. **Transferable vs cloned?** Ownership move (zero-copy) vs deep copy.
+4. **What's SharedArrayBuffer?** Shared memory between contexts, no serialization.
+5. **Why are atomics needed?** To avoid race conditions on shared memory.
+6. **When to use a worker?** CPU-heavy work that would block the main thread.
+7. **What can't a worker do?** No DOM access in the browser; no synchronous main-thread call.
 
-What gets tested:
-
-1. **"What's a Web Worker?"** Tests basic literacy.
-2. **"How do main thread and worker communicate?"** postMessage; structured clone.
-3. **"What's transferable vs cloned?"** Ownership move vs copy.
-4. **"What's SharedArrayBuffer?"** Shared memory between contexts.
-5. **"Why are atomics needed?"** Race conditions on shared memory.
-6. **"When to use a worker?"** CPU-heavy work that would block the main thread.
-7. **"What can't a worker do?"** No DOM access in browser; no synchronous main-thread call.
-
-Common traps:
-- Believing workers share regular objects.
-- Forgetting postMessage's copy cost.
-- Not knowing about COOP/COEP.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Workers are separate execution contexts**, no shared regular state.
-2. **Communication via postMessage** with structured clone or transfer.
-3. **Transferable objects** zero-copy.
-4. **SharedArrayBuffer** for shared memory; Atomics for synchronization.
-5. **COOP/COEP headers** required in browsers for SharedArrayBuffer.
-6. **Workers add parallelism**, not concurrency within.
-7. **Pool workers** to amortize startup.
-8. **Use for CPU-heavy work**; not necessary for I/O.
-9. **Terminate workers** explicitly when done.
-10. **DOM unavailable** in browser workers.
-
----
-
-## Final Mental Model
-
-> **Web Workers and Worker Threads are JavaScript's hedge against the limits of single-threaded execution. The model preserves most of the simplicity that made JS popular while adding parallelism for the cases that genuinely need it. Used right, you keep the UI responsive while crunching megabytes of data. Used wrong, you pay startup costs without speedup, or you introduce race conditions that JS programmers are not used to debugging.**
-
-The senior JS engineer reaches for workers when CPU-heavy work threatens UI responsiveness or service throughput. They use pools. They prefer transferable objects. They reach for SharedArrayBuffer only when measured copies are too slow. They preserve the JavaScript simplicity within each worker while parallelizing across workers.
-
-Most JS code doesn't need workers. The cases that do are increasingly important: image editing, ML, data analysis, collaborative editing. The model is well-designed; the discipline of using it correctly is the difference between scaling out smoothly and discovering new failure modes.
-
-That's Web Workers. That's Worker Threads. That's how JavaScript handles parallelism without becoming a multi-threaded race-condition jungle — and the foundation under every browser-based application that does serious computation.
+Common traps: believing workers share regular objects; forgetting `postMessage`'s copy cost; not knowing about COOP/COEP.

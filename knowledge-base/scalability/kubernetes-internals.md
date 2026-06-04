@@ -48,25 +48,6 @@ The pattern: Kubernetes won by combining Borg's design with open-source communit
 
 ---
 
-## Core Mental Models
-
-**1. Declarative state, eventual consistency.**
-You declare; controllers converge. State change isn't instant; it's eventual.
-
-**2. The control plane is etcd + API server + controllers.**
-etcd holds state; API server is the front door; controllers drive convergence.
-
-**3. Pods are the unit of scheduling.**
-A pod is one or more containers sharing network and storage. Pods are ephemeral.
-
-**4. Services abstract pods.**
-Pods come and go; service IPs are stable. Service selectors target pods by labels.
-
-**5. Everything is an API resource.**
-Pods, services, deployments, configmaps, ingresses — all are resources via the API server.
-
----
-
 ## Deep Technical Explanation
 
 ### Architecture overview
@@ -356,61 +337,23 @@ The unifying observation: **Kubernetes is a large distributed system with declar
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **state convergence is eventual**.
-- That **etcd is the cluster's heart**.
-- That **resource limits matter**.
-- That **selectors and labels are critical**.
-- That **operators extend K8s** for stateful workloads.
+- **Declarative state, eventual consistency.** You declare desired state; controllers converge toward it. State change isn't instant — it's eventual. (Juniors miss that convergence takes time; seniors plan for it.)
+- **The control plane is etcd + API server + controllers.** etcd holds the state and is the cluster's heart — when etcd is unhealthy, the cluster is effectively down. The API server is the central front door (everything goes through it); controllers drive convergence via reconciliation loops.
+- **Pods are the unit of scheduling** — the smallest deployable unit, one or more containers sharing network/storage, ephemeral by design.
+- **Services abstract pods.** Pods come and go; service IPs are stable. Selectors target pods by labels — getting selectors and labels right is critical (wrong selectors orphan pods).
+- **Everything is an API resource** — pods, services, deployments, configmaps, ingresses — all accessed via the API server.
+- **CRDs + controllers = Operators** extend Kubernetes to stateful and complex workloads (databases, queues, ML pipelines).
+- **Resource requests/limits matter** — get them wrong and pods OOM or starve scheduling.
+- **Network policies** secure pod-to-pod traffic (default open; deny-by-default with explicit allows).
+- **GitOps** for config management; **monitor etcd health and API server latency** as primary operational signals; use **pod disruption budgets** and plan for cluster failures.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **monitor etcd health**.
-- They **set resource requests/limits**.
-- They **use GitOps**.
-- They **understand controller patterns**.
-- They **plan for cluster failures**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's a pod?"** Smallest deployable unit; one+ containers.
-2. **"What's etcd?"** Cluster state store.
-3. **"How does the scheduler work?"** Filter + score + bind.
-4. **"What's a controller?"** Reconciliation loop.
-5. **"What's an Operator?"** CRD + controller.
-
-Common traps:
-- Treating K8s as an opaque deploy tool.
-- Not knowing about declarative-vs-imperative.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Declarative + eventual consistency**.
-2. **etcd is the truth**.
-3. **API server is central**.
-4. **Controllers reconcile**.
-5. **Pods are the unit**.
-6. **Services abstract pods**.
-7. **CRDs + Operators** for extension.
-8. **Resource requests/limits** matter.
-9. **Network policies** for security.
-10. **GitOps** for management.
-
----
-
-## Final Mental Model
-
-> **Kubernetes is what running containers at production scale looks like — declarative configuration, control loops, eventual consistency, declarative-everything. The complexity is real and non-trivial; the operational benefits at scale justify it. Engineers who understand the internals operate clusters confidently; those who don't deploy YAML and pray.**
-
-The senior K8s operator monitors etcd, manages resources, uses GitOps, plans for failures. The platform rewards discipline; production clusters run for years on well-operated K8s.
-
-That's Kubernetes internals. That's the OS of cloud-native infrastructure. That's the platform every modern microservices deployment runs on, with the complexity that platform demands.
+- **"What's a pod?"** Smallest deployable unit; one or more containers sharing network and storage.
+- **"What's etcd?"** The cluster's consensus-based (Raft) state store and source of truth.
+- **"How does the scheduler work?"** Filter (which nodes can run it) + score (rank candidates) + bind (assign to node).
+- **"What's a controller?"** A reconciliation loop: observe state, diff against desired, take corrective action.
+- **"What's an Operator?"** A CRD plus a custom controller that encodes operational knowledge.
+- Common traps: treating K8s as an opaque deploy tool; not understanding declarative-vs-imperative.

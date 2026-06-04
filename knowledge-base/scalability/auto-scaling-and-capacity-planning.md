@@ -52,25 +52,6 @@ The pattern: scaling has gotten faster (weeks → minutes → seconds), more gra
 
 ---
 
-## Core Mental Models
-
-**1. Auto-scaling is reactive; capacity planning is proactive.**
-Auto-scaling responds to *current* load. Capacity planning prepares for *expected* load. Together they handle both predictable and unpredictable demand.
-
-**2. Scaling has limits. Some are technical; some are time.**
-A new instance takes 30 seconds to 5 minutes to come online. Your traffic spike is 10 seconds. Auto-scaling alone cannot help with sudden spikes; pre-warm or use load shedding.
-
-**3. The bottleneck moves.**
-Scale CPUs, the database becomes the bottleneck. Scale the database, the connection pool becomes the bottleneck. Scale that, the cache becomes the bottleneck. Capacity planning is *whole-stack*.
-
-**4. Saturation, not utilization, is the right signal.**
-60% CPU is fine; queue length growing is not. Saturation indicators (queue depth, latency p99, request acceptance rate) predict failure better than utilization metrics (CPU %, memory %).
-
-**5. Cost optimization is the dual of capacity planning.**
-Plan for *just enough* capacity to meet SLOs. Over-provisioning is money burned. Under-provisioning is reliability burned. The economic sweet spot is service-specific.
-
----
-
 ## Deep Technical Explanation
 
 ### Capacity planning — the methodology
@@ -251,15 +232,6 @@ What goes wrong:
 - **The "we'll just throw more instances at it" trap.** Performance problem at the application level. Team adds instances rather than fix. Cost explodes. The bug is still there. Mitigation: profiling, optimization, *then* capacity.
 - **The forgotten reservation.** Team committed to 100 instances of a deprecated instance type. Bill for 6 months for unused reservations. Mitigation: track reservations; renew or cancel deliberately.
 
-The senior operator's habits:
-- **Identify the bottleneck** before scaling.
-- **Pre-warm for known events.**
-- **Cap auto-scaling** to prevent cost runaway.
-- **Watch saturation metrics**, not just utilization.
-- **Plan failure capacity** explicitly.
-- **Forecast and review** monthly.
-- **Optimize cost** with reservation strategy.
-
 ---
 
 ## Failure Scenarios
@@ -325,72 +297,30 @@ The unifying observation: **capacity planning is a forecast about the future; au
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **auto-scaling has time delays** (seconds to minutes).
-- That **the bottleneck moves** as you scale.
-- That **cold-start matters** for first requests.
-- That **utilization metrics lag saturation**.
-- That **DB connections are often the silent ceiling**.
-- That **headroom for failure is mandatory**.
-- That **load testing must include sustained overload**, not just peak.
-- That **scale-up doesn't fix application bugs**.
+> **Capacity planning is engineering for the load you expect; auto-scaling is engineering for the load you didn't expect. Together they are how systems meet their SLOs while their bills stay sane — neither replaces the other.**
 
----
+- **Capacity = baseline planning + auto-scaling for the noise.** Capacity planning is proactive (prepares for *expected* load); auto-scaling is reactive (responds to *current* load).
+- **Auto-scaling has time delays** — a new instance takes seconds to minutes to come online, while a spike can arrive in 10 seconds. Pre-warm for known events; buffer the baseline; load-shed at the edge.
+- **Identify the bottleneck before scaling, because the bottleneck moves.** Scale CPU and the DB becomes the limit; scale the DB and the connection pool does. Capacity planning is whole-stack. Scaling the front layer doesn't help if the real ceiling is downstream.
+- **DB connections are often the silent ceiling** — a hard limit that auto-scaling more instances cannot exceed.
+- **Saturation metrics beat utilization metrics for predicting failure.** 60% CPU is fine; a growing queue is not. Saturation (queue depth, p99 latency, acceptance rate) predicts; utilization (CPU %, memory %) merely measures.
+- **Cold-start matters for first requests** (boot, JIT, cache warm-up, pool establishment). Include it in latency budgets; add a warm-up phase before joining the load balancer.
+- **Headroom for failure is mandatory** — roughly 30-100% depending on AZ/region failure tolerance (50% headroom to survive one AZ of three; 200% to survive two). Smaller-instance/larger-count fleets absorb failures better.
+- **Cap auto-scaling** with max instance counts to prevent runaway cost from metric anomalies or bottleneck-driven scaling loops.
+- **Scale-up doesn't fix application bugs** — profile and optimize before throwing instances at a problem.
+- **Optimize cost with a reservation + on-demand + spot mix**: baseline on reserved, daily peaks on-demand, batch/non-critical on spot. Over-provisioning burns money; under-provisioning burns reliability.
+- **Load-test under realistic patterns, including sustained overload and failures** — theoretical capacity calculations age badly.
+- **Treat capacity as a living forecast, not a one-time calculation.** Review forecasts weekly, update plans monthly, deep-dive quarterly; do pre-launch capacity reviews for known events.
 
-## What Senior Engineers Instinctively Notice
+## Interview angle
 
-- They **identify the bottleneck** before scaling.
-- They **plan headroom for AZ/region failure**.
-- They **pre-warm for known events**.
-- They **cap auto-scaling** to prevent runaway cost.
-- They **distinguish saturation from utilization**.
-- They **forecast and review** capacity periodically.
-- They **load-test under realistic patterns**.
-- They **include cold-start in latency budgets**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"How would you size capacity for a service expecting X RPS?"** Tests methodology: per-request cost, headroom, failure tolerance.
-2. **"Why isn't auto-scaling enough?"** Cold-start, bottleneck migration, time delays.
-3. **"Where would you place a bottleneck?"** Tests workload characterization.
-4. **"How do you handle a 10× spike in 30 seconds?"** Pre-warm, load shed, capacity buffer.
-5. **"What's saturation vs utilization?"** Saturation predicts; utilization measures.
-6. **"How does failure tolerance affect capacity?"** Headroom math.
-7. **"How do you optimize cost?"** Reservation strategy + on-demand + spot mix.
-
-Common traps:
-- Believing auto-scaling is sufficient.
-- Not knowing about connection-pool ceilings.
-- Forgetting failure capacity.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Capacity = baseline planning + auto-scaling for noise.**
-2. **Identify the bottleneck**; scale that, not just the front.
-3. **Cold-start adds delay** to scaling.
-4. **Saturation metrics** > utilization metrics.
-5. **Headroom for failure** is mandatory: 30-100%.
-6. **Pre-warm for known events.**
-7. **Cap auto-scaling** to prevent cost runaway.
-8. **Connection pools** are common silent ceilings.
-9. **Reservation + on-demand + spot** for cost optimization.
-10. **Load test under realistic patterns**, including failures.
-
----
-
-## Final Mental Model
-
-> **Capacity planning is engineering for the load you expect. Auto-scaling is engineering for the load you didn't expect. Together they are how systems meet their SLOs while their bills stay sane.**
-
-The senior engineer planning capacity treats it as a forecast, not a one-time calculation. Workloads grow; bottlenecks shift; failure scenarios evolve. Quarterly review keeps the plan current. Monthly metrics-watch catches drift. Pre-launch capacity reviews catch surprises before they're production incidents.
-
-The systems that survive growth and unexpected events are the ones whose capacity is *planned*, not *reactive*. Auto-scaling is a powerful tool — within the limits of its assumptions. Outside those limits (cold-start delays, downstream bottlenecks, sudden 100× spikes), capacity planning is what saves you. The marketing slides will talk about elastic scaling. The engineering reality is more careful.
-
-That's auto-scaling. That's capacity planning. That's the disciplined math behind "the system handles whatever traffic we throw at it" — when it's true.
+- **"How would you size capacity for a service expecting X RPS?"** — methodology: per-request resource cost, headroom, failure tolerance.
+- **"Why isn't auto-scaling enough?"** — cold-start, bottleneck migration, time delays.
+- **"Where is the bottleneck?"** — tests workload characterization.
+- **"How do you handle a 10× spike in 30 seconds?"** — pre-warm, load shed, capacity buffer.
+- **"Saturation vs utilization?"** — saturation predicts; utilization measures.
+- **"How does failure tolerance affect capacity?"** — the headroom math.
+- **"How do you optimize cost?"** — reservation + on-demand + spot mix.
+- Common traps: believing auto-scaling is sufficient; not knowing about connection-pool ceilings; forgetting failure capacity.

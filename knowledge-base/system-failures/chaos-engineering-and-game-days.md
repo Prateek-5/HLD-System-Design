@@ -54,25 +54,6 @@ The pattern: each generation expanded the scope of what was deliberately tested,
 
 ---
 
-## Core Mental Models
-
-**1. Failures are not exceptional; they're routine.**
-At scale, *something* is always failing. A network blip, a slow disk, a process crash, a degraded dependency. The question isn't "will failures happen?" — it's "do we know how the system responds when they do?"
-
-**2. The bug is not in the code; it's in the assumption.**
-Every chaos finding is a *surprise*. The team thought retries handled the failure; they don't. The team thought failover was automatic; it isn't. The team thought the alert would fire; it didn't. Chaos engineering is *assumption testing*.
-
-**3. Test in production, with safety.**
-Staging environments are too clean. Real traffic patterns, real concurrency, real edge cases — these only exist in production. Modern chaos engineering tests in production, with blast-radius controls (limited scope, ability to abort).
-
-**4. Game days test the team, not just the system.**
-Half of any incident is *human response* — does the on-call engineer find the right runbook? Do they escalate appropriately? Do communications channels work? Game days exercise the team's response, exposing process gaps that no system test would find.
-
-**5. Hypothesis-driven, not random.**
-"Let's break things" is not chaos engineering. *"We hypothesize that if we lose one database replica, the system maintains 99.9% availability with elevated latency for 30 seconds. Let's test."* That's chaos engineering. The hypothesis turns the experiment into a learning exercise, with a definite pass/fail.
-
----
-
 ## Deep Technical Explanation
 
 ### The chaos experiment lifecycle
@@ -265,14 +246,6 @@ What chaos engineering reveals (real findings, generalized):
 - **The authentication tied to the failed service.** Killing the auth service means the on-call engineer can't log in to investigate. Recursive failure. Fix: out-of-band access for incidents.
 - **The cascading dependency on logging.** Logging service degraded. Application threads block on log writes. Application appears down. Fix: async, bounded log buffers; backpressure to prevent log calls from blocking.
 
-The senior engineer's habits:
-- **Schedule chaos regularly**, not just before launches.
-- **Hypothesize before each experiment** — make it a test, not a stunt.
-- **Run game days** at least quarterly for major systems.
-- **Bound blast radius** rigorously.
-- **Document findings** and verify fixes with re-runs.
-- **Make resilience testing part of definition of done** for new services.
-
 ---
 
 ## Failure Scenarios
@@ -339,73 +312,33 @@ The unifying observation: **every defensive pattern in distributed systems is hy
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **untested resilience is theoretical resilience**.
-- That **production is the only realistic test environment** for distributed systems.
-- That **game days test people**, not just systems.
-- That **runbooks rot** and need exercise.
-- That **blast radius bounds chaos** from being negligence.
-- That **automatic failover often isn't** until tested.
-- That **alerts don't always fire** the way you expect.
-- That **the most valuable chaos findings are surprises**, not confirmations.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **schedule chaos regularly**, not as one-offs.
-- They **hypothesize before each experiment**.
-- They **rigorously bound blast radius**.
-- They **run game days** for major systems.
-- They **treat findings as bugs**, not academic exercises.
-- They **integrate chaos into CI/CD** where appropriate.
-- They **rotate game day participants** to spread knowledge.
-- They **measure mean-time-to-detect and mean-time-to-mitigate** as resilience metrics.
+- **Chaos = hypothesis-driven failure injection**, not "let's break things and see." Build a hypothesis around steady-state behavior, vary real-world events, and get a definite pass/fail. The bug is rarely in the code — it's in the *assumption* (that retries handled it, that failover was automatic, that the alert would fire). The most valuable findings are surprises, not confirmations.
+- **Untested resilience is theoretical resilience.** Untested failover is broken failover. Every defensive pattern — retries, circuit breakers, sagas, replication — needs chaos validation to be considered real.
+- **Failures are routine, not exceptional.** At scale something is always failing; the question is whether you know how the system responds.
+- **Test in production, with safety.** Staging is too clean to reproduce real traffic patterns, concurrency, and failure modes. Always bound the blast radius — limit scope, ramp gradually (1% → 10% → 50%), auto-abort on SLO breach, time-box. Unbounded blast radius is negligence, not chaos engineering.
+- **Game days test the team, not just the system.** Many findings are not code bugs — broken access, stale runbooks, misaligned mental models, alerts that don't page. Runbooks rot and need regular exercise.
+- **Findings become bug tickets** and re-run experiments after the fix. Continuous chaos beats one-off exercises — it forces every change to maintain resilience and makes the discipline cultural.
+- **Senior habits:** schedule chaos regularly (not just before launches); hypothesize before each experiment; integrate chaos into CI/CD where appropriate; rotate game day participants to spread knowledge; track mean-time-to-detect and mean-time-to-mitigate as resilience metrics; make resilience testing part of the definition of done for new services.
 
 ---
 
-## Interview Perspective
+## Interview Angle
 
-What gets tested:
-
-1. **"What's chaos engineering?"** Tests basic literacy. Bonus for naming Netflix and the principles.
-2. **"How would you start a chaos program?"** Senior answer: small experiments, hypothesis-driven, blast-radius bounded, growing in scope.
-3. **"What's a game day?"** Tests practical understanding. Right answer: scheduled exercise testing system *and* team response.
-4. **"How do you bound blast radius?"** Limit scope; ramp gradually; auto-abort on SLO breach; time-box.
-5. **"What have you found through chaos engineering?"** Tests real experience. Look for specific findings — bad runbooks, retry storms, missing alerts.
-6. **"Why test in production?"** Realism that staging can't reproduce. Real traffic patterns, real concurrency, real failure modes.
-7. **"What's the difference between chaos engineering and fuzz testing?"** Fuzz tests inputs; chaos tests system failures.
-
-Common traps:
-- Treating chaos as "let's break things and see."
-- Thinking staging tests are enough.
-- Not bounding blast radius.
-- Not using hypotheses.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Chaos = hypothesis-driven failure injection.**
-2. **Game days exercise the team**, not just the system.
-3. **Bound the blast radius.** Always.
-4. **Test in production with safety**: small scope, ramp gradually, auto-abort.
-5. **Untested failover is broken failover.**
-6. **Runbooks rot.** Exercise them regularly.
-7. **Findings become bug tickets** and re-run experiments.
-8. **Continuous chaos** > one-off exercises.
-9. **The valuable findings are surprises**, not confirmations.
-10. **Every resilience pattern needs chaos validation**.
+- **"What's chaos engineering?"** Hypothesis-driven failure injection to find failure modes before customers do; bonus for naming Netflix and the formal principles.
+- **"How would you start a chaos program?"** Small experiments, hypothesis-driven, blast-radius bounded, growing in scope.
+- **"What's a game day?"** A scheduled exercise testing the system *and* the team response.
+- **"How do you bound blast radius?"** Limit scope; ramp gradually; auto-abort on SLO breach; time-box.
+- **"What have you found through chaos engineering?"** Tests real experience — look for specific findings (bad runbooks, retry storms, missing alerts).
+- **"Why test in production?"** Realism staging can't reproduce.
+- **"Chaos engineering vs. fuzz testing?"** Fuzz tests inputs; chaos tests system failures.
+- **Common traps:** treating chaos as "break things and see," thinking staging is enough, not bounding blast radius, not using hypotheses.
 
 ---
 
 ## Final Mental Model
 
-> **Reliability is not designed; it's discovered. Chaos engineering is the discipline of discovery — finding the failure modes before customers do, on your terms, with safety nets, in business hours. The team that does this routinely outperforms the team that designs reliability beautifully but never tests it.**
+> **Reliability is not designed; it's discovered. Chaos engineering is the discipline of discovery — finding the failure modes before customers do, on your terms, with safety nets, in business hours.**
 
-The senior engineer treats chaos engineering as part of the engineering loop, not a special activity. New service? Schedule a chaos exercise. New deployment? Verify resilience holds. New dependency? Test failure modes. The mindset shift is from "we designed for failure" to "we proved it; here are the receipts."
-
-Every reliable system you've heard about — Netflix, Google, Amazon — invests heavily in this. The systems that aren't reliable aren't ones with worse engineers; they're ones that haven't built the discipline of routine failure testing. The first time a team runs chaos exercises, they always find things. The tenth time, they find subtler things. The fiftieth time, they find the bug that would have been the headline outage.
-
-That's chaos engineering. That's game days. That's the practice that turns "we have good tests" into "we know how this fails because we've broken it ourselves." And in distributed systems, that distinction is the difference between sleeping at night and being paged at 3am for the failure mode you'd never imagined.
+The mindset shift is from "we designed for failure" to "we proved it; here are the receipts." The systems that aren't reliable aren't ones with worse engineers; they're ones that haven't built the discipline of routine failure testing. The first time a team runs chaos exercises, they always find things. The fiftieth time, they find the bug that would have been the headline outage. That's the difference between sleeping at night and being paged at 3am for the failure mode you'd never imagined.

@@ -56,25 +56,6 @@ Today. Distributed transactions exist on a spectrum: 2PC for tightly-bounded use
 
 ---
 
-## Core Mental Models
-
-**1. 2PC has two phases: prepare and commit.**
-Prepare: ask all participants if they can commit. Commit: tell them to do it. Both phases require all participants to respond.
-
-**2. The coordinator is a single point of failure (and blocking).**
-If the coordinator dies between phases, participants don't know what to do. They block until the coordinator recovers (or manual intervention).
-
-**3. 3PC tries to fix blocking; introduces other issues.**
-Adds a "pre-commit" phase so participants can recover without the coordinator. Requires bounded message delays — an assumption that doesn't hold in real networks.
-
-**4. Real-world 2PC is rare across services.**
-Within a database (or a tightly-bounded resource set with consensus-backed coordinator), 2PC works. Across loosely-coupled services, it's a anti-pattern.
-
-**5. The alternatives are sagas and eventual consistency.**
-Modern distributed systems coordinate via sequences of local transactions with compensation, or via eventual reconciliation, rather than via distributed locks. (See [saga-pattern-and-distributed-transactions.md](../architecture-patterns/saga-pattern-and-distributed-transactions.md).)
-
----
-
 ## Deep Technical Explanation
 
 ### Two-Phase Commit (2PC) in detail
@@ -283,65 +264,23 @@ The unifying observation: **2PC was the right answer to the wrong question. The 
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **2PC blocks on coordinator failure** indefinitely.
-- That **XA across services is an anti-pattern**.
-- That **2PC works within databases** but rarely across them.
-- That **sagas are the modern answer** for cross-service.
-- That **3PC's assumptions don't hold** in real networks.
-- That **lock duration in 2PC** is significant.
+- **2PC = prepare + commit**, atomic across all participants: prepare asks every participant if it can commit; commit tells them to do it. Both phases require all participants to respond (unanimity), unlike consensus (Paxos/Raft), which needs only a majority.
+- **The coordinator is a single point of failure.** If it dies between phases, participants sit in "prepared" state — locks held, unable to unilaterally proceed or abort — and **block indefinitely** until recovery or manual intervention. This blocking, the long lock durations, and the sensitivity to network partitions are inherent to the protocol's structure, not implementation bugs.
+- **3PC adds a pre-commit phase** so survivors can recover without the coordinator, but its correctness assumes a synchronous network (bounded delays). Real networks aren't synchronous, so 3PC has correctness issues under partitions and is rarely deployed. Believing "3PC fixes 2PC" is a common trap.
+- **XA (X/Open, 1991) / JTA** is the standard for distributed transactions across resource managers (e.g., a DB plus a message queue). It works but is heavy, slow, and prone to coordinator-failure pathologies; problematic at scale.
+- **XA across loosely-coupled services is an anti-pattern.** Use 2PC only within a tightly-bounded resource set (e.g., a single database's shards). Across services, use **sagas**: sequences of local transactions with compensations — no cross-service locks, no coordinator-failure blocking, eventual consistency.
+- **Compensation vs rollback**: rollback undoes as if nothing happened (nothing visible); compensation is a forward operation that semantically undoes a prior one (both stay visible in the audit trail). Rollback often isn't possible across services, so sagas design compensations explicitly.
+- **Consensus-backed 2PC** (Spanner: 2PC + Paxos + TrueTime; CockroachDB: 2PC + Raft) makes the coordinator's decisions durable across failures, removing the unrecoverable coordinator-failure mode that plagues XA. This is why 2PC works transparently inside modern distributed databases.
+- **CAP framing**: 2PC is CP (blocks during partitions); sagas are AP (eventual reconciliation). Money transfers may justify consensus-backed CP; order processing usually favors AP sagas.
+- **Operationally**: avoid XA across services and across regions; keep manual recovery procedures for stuck prepared transactions; expect deadlocks across concurrent XA transactions.
+- **2PC was the right answer to the wrong question.** It assumed a coordinator that doesn't fail. Treat it as historical context that defined the problem space — modern systems either wrap it in consensus inside a single database or replace it with sagas across services.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **avoid 2PC across services**.
-- They **use sagas** for cross-service workflows.
-- They **reach for consensus-backed transactions** when needed.
-- They **have manual recovery procedures**.
-- They **understand 2PC's failure modes**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Explain 2PC."** Tests fundamental.
-2. **"Why is 2PC's coordinator a problem?"** Single point of failure; blocking.
-3. **"What's the difference between 2PC and Paxos?"** 2PC requires unanimous participants; Paxos requires majority.
-4. **"How does Spanner do distributed transactions?"** 2PC + Paxos coordinator durability + TrueTime.
-5. **"When would you use 2PC?"** Within tightly-bounded resources; never across services.
-6. **"Sagas vs 2PC?"** Compensation vs rollback; eventual vs strict.
-
-Common traps:
-- Recommending XA for cross-service.
-- Believing 3PC fixes 2PC.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **2PC = prepare + commit**, atomic across participants.
-2. **Coordinator failure blocks** participants.
-3. **3PC tries to fix blocking** but assumes synchronous network.
-4. **XA = standard for distributed transactions**; problematic at scale.
-5. **Spanner-style 2PC** uses consensus-backed coordinator.
-6. **Avoid 2PC across services**; use sagas.
-7. **Locks held** during 2PC; long durations.
-8. **Manual recovery** for stuck prepared transactions.
-9. **Modern pattern**: sagas with compensation.
-10. **2PC is correct theory; problematic in practice** without consensus.
-
----
-
-## Final Mental Model
-
-> **2PC is the protocol that taught the field that "atomic across distributed resources" is much harder than it looks. The blocking on coordinator failure, the lock-duration problems, the sensitivity to network partitions — these aren't bugs in implementations; they're inherent to the protocol's structure. Modern systems either use 2PC carefully (with consensus-backed coordinators within a single database) or replace it entirely (sagas across services).**
-
-The senior architect treats 2PC as historical context, not a current tool. They use it when it's been carefully designed (within Spanner-class systems); they avoid it when it would mean coordinating loosely-coupled services. Sagas replace it for most modern needs. Consensus replaces its coordinator role for tighter integrations.
-
-The teams that depend on XA in production accumulate stories. The teams that adopted XA and migrated away accumulate scars. The teams that started with sagas avoided both. The lessons are well-understood; the protocol remains, mostly, in legacy systems and as a tool for understanding what alternatives are alternatives *to*.
-
-That's distributed transactions. That's 2PC. That's the algorithm that defined the problem space — and made the limits of "easy distributed coordination" so clear that an entire generation of distributed systems was built on the alternatives.
+- **"Explain 2PC"** and **"Why is the coordinator a problem?"** — fundamentals: two phases; single point of failure; blocking.
+- **"2PC vs Paxos?"** — 2PC needs unanimous participants; Paxos needs a majority. 2PC is not consensus; modern systems run consensus *under* 2PC.
+- **"How does Spanner do distributed transactions?"** — 2PC across shards + Paxos for coordinator durability + TrueTime for external consistency.
+- **"When would you use 2PC?"** — within a tightly-bounded resource set; never across services.
+- **"Sagas vs 2PC?"** — compensation vs rollback; eventual vs strict consistency.

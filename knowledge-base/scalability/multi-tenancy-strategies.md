@@ -60,25 +60,6 @@ The pattern: each generation refined the cost-isolation tradeoff. Modern SaaS us
 
 ---
 
-## Core Mental Models
-
-**1. Multi-tenancy is a continuum.**
-From pure pool (everything shared) to pure silo (everything dedicated). Most production systems sit somewhere in between, often differently for different tenant types.
-
-**2. The blast radius is the unit of isolation.**
-A bug, a noisy neighbor, a security breach — what's the largest set of tenants affected? Designs with bounded blast radius survive bad days.
-
-**3. Isolation has costs.**
-Stronger isolation = more infrastructure, more operational overhead, more cost. The right level matches business needs.
-
-**4. Tenant identity propagates everywhere.**
-Every database query, every cache key, every log line, every metric — tenant context must be present. Forgetting it leads to data leaks.
-
-**5. Tenants vary wildly.**
-Small tenants: most of your count. Large tenants: most of your load. Treating them identically in pool model leads to small tenants suffering from large tenants. Enterprise patterns differ.
-
----
-
 ## Deep Technical Explanation
 
 ### The pool model
@@ -267,14 +248,6 @@ What goes wrong:
 - **The compliance failure.** EU tenant's data ended up in US datacenter (cell mis-assigned). GDPR violation. Mitigation: enforce region constraints in routing.
 - **The offboarding miss.** Tenant deleted from primary database; analytics warehouse retains data; logs retain data. GDPR audit fails. Mitigation: comprehensive offboarding.
 
-The senior architect's habits:
-- **Choose multi-tenancy strategy** based on tenant size distribution.
-- **Hybrid models** for varying tenant needs.
-- **Per-tenant rate limiting** mandatory.
-- **Tenant context propagation** in every layer.
-- **Cell-based architecture** for blast-radius reduction at scale.
-- **Comprehensive offboarding** including downstream systems.
-
 ---
 
 ## Failure Scenarios
@@ -339,66 +312,26 @@ The unifying observation: **multi-tenancy is the lens through which most distrib
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **tenant context must propagate** everywhere.
-- That **cache keys must include tenant_id**.
-- That **noisy neighbor is real**.
-- That **per-tenant rate limiting** is mandatory.
-- That **compliance drives isolation**.
-- That **offboarding is hard**.
-- That **schema migrations multiply** in bridge model.
+- **Multi-tenancy is a continuum** from pure pool (everything shared) to pure silo (everything dedicated). Most production systems sit in between — often differently for different tenant tiers. The right answer is usually a **hybrid** matching tenant size and requirements (pool for small, silo for enterprise), not pure pool or pure silo.
+- **The four models**: pool (cheap, shared, weak isolation), silo (expensive, strongly isolated), bridge (shared app, per-tenant data via schema/database/RLS), cell-based (bounded blast radius at scale).
+- **Blast radius is the unit of isolation** — what's the largest set of tenants a bug, noisy neighbor, or breach can affect? Cell-based architecture is mandatory at hyperscale to bound it.
+- **Isolation has costs**: stronger isolation means more infrastructure, operational overhead, and cost. Match the level to business need.
+- **Tenant context must propagate everywhere** — every query, cache key, log line, metric, and outbound call. Forgetting any layer leads to data leaks; cache keys missing `tenant_id` are a classic cross-tenant leak.
+- **The noisy neighbor problem is real**, and **per-tenant rate limiting is mandatory** (token bucket per tenant; tiered by plan) to keep one tenant from starving others.
+- **Tenants vary wildly**: small tenants are most of your count, large tenants are most of your load. Treating them identically in a pool model makes small tenants suffer.
+- **Compliance drives isolation**: GDPR data residency, HIPAA, SOC2, PCI may force silo for specific tenants or regions; enforce region constraints in routing.
+- **Offboarding is hard** and must be comprehensive — cascading deletes across the primary store, backups, analytics warehouses, logs, and metrics, or GDPR audits fail.
+- **Schema migrations multiply** in the bridge model (per-schema/per-tenant ALTERs); parallelize and automate.
+- Senior practice: enforce tenant isolation in code review, and plan offboarding from day one.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **choose multi-tenancy strategy** based on tenant distribution.
-- They **enforce tenant isolation** in code review.
-- They **use cell-based architecture** at scale.
-- They **rate-limit per tenant**.
-- They **propagate tenant context** rigorously.
-- They **handle compliance constraints**.
-- They **plan offboarding** from day one.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Multi-tenancy strategies?"** Pool, silo, bridge, cell.
-2. **"How would you ensure tenant isolation?"** RLS; tenant_id everywhere.
-3. **"What's the noisy neighbor problem?"** One tenant affecting others.
-4. **"How do you rate-limit per tenant?"** Token bucket per tenant.
-5. **"Cell-based architecture?"** Independent cells; bounded blast radius.
-6. **"How do you handle compliance?"** Region/cell constraints.
-
-Common traps:
-- Recommending pure pool at scale.
-- Forgetting tenant_id in caches.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Multi-tenancy spectrum**: pool → silo.
-2. **Pool**: cheap, shared, weak isolation.
-3. **Silo**: expensive, isolated.
-4. **Bridge**: shared app, per-tenant data.
-5. **Cell-based**: bounded blast radius at scale.
-6. **Per-tenant rate limiting** mandatory.
-7. **Tenant context propagation** in every layer.
-8. **Compliance** may dictate isolation.
-9. **Offboarding** must be comprehensive.
-10. **Hybrid models** for varying tenant needs.
-
----
-
-## Final Mental Model
-
-> **Multi-tenancy is the architecture under every SaaS. The strategy chosen determines how customers experience your service: shared infrastructure with potential noise, or isolated infrastructure with higher cost. The right answer is usually neither pure pool nor pure silo, but a hybrid that matches different tenant tiers to different isolation levels.**
-
-The senior SaaS architect treats multi-tenancy as a design dimension that touches every component. Database schemas, caches, observability, deployment — all have tenant implications. The teams that get this right scale from one tenant to thousands without re-architecture; the teams that don't pay for the right answer in tears, three years in.
-
-That's multi-tenancy. That's the structural decision under every B2B SaaS. That's the architecture that determines whether you can grow gracefully or whether each new customer is a one-off operational burden.
+- **"What are the multi-tenancy strategies?"** Pool, silo, bridge, cell.
+- **"How would you ensure tenant isolation?"** Row-level security; `tenant_id` everywhere.
+- **"What's the noisy neighbor problem?"** One tenant's load affecting others.
+- **"How do you rate-limit per tenant?"** Token bucket per tenant (distributed via Redis for multi-instance).
+- **"What is cell-based architecture?"** Independent cells, each a complete stack; bounded blast radius.
+- **"How do you handle compliance?"** Region/cell constraints enforced in routing.
+- **Common traps**: recommending pure pool at scale; forgetting `tenant_id` in cache keys.

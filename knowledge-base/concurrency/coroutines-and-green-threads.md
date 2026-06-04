@@ -52,27 +52,6 @@ The pattern: each generation made concurrent units cheaper. The newer abstractio
 
 ---
 
-## Core Mental Models
-
-**1. Concurrent unit cost decreases up the stack.**
-OS threads: ~1 MB stack, 10-100μs switches, limited to thousands.
-Green threads / virtual threads: KB stacks, microsecond switches, millions per process.
-Coroutines / async tasks: hundreds of bytes, nanosecond switches, even more.
-
-**2. Cooperative vs preemptive scheduling.**
-OS threads: preemptive (the kernel can interrupt anywhere). Coroutines/async tasks: cooperative (the task yields explicitly, often at `await` points). Cooperation requires care — a tight CPU loop blocks the runtime.
-
-**3. M:N scheduling is the modern default.**
-M user-space tasks multiplexed onto N OS threads. The runtime's scheduler decides which task runs on which thread. Work-stealing balances load.
-
-**4. Function coloring is a real trade-off.**
-"Async functions can call async functions; sync functions can't easily call async ones." This creates "red" (async) and "blue" (sync) functions. Some languages avoid this (Go, Erlang, Java with Loom); others embrace it (Rust, JS, Python).
-
-**5. Where compute happens matters.**
-Async/coroutines help with I/O-bound work. They don't add CPU parallelism within one process. A CPU-bound task in a coroutine still blocks all other coroutines on its thread. (See [parallelism-vs-concurrency.md](./parallelism-vs-concurrency.md).)
-
----
-
 ## Deep Technical Explanation
 
 ### OS threads in detail
@@ -355,72 +334,40 @@ The unifying observation: **concurrent units have moved from kernel-managed (hea
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **OS threads are expensive** at scale.
-- That **coroutines don't add parallelism** within a single thread.
-- That **blocking calls in async code** ruin throughput.
-- That **task spawning needs bounds**.
-- That **structured concurrency** prevents lifetime bugs.
-- That **function coloring** is a real cost.
-- That **cancellation is subtle**.
-- That **work-stealing** is the modern scheduler pattern.
+**Mental models**
 
----
+- **Concurrent unit cost decreases up the stack.** OS threads: ~1 MB stack, 10-100μs switches, limited to thousands. Green/virtual threads: KB stacks, microsecond switches, millions per process. Coroutines/async tasks: hundreds of bytes, nanosecond switches, even more.
+- **Cooperative vs preemptive scheduling.** OS threads are preemptive (kernel interrupts anywhere; fairness is automatic). Coroutines/async tasks are cooperative — they yield explicitly, usually at `await` points — so a tight CPU loop blocks the runtime.
+- **M:N scheduling is the modern default.** M user-space tasks multiplexed onto N OS threads; the runtime's scheduler decides placement. **Work-stealing** (each thread has a local queue, steals when empty) balances load and gives good locality — the standard pattern in Go, tokio, and Java's ForkJoinPool.
+- **Function coloring is a real trade-off.** Async functions can call async functions; sync functions can't easily call async ones, creating "red" (async) and "blue" (sync) functions that propagate recursively up the call stack. Some languages avoid it (Go, Erlang, Java with Loom); others embrace it (Rust, JS, Python) because explicit yield points enable optimizations and reasoning (Rust's borrow checker depends on it).
+- **Where compute happens matters.** Async/coroutines help with I/O-bound work; they add no CPU parallelism within a single process. A CPU-bound task in a coroutine still blocks all other coroutines on its thread, so CPU work belongs on dedicated threads/workers. (See [parallelism-vs-concurrency.md](./parallelism-vs-concurrency.md).)
 
-## What Senior Engineers Instinctively Notice
+**What practitioners get right**
 
-- They **avoid blocking calls** in async contexts.
-- They **bound concurrency** with channels/semaphores.
-- They **prefer structured concurrency**.
-- They **distinguish I/O-bound from CPU-bound work**.
-- They **understand their runtime's scheduler**.
-- They **handle cancellation** explicitly.
-- They **measure under realistic load**.
-- They **know when to use threads vs coroutines** for each task.
+- OS threads are expensive at scale; coroutines/green threads are far cheaper.
+- Bound concurrency with channels/semaphores/queues — never spawn unbounded tasks.
+- Avoid blocking calls in async contexts; they ruin throughput.
+- Use structured concurrency to prevent lifetime/leak bugs.
+- Distinguish I/O-bound from CPU-bound work and route each appropriately.
+- Understand your runtime's scheduler; handle cancellation explicitly; measure under realistic load (not just unit tests).
+- **Channels** coordinate by passing data (vs locks, which coordinate access to shared memory).
+
+> **Final mental model:** Coroutines, green threads, and async runtimes respond to a hardware reality (one OS thread is heavy) and an application reality (most concurrent work is waiting). Modern concurrency is layered: cheap units in user space, multiplexed onto OS threads, scheduled by the runtime. The systems that handle massive concurrency aren't the ones with the most cores — they're the ones whose abstractions match the work: cheap concurrent units for waiting, parallel threads for computing, channels for coordination. This is what turned C10K into a solved problem and made C10M routine.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
 What gets tested:
 
-1. **"Coroutine vs OS thread?"** Tests fundamental literacy.
-2. **"What's function coloring?"** Async/sync split; recursive propagation.
-3. **"How does Go's scheduler work?"** Work-stealing M:N.
-4. **"Virtual threads in Java?"** Cheap user-space threads multiplexed onto OS threads.
+1. **"Coroutine vs OS thread?"** Fundamental literacy on cost and scheduling.
+2. **"What's function coloring?"** Async/sync split; recursive propagation up the call stack.
+3. **"How does Go's scheduler work?"** Work-stealing, M:N.
+4. **"Virtual threads in Java?"** Cheap user-space threads multiplexed onto OS carrier threads.
 5. **"What's structured concurrency?"** Lifetime-bound task spawning.
 6. **"Why is blocking in async bad?"** Stalls the runtime; other coroutines wait.
 7. **"How do you handle cancellation?"** Tokens, exceptions, dropping futures.
 
-Common traps:
-- Believing async = parallelism.
-- Spawning unbounded tasks.
-- Mixing blocking and async without care.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Coroutines/green threads are cheaper than OS threads.**
-2. **M:N scheduling** multiplexes user tasks onto OS threads.
-3. **Cooperative scheduling** requires yielding (await).
-4. **Blocking calls in async code** stall the runtime.
-5. **Function coloring** is a language design cost.
-6. **Work-stealing** balances load across threads.
-7. **Structured concurrency** for lifetime safety.
-8. **Channels** for coordination by message passing.
-9. **Cancellation** must be handled explicitly.
-10. **CPU work belongs on dedicated threads**, not coroutines.
-
----
-
-## Final Mental Model
-
-> **Coroutines, green threads, and async runtimes are the response to a hardware reality (one OS thread is heavy) and an application reality (most concurrent work is waiting). Modern concurrency is layered: cheap units in user space, multiplexed onto OS threads, scheduled by the runtime. Master the layers, and you can express million-fold concurrency in code that looks linear.**
-
-The senior engineer working in Go, Rust, Kotlin, modern Java, or asyncio Python carries a mental model of where their tasks run and what their cost is. They reach for goroutines/tasks for I/O-bound work, threads or workers for CPU-bound. They bound concurrency. They use structured patterns. They avoid the blocking-call-in-async footgun.
-
-The systems that handle massive concurrency aren't necessarily the ones with the most cores. They're the ones whose abstractions match the work — cheap concurrent units for waiting, parallel threads for computing, channels for coordination. The cost is some new vocabulary; the benefit is software that can handle scales single-threaded blocking code never could.
-
-That's coroutines. That's green threads. That's the modern concurrency stack — the layered system that turned C10K into a solved problem and made C10M routine.
+Common traps: believing async = parallelism; spawning unbounded tasks; mixing blocking and async without care.

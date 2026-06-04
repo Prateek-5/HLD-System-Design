@@ -277,72 +277,34 @@ The unifying observation: **concurrency is a programming model; parallelism is a
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **threading a Python compute task** doesn't help (GIL).
-- That **async/await alone** gives concurrency, not parallelism.
-- That **Amdahl's Law caps speedup** more than they expect.
-- That **adding cores doesn't always help** — coordination costs matter.
-- That **false sharing exists** and silently destroys parallelism.
-- That **I/O-bound and CPU-bound have different solutions.**
-- That **single-thread vs multi-thread containers** matters in deployment.
-- That **profile-first beats assume-and-add-threads.**
+- **Concurrency = structure; parallelism = execution.** A concurrent structure *can* run in parallel if hardware allows, but you can have either without the other.
+- **I/O-bound → concurrency; CPU-bound → parallelism.** Different problems, different solutions.
+- **GIL / single event loop is a parallelism limit, not a concurrency limit.** Threading a pure-Python compute task doesn't help; `multiprocessing`, native extensions (NumPy/Cython/Rust release the GIL), or moving the kernel out of Python do.
+- **async/await alone gives concurrency, not parallelism.** A responsive event loop still runs CPU work single-threaded.
+- **Amdahl's Law caps speedup at 1/sequential-fraction** — almost always more than people expect; real workloads have more sequential work (serialization, aggregation, I/O) than they guess.
+- **Coordination is the cost of parallelism.** Locks, cache coherence, scheduler overhead — past a point more cores hurt. Minimizing coordination (per-thread/per-shard data, minimal locks) is the scaling strategy.
+- **False sharing silently destroys otherwise-clean parallelism** — a parallelism-specific bug invisible in single-threaded code; fix with padding / cache-line alignment.
+- **Work stealing is the modern general-purpose scheduler pattern** (Go, ForkJoinPool, Tokio, Cilk): idle threads steal from busy ones.
+- **Threads are heavy; lightweight threads / async tasks are cheap.**
+- **Single-thread vs multi-thread containers matters in deployment** — size deployments for actual core counts.
+- **Profile first, measure speedup, don't assume.** Parallelize bottlenecks, not everything; many "parallelization" attempts yield no speedup or worse.
 
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **classify workloads as I/O-bound or CPU-bound** before designing.
-- They **measure speedup**, not assume.
-- They **minimize coordination** as the scaling strategy.
-- They **know the GIL implications** of their language.
-- They **watch for false sharing** in hot data structures.
-- They **size deployments** for actual core counts.
-- They **distinguish concurrency from parallelism** rigorously.
-- They **understand work-stealing** as the modern scheduling pattern.
+> **Mental model:** Concurrency is how you structure code; parallelism is how it runs. The art is making the structure exploit the hardware — and recognizing when adding more hardware just buys more coordination overhead.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
-What gets tested:
+Frequently tested questions:
 
-1. **"What's the difference between concurrency and parallelism?"** Tests fundamental literacy.
-2. **"Why doesn't threading help in Python?"** GIL.
-3. **"What's Amdahl's Law?"** Speedup is bounded by the sequential portion.
-4. **"What's false sharing?"** Hardware cache coherence on shared cache lines.
+1. **"What's the difference between concurrency and parallelism?"** Structure vs execution.
+2. **"Why doesn't threading help in Python?"** The GIL serializes Python bytecode.
+3. **"What's Amdahl's Law?"** Speedup is bounded by the sequential portion (→ 1/s).
+4. **"What's false sharing?"** Hardware cache coherence on a shared cache line, despite no real data sharing.
 5. **"How do you parallelize a CPU-bound task in Python?"** `multiprocessing`, native extensions, or moving the kernel out of Python.
 6. **"What's work stealing?"** Scheduler pattern; idle threads steal from busy ones.
-7. **"Why is my multi-threaded code slower?"** Common reasons: contention, false sharing, GIL, overhead exceeds parallelism gain.
+7. **"Why is my multi-threaded code slower?"** Contention, false sharing, GIL, or per-task overhead exceeding the parallelism gain.
 
-Common traps:
-- Conflating concurrency and parallelism.
-- Believing more threads = more speedup.
-- Not knowing about Amdahl's Law.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Concurrency = structure**; **parallelism = execution**.
-2. **I/O-bound → concurrency**; **CPU-bound → parallelism**.
-3. **GIL/event-loop = parallelism limit** per process.
-4. **Amdahl's Law caps speedup** at 1/sequential-fraction.
-5. **Coordination is the cost** of parallelism.
-6. **False sharing destroys** otherwise-clean parallelism.
-7. **Work stealing** is the modern scheduler pattern.
-8. **Threads are heavy**; lightweight threads / async are cheap.
-9. **Profile first**; parallelize bottlenecks, not everything.
-10. **Multi-process for GIL-bound parallelism.**
-
----
-
-## Final Mental Model
-
-> **Concurrency is how you structure code; parallelism is how it runs. The art is making the structure exploit the hardware — and recognizing when adding more hardware will just buy you more coordination overhead.**
-
-The senior engineer designing a high-performance system doesn't reach for threads reflexively. They classify the workload (I/O? CPU? mixed?), profile to find the actual bottleneck, choose primitives that match (async for I/O, parallel pools for CPU, partitioned data for both), and *measure* the result. Many "parallelization" attempts produce no speedup or worse; the discipline is verifying.
-
-The systems that scale to many cores are the ones designed with coordination as a first-class cost. Per-thread/per-shard data; minimal locks; cache-aware layout. The systems that hit ceilings are the ones that started single-threaded and tried to retrofit parallelism on top.
-
-That's parallelism vs concurrency. That's the distinction that separates "we added threads" from "we made it actually faster." That's a foundation literacy that every modern engineer needs — because every modern computer has more cores than people know how to use, and the gap between hardware capability and software exploitation is where production performance is lost.
+Common traps: conflating concurrency and parallelism; believing more threads = more speedup; not knowing Amdahl's Law.

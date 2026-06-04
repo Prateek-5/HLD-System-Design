@@ -50,25 +50,6 @@ The pattern: workload shapes drove database specialization. Trying to merge them
 
 ---
 
-## Core Mental Models
-
-**1. Row-oriented = fast row access; columnar = fast column access.**
-Storing all of a row's columns together (rows in a heap) makes "fetch this row by ID" cheap. Storing all values of a column together (columnar) makes "sum this column over a billion rows" cheap.
-
-**2. OLTP = high-frequency small operations; OLAP = low-frequency large operations.**
-OLTP: thousands of transactions per second, each touching a few rows. OLAP: hundreds of queries per hour, each touching millions or billions of rows.
-
-**3. The disk pattern follows.**
-OLTP uses random I/O (B-tree lookups); OLAP uses sequential I/O (full column scans). Hardware optimizations differ accordingly.
-
-**4. Compression is a columnar superpower.**
-Columns of similar values compress dramatically. A column of timestamps from one day fits in tiny space. Run-length encoding, dictionary encoding, bit packing — all natural at the column level.
-
-**5. Vectorization beats row-at-a-time.**
-Process 1024 values at once with SIMD; modern OLAP engines exploit this. Row-at-a-time engines pay per-row overhead; vectorized engines pay per-batch.
-
----
-
 ## Deep Technical Explanation
 
 ### Row-oriented storage (OLTP)
@@ -224,25 +205,6 @@ The reading room serves readers who want specific books quickly. The citation in
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The analytics-on-OLTP disaster.** Reporting query against production Postgres locks tables for 30 minutes. Customer-facing latency spikes. Mitigation: replica or warehouse.
-- **The Snowflake bill shock.** Bad query patterns (full table scans on huge tables) drive bills 10× expected. Snowflake bills per-query compute; learning to write efficient analytical SQL is a skill.
-- **The CDC replication lag.** Real-time analytics depends on CDC; CDC backs up 1 hour. Reports lag reality. Fix: monitor; scale CDC infrastructure.
-- **The columnar update.** Engineer tries to UPDATE individual rows in ClickHouse. ClickHouse's columnar format makes this very inefficient (rewrite whole columns/blocks). Mitigation: don't update; insert new and use ReplacingMergeTree-like semantics.
-- **The "we'll use HTAP" surprise.** Adopted single HTAP system. Discovered that for specific workloads, dedicated systems would have been faster and cheaper. Mitigation: assess workload requirements explicitly.
-
-The senior data engineer's habits:
-- **Separate OLTP and OLAP** by default.
-- **CDC or scheduled ELT** to keep analytical replicas current.
-- **Test analytical queries** at scale.
-- **Cost-monitor** OLAP usage.
-- **Choose columnar or row** based on workload.
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The locked production database.**
@@ -305,69 +267,25 @@ The unifying observation: **workload shape drives database design. Mismatching w
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **analytics on OLTP can lock production**.
-- That **columnar = compressed + vectorized**, not just "stored differently."
-- That **OLTP and OLAP are different products** for good reasons.
-- That **HTAP is operationally complex**.
-- That **OLAP UPDATEs are typically expensive**.
-- That **Snowflake bills per-query compute**.
-- That **CDC enables real-time-ish analytics**.
-- That **partition pruning is critical** in OLAP.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **separate workloads** by default.
-- They **use CDC** for real-time analytics.
-- They **monitor query costs** in OLAP systems.
-- They **partition correctly** in OLAP.
-- They **avoid OLAP UPDATEs**.
-- They **distinguish workload shape** before choosing a system.
+- **OLTP = row-oriented, high-frequency small transactions (thousands/sec, a few rows each); OLAP = columnar, low-frequency large aggregations (queries over millions/billions of rows).** They are different products optimized for different workloads, not two settings of one database.
+- **Storage layout drives everything.** Rows-together makes "fetch this row by ID" cheap; columns-together makes "sum this column over a billion rows" cheap. Disk pattern follows: random I/O (B-tree lookups) for OLTP, sequential I/O (full column scans) for OLAP.
+- **Columnar = compressed + vectorized**, not just "columns instead of rows." Compression is a columnar superpower (5-30×, occasionally 100×) via dictionary/run-length/bit-packing/delta encoding on homogeneous data. Vectorization (batch + SIMD) gives 10-100× speedup on aggregations.
+- **Partition pruning is OLAP's first-line optimization** (plus min/max stats, bloom filters, sparse indexes, materialized views); scan as little as possible. **MPP scales OLAP horizontally** across nodes.
+- **OLAP UPDATEs are expensive** (rewrite whole columns/blocks) — design as appends/versioned inserts. Row stores plus B-trees, MVCC, and fine-grained locking are OLTP's tools instead.
+- **CDC bridges OLTP to OLAP** for near-real-time analytics; monitor CDC lag or dashboards silently go stale.
+- **Cost models differ and bite differently:** OLTP per-instance; OLAP per-query compute (Snowflake bill shock comes from full scans that should partition-prune). "More memory" does not fix OLAP-on-OLTP.
+- **Analytics on a production OLTP database can lock tables and take down the site** — replicate to a warehouse and run analytics there.
+- **HTAP exists but is operationally complex**; dedicated OLTP + OLAP systems with replication usually win. The reliable default architecture: OLTP database for the app, CDC/ETL pipeline, OLAP warehouse or query engine for analytics. Running two systems costs far less than forcing one to do both jobs.
 
 ---
 
-## Interview Perspective
+## Interview angle
 
-What gets tested:
-
-1. **"OLTP vs OLAP?"** Tests fundamental literacy.
-2. **"Why is columnar good for analytics?"** Sequential reads, compression, vectorization.
-3. **"Why is row-oriented good for OLTP?"** Random row access; consistency; transactions.
-4. **"What's vectorized execution?"** Batched processing; SIMD.
-5. **"How would you design analytics for an OLTP system?"** Replicate to OLAP; CDC.
-6. **"What's HTAP?"** Hybrid; trade-offs.
-7. **"When to use DuckDB vs Snowflake?"** Embedded vs cloud; size; cost.
-
-Common traps:
-- Believing "more memory" fixes OLAP on OLTP.
-- Treating columnar as simple "columns instead of rows."
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **OLTP = row-oriented, small transactions; OLAP = columnar, big aggregations.**
-2. **Compression** is a columnar superpower (5-30×).
-3. **Vectorization** is a columnar speedup (10-100×).
-4. **Partition pruning** is OLAP's first-line optimization.
-5. **CDC bridges** OLTP to OLAP for real-time.
-6. **OLAP UPDATEs are expensive**; design as appends.
-7. **HTAP exists but is hard**; usually two systems.
-8. **MPP scales OLAP** horizontally.
-9. **Cost models differ**: OLTP per-instance; OLAP per-query.
-10. **Match workload to system** carefully.
-
----
-
-## Final Mental Model
-
-> **OLTP and OLAP are not "two settings of the same database." They're different products optimized for different workloads. Columnar storage, vectorization, partitioning, compression — these are OLAP's tools. Row storage, B-trees, MVCC, fine-grained locking — these are OLTP's. Trying to make one do the other's job ends in pain. Picking the right tool for each workload, with CDC or ETL between them, is the reliable architecture.**
-
-The senior data engineer evaluates a system's workload shape before choosing infrastructure. Aggregations over millions of rows? OLAP. Per-user transactions? OLTP. Both? Two systems with replication. The cost of running two systems is small relative to the cost of forcing one to do both jobs.
-
-Modern teams often have: an OLTP database for the application, a CDC pipeline to a data lake or warehouse, and a query engine for analytics. The architecture matches the work. The teams that try to consolidate suffer; the teams that specialize ship.
-
-That's OLTP vs OLAP. That's columnar storage. That's the most consequential architectural choice in data systems — and one that's still surprisingly often gotten wrong by teams that don't think about workload shape before reaching for tools.
+- **"OLTP vs OLAP?"** / **"Why is columnar good for analytics?"** (sequential reads, compression, vectorization) / **"Why is row-oriented good for OLTP?"** (random row access, consistency, transactions).
+- **"What's vectorized execution?"** Batched processing with SIMD.
+- **"How would you design analytics for an OLTP system?"** Replicate to OLAP via CDC.
+- **"What's HTAP?"** Hybrid transactional-analytical; trade-offs and why dedicated systems often win.
+- **"When to use DuckDB vs Snowflake?"** Embedded/single-node vs cloud; data size; cost.
+- Common traps: believing "more memory" fixes OLAP on OLTP; treating columnar as simply "columns instead of rows."

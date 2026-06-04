@@ -52,25 +52,6 @@ The pattern: each version reduced round-trips and head-of-line blocking. Adoptio
 
 ---
 
-## Core Mental Models
-
-**1. HTTP/1.1 is one-request-at-a-time per connection.**
-Browsers open multiple connections to parallelize. Connection limit is 6 per origin in most browsers.
-
-**2. HTTP/2 multiplexes streams over one TCP connection.**
-Many requests at once; binary framing; header compression. Major efficiency win.
-
-**3. HTTP/2 still has TCP head-of-line blocking.**
-A lost packet stalls all streams sharing the TCP connection. The very thing HTTP/2 fixed at the HTTP layer remains at the TCP layer.
-
-**4. HTTP/3 = HTTP over QUIC.**
-QUIC is UDP + reliability + encryption + multiplexing. Per-stream loss handling. Faster handshakes.
-
-**5. The improvements compound.**
-For modern web pages with many resources, HTTP/3 vs HTTP/1.1 can be 2-5× faster. Each generation matters.
-
----
-
 ## Deep Technical Explanation
 
 ### HTTP/1.1 limitations
@@ -241,14 +222,6 @@ What goes wrong:
 - **The server push miss.** Pushed resources not used (already cached); bandwidth wasted. Disable; use 103 Early Hints.
 - **The HPACK state confusion.** Long-lived HTTP/2 connections; HPACK state bloats; memory grows. Tune HPACK table size.
 
-The senior engineer's habits:
-- **Deploy HTTP/2 minimum** for production HTTP services.
-- **Enable HTTP/3** at the edge (CDN).
-- **Monitor connection reuse**.
-- **Use TLS 1.3** for faster handshakes.
-- **Keep certificates fresh**.
-- **Test on lossy networks**.
-
 ---
 
 ## Failure Scenarios
@@ -310,66 +283,32 @@ The unifying observation: **HTTP's evolution is a story of removing round-trips.
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **HTTP/2 still has TCP head-of-line blocking**.
-- That **HTTP/3 uses UDP** under the hood.
-- That **server push is mostly deprecated**.
-- That **TLS handshakes** are major latency.
-- That **connection coalescing** has gotchas.
-- That **TLS 1.3 0-RTT** has replay risk.
+- **HTTP/1.1 is one-request-at-a-time per connection.** Browsers open ~6 connections per origin to parallelize; pages with hundreds of resources are bottlenecked.
+- **HTTP/2 multiplexes many streams over one TCP connection** with binary framing and header compression — a major efficiency win.
+- **HTTP/2 still suffers TCP head-of-line blocking**: a single lost packet stalls *all* streams sharing the connection. The thing HTTP/2 fixed at the HTTP layer remains at the TCP layer, and on lossy networks HTTP/2 can be slower than HTTP/1.1.
+- **HTTP/3 = HTTP over QUIC.** QUIC is UDP + reliability + encryption + multiplexing, with per-stream loss handling and faster handshakes — but **HTTP/3 runs over UDP**, which corporate firewalls sometimes block.
+- **The improvements compound.** HTTP/3 vs HTTP/1.1 can be 2-5× faster for resource-heavy pages; mobile and lossy networks benefit most. On high-quality networks the HTTP/3 gain over HTTP/2 is small.
+- **TLS handshakes are a major source of latency.** Use TLS 1.3 (required by QUIC) for faster handshakes; TLS 1.3 0-RTT gives the fastest reconnects — but 0-RTT data is replayable, so restrict it to idempotent operations.
+- **HPACK (HTTP/2) / QPACK (HTTP/3) compress headers** by 50-90% for repeated headers. Avoid high-cardinality headers (per-request tracing IDs), which defeat compression and bloat connection state.
+- **Server push is mostly deprecated** (cache-blindness, complexity); prefer 103 Early Hints.
+- **Connection coalescing has gotchas**: cert match alone isn't enough (same IP required), and coalescing can let one service's outage break another.
+- **Operational defaults**: deploy HTTP/2 minimum for production; enable HTTP/3 at the edge/CDN; monitor connection reuse and protocol-version distribution; keep certificates fresh; test on lossy networks. The benefits are configuration, not code changes.
 
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **deploy HTTP/2 minimum**.
-- They **enable HTTP/3** at the edge.
-- They **use TLS 1.3**.
-- They **monitor protocol-version distribution**.
-- They **understand TCP HoL**.
-- They **avoid high-cardinality headers**.
+> **The unifying idea: HTTP's evolution is the web's optimization story — each version removed round-trips and inefficiencies that mattered at the previous version's scale. HTTP/2 fixed the connection problem; HTTP/3 fixed the head-of-line problem. The gains compound across billions of requests.**
 
 ---
 
-## Interview Perspective
+## Interview angle
 
 What gets tested:
 
-1. **"HTTP/1.1 vs HTTP/2?"** Multiplexing, binary, header compression.
-2. **"What's TCP head-of-line blocking?"** Lost packet stalls all streams.
+1. **"HTTP/1.1 vs HTTP/2?"** Multiplexing, binary framing, header compression.
+2. **"What's TCP head-of-line blocking?"** A lost packet stalls all streams on the connection.
 3. **"What's QUIC?"** UDP + reliability + encryption + multiplexing.
 4. **"Why is HTTP/3 different?"** No TCP HoL; faster handshake.
 5. **"What's HPACK?"** HTTP/2 header compression.
-6. **"When wouldn't you use HTTP/3?"** Corporate firewalls; not yet ubiquitous.
+6. **"When wouldn't you use HTTP/3?"** Corporate firewalls blocking UDP; not yet ubiquitous.
 
-Common traps:
-- Believing HTTP/2 fixes all HTTP/1.1 problems.
-- Not knowing UDP underlies HTTP/3.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **HTTP/1.1**: one request at a time per connection.
-2. **HTTP/2**: multiplex over one TCP connection.
-3. **TCP HoL** still affects HTTP/2.
-4. **HTTP/3 = HTTP over QUIC**: per-stream loss handling.
-5. **QUIC over UDP** with built-in TLS 1.3.
-6. **TLS 1.3 0-RTT** for fastest reconnects.
-7. **HPACK / QPACK** compress headers.
-8. **Server push** mostly deprecated.
-9. **Mobile networks** benefit most from HTTP/3.
-10. **Deploy HTTP/2 minimum**; HTTP/3 at edge.
-
----
-
-## Final Mental Model
-
-> **HTTP's evolution is the web's optimization story: each version removed inefficiencies that mattered at the previous version's scale. HTTP/2 fixed the connection problem; HTTP/3 fixed the head-of-line problem. The improvements compound across billions of requests, making the web feel faster than physics would naively suggest.**
-
-The senior web engineer keeps their stack current. HTTP/2 minimum; HTTP/3 where supported. TLS 1.3. Connection reuse. Header discipline. The performance benefits are quietly significant; the cost is configuration, not code changes.
-
-Most application engineers don't need to implement these protocols, but understanding them matters. Why is the page slow? Sometimes it's the protocol. Why does the API have such latency variance? Sometimes it's connection setup. Knowing where the time goes is half the battle.
-
-That's HTTP/2. That's HTTP/3. That's QUIC. That's the protocol layer that makes the modern web fast — and the layer that, when you skip its evolution, you leave performance on the table at every layer above.
+Common traps: believing HTTP/2 fixes all HTTP/1.1 problems; not knowing UDP underlies HTTP/3.

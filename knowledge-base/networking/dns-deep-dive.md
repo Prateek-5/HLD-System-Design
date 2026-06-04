@@ -54,26 +54,6 @@ The pattern: DNS's basic design is unchanged; modern usage layers operational so
 
 ---
 
-## Core Mental Models
-
-**1. DNS is a hierarchical tree.**
-Root → TLD (`.com`) → second-level (`example.com`) → subdomains. Each level delegates to the next.
-
-**2. Caching is everywhere.**
-Browser, OS, recursive resolver, ISP. Every layer caches. TTLs control cache duration.
-
-**3. Authority is delegated.**
-Each domain has authoritative servers. They are the source of truth. Other servers cache from them.
-
-**4. TTL trade-offs are operational.**
-Long TTL: fewer queries; slow propagation of changes.
-Short TTL: more queries; fast change propagation.
-
-**5. Most DNS issues are caching issues.**
-"Why isn't the change taking effect?" Almost always: somewhere in the cache hierarchy.
-
----
-
 ## Deep Technical Explanation
 
 ### The hierarchy
@@ -256,26 +236,6 @@ Local library doesn't have the book; asks regional library; regional asks nation
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The DNS-induced outage.** Authoritative server fails; cached answers expire; users can't reach service. Recovery: bring authoritative back; or use longer TTLs going forward.
-- **The cache propagation pain.** TTL is 24h; need to change IP; users on stale entries fail. Mitigation: lower TTLs ahead of changes.
-- **The negative cache pollution.** Service deployed; some resolvers cached "doesn't exist" briefly; users see error for hours.
-- **The DNSSEC validation failure.** Signed zone; validation breaks; resolvers can't validate; service unreachable. Recovery: fix DNSSEC or disable.
-- **The CNAME chain explosion.** New service uses CDN that uses CDN; 7-hop CNAME chain. Some resolvers fail. Mitigation: shorter chains.
-- **The internal DNS dependency.** Internal services use DNS; DNS server fails; everything fails. Mitigation: redundant DNS; local caching.
-
-The senior engineer's habits:
-- **Tune TTLs** based on change frequency.
-- **Use anycast or low TTL** for failover.
-- **Monitor DNS** from multiple geographies.
-- **Avoid CNAME chains**.
-- **Plan for DNS server failure** (redundancy).
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The TTL trap.**
@@ -335,66 +295,26 @@ The unifying observation: **DNS is the layer everything depends on; its failures
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **caching is everywhere**.
-- That **TTL controls propagation speed**.
-- That **CNAME chains** can break.
-- That **CNAME at apex** is forbidden.
-- That **DNS lookups are TCP/UDP** dependencies.
-- That **DNSSEC** has adoption gaps.
+- **DNS is a hierarchical, cached, eventually-consistent cache hierarchy.** Root → TLD → second-level → subdomains; each level delegates to the next. Caching happens at every layer (browser, OS, recursive resolver, ISP), and most lookups hit cache — full recursive resolution is rare.
+- **Authoritative servers are the source of truth; everything else caches from them.** Recursive resolvers handle the bulk of queries.
+- **TTLs control propagation speed — this is the central operational lever.** Long TTL = fewer queries but slow change propagation; short TTL = more queries but fast propagation. Most DNS issues ("why isn't my change taking effect?") are caching issues somewhere in the hierarchy. "DNS is slow to update" is a feature of caching, not a bug.
+- **Tune TTLs deliberately by change frequency.** Lower TTLs (60–300s) ahead of planned changes or on records you might fail over; raise them on stable infrastructure to cut query load.
+- **Anycast gives scale and resilience** (closest server, automatic network-layer failover, DDoS resistance) and is an alternative to low-TTL DNS failover, which is slow and imperfect because some clients ignore TTLs.
+- **GeoDNS routes by location/health**, but caching complicates it: users behind the same resolver get the same answer regardless of their actual location.
+- **CNAME chains can break** (resolvers often cap ~5 hops; deep CDN-on-CDN chains hit a 7-hop explosion that some resolvers reject), and **CNAME at the apex is forbidden by RFC** — use ALIAS/ANAME instead.
+- **DNS lookups are TCP/UDP dependencies** that precede every connection, so DNS failures cascade through every layer above. Plan for DNS-server failure with redundancy, multiple providers, and client-side caching; a single internal DNS failure can cascade across service discovery.
+- **DNSSEC** provides integrity via cryptographic signing but has adoption gaps and can itself cause outages when validation breaks. **DoH/DoT** add privacy (encrypting queries) at the cost of monitoring/filtering visibility.
+- **Watch negative-cache pollution**: a freshly deployed service whose "doesn't exist" answer got cached can show errors to some users for hours.
+- **Monitor DNS resolution from multiple geographies** (synthetic monitoring), since users behind different resolvers can see different answers.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **tune TTLs** based on use case.
-- They **use multiple DNS providers** for redundancy.
-- They **monitor DNS** from multiple points.
-- They **lower TTLs ahead of changes**.
-- They **avoid CNAME at apex**.
-- They **plan for cache propagation**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"How does DNS work?"** Hierarchical, recursive, cached.
-2. **"What's a TTL?"** Cache duration.
-3. **"What's anycast?"** Multiple locations sharing IP.
-4. **"How does DNS failover work?"** Health check + TTL.
-5. **"What's DNSSEC?"** Cryptographic signing.
-6. **"DoH vs DoT?"** HTTPS vs TLS for DNS.
-
-Common traps:
-- Believing DNS is instant.
-- Not knowing about TTL strategies.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **DNS is a cache hierarchy.**
-2. **TTLs control propagation**.
-3. **Recursive resolvers handle most queries**.
-4. **Authoritative servers are source of truth**.
-5. **Anycast for scale and resilience**.
-6. **GeoDNS for routing**.
-7. **CNAME chains** can break.
-8. **DNSSEC** for integrity.
-9. **DoH/DoT** for privacy.
-10. **DNS failures cascade** widely.
-
----
-
-## Final Mental Model
-
-> **DNS is the most foundational layer most engineers don't think about. It's also the layer that, when it fails, takes down everything. The system is hierarchical, cached, and eventually consistent — and managing those properties (TTLs, redundancy, failover) is core operational discipline.**
-
-The senior engineer respects DNS. They tune TTLs deliberately. They use multiple providers. They monitor from many points. They plan for cache propagation. They know that "DNS is slow to update" is a feature, not a bug.
-
-The teams that hit DNS-induced outages are the ones who didn't think about it. The teams that survived DNS issues with minimal customer impact are the ones who built resilience in. The protocol's age belies its complexity; the operational discipline is real.
-
-That's DNS. That's name resolution at internet scale. That's the layer between a name and an IP — and the layer that touches every connection your services ever make.
+- **"How does DNS work?"** Hierarchical, recursive, cached.
+- **"What's a TTL?"** Cache duration controlling propagation.
+- **"What's anycast?"** Many locations sharing one IP; users reach the closest.
+- **"How does DNS failover work?"** Health check + low TTL.
+- **"What's DNSSEC?"** Cryptographic signing for integrity.
+- **"DoH vs DoT?"** DNS over HTTPS vs DNS over TLS (port 853).
+- **Common traps:** believing DNS is instant; not knowing TTL strategies.

@@ -56,25 +56,6 @@ The pattern across eras: **the disk's physics shaped the data structures, and as
 
 ---
 
-## Core Mental Models
-
-**1. The storage engine answers two questions: where is row X, and what's near it?**
-Indexes are the answer-keys. Different index types optimize for different question shapes.
-
-**2. Every index is a tax on writes.**
-Insert one row, update N indexes. This is not optional. The tax is paid in I/O, in CPU, in WAL volume, and in lock contention. The right number of indexes is the *minimum* set that makes your hot read paths fast — not "every column someone might filter on."
-
-**3. Random vs sequential I/O is the hidden ruler.**
-On HDDs, random I/O was 100× slower than sequential. On SSDs, the gap shrinks to ~10×. On NVMe, ~3×. But it never goes to zero, and the *write amplification* of random small writes still wears out flash. Storage engine design is downstream of this single ratio.
-
-**4. Reads and writes are zero-sum at some layer.**
-You can be fast at reads (B-tree) by paying on writes. You can be fast at writes (LSM) by paying on reads or compaction. You can be fast at both for *small* datasets by living in memory. There is no design that's free in all dimensions.
-
-**5. The query plan is a treasure map; the storage layout is the terrain.**
-A "good" plan on bad terrain is still slow. Indexes turn bad terrain into navigable roads — selectively, where it matters.
-
----
-
 ## Deep Technical Explanation
 
 ### B+ trees in detail
@@ -240,48 +221,6 @@ The unifying insight: **fast lookup over large data is always a tree, and fast u
 - **CockroachDB on RocksDB → Pebble**: rewrote the storage engine in Go to gain control over compaction behavior. The tuning of compaction is a first-class engineering concern, not a footnote.
 - **Uber's migration from Postgres to MySQL (2016)** — controversial, but their stated reason was index maintenance overhead in Postgres' heap-organized tables under their workload.
 - **Stripe's index audits**: documented practice of regularly hunting unused indexes and dropping them, treating index hygiene as a continuous activity.
-
----
-
-## What Junior Engineers Usually Miss
-
-- That **adding indexes makes writes slower**, full stop. Every index is a parallel structure to maintain.
-- That **column order in composite indexes matters** and `(a, b)` ≠ `(b, a)`.
-- That **a query using an index is not automatically fast** — index scans on a large match set can be slower than a sequential scan.
-- That **`SELECT *` defeats covering index optimizations**.
-- That **reindexing is sometimes the right answer** for performance regression in a long-running database.
-- That **storage engine choice constrains what's achievable** — no amount of query tuning fixes a B-tree handling a write-skewed workload.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They check the **explain plan** before tuning, not after.
-- They ask "what does this table's working set look like in RAM?" before reaching for indexes.
-- They recognize that **`UUID` primary keys cause B-tree page split storms** and reach for sortable alternatives.
-- They **monitor unused indexes** and drop them as part of routine hygiene.
-- They know which **bloom filter false positive rate** their LSM is configured for.
-- They don't pick "Postgres vs MySQL vs Cassandra" by feature checklist — they pick by *workload shape*.
-- They treat the **buffer pool hit rate** as a north-star metric.
-
----
-
-## Interview Perspective
-
-What interviewers are testing:
-
-1. **Do you know why a B-tree is shaped like a B-tree?** Specifically, that fanout × depth = log scaling, and that fanout is dictated by page size. The candidate who says "log N" without saying "because page size limits fanout" is reciting, not reasoning.
-2. **Can you explain LSM vs B-tree as a tradeoff?** Not "LSM is faster for writes" — *why* it's faster, what it costs in reads and space, and when each is the right call.
-3. **Composite index column order question.** Almost guaranteed to come up. The candidate who knows `(status, created_at)` is great for "filter by status, sort by date" but not for "filter by date, sort by status" is showing real understanding.
-4. **Covering indexes.** Bonus points for mentioning them unprompted on a hot read path question.
-5. **Indexed UUID primary keys.** A trap question. The right answer involves random vs sequential UUIDs and B-tree page split behavior.
-6. **The "should I add an index" reflex test.** The right answer is *"it depends on the read/write ratio, the cardinality, and what's already indexed."*
-
-Common traps:
-- Thinking more indexes = faster.
-- Confusing clustered and non-clustered indexes.
-- Missing the difference between LSM read amplification and write amplification.
-- Forgetting that indexes need to fit (mostly) in RAM to actually help.
 
 ---
 
@@ -465,27 +404,33 @@ Indexes with `idx_scan = 0` after a week have no usage. Drop them. Each drop acc
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **B-tree = sorted, random updates expensive. LSM = appended, sorted in background, reads check multiple files.**
-2. **Every index taxes writes.** The right number is the minimum that makes hot reads fast.
-3. **Cardinality and selectivity matter more than which column is "important."**
-4. **Composite index `(a, b)` only helps when `a` is in the WHERE clause.**
-5. **The buffer pool / page cache is your real database. Working set must fit.**
-6. **Heap vs clustered tables changes the cost model of secondary indexes.**
-7. **LSM trees are write-optimized; their pain shows up in compaction and read amplification.**
-8. **Random PKs (UUIDv4) destroy B-tree insert performance. Use sortable IDs.**
-9. **Drop unused indexes ruthlessly. They tax every write for no benefit.**
-10. **The query plan is downstream of the storage layout. Look at terrain first.**
+- **An index is a deal: pay extra on writes, pay less on reads.** The art is making that deal *exactly* where it pays off, and nowhere else. Every index is a parallel structure maintained in lockstep — taxed in I/O, CPU, WAL volume, and lock contention. The right number is the *minimum* that makes hot read paths fast.
+- **B-tree = keep everything sorted, pay on every write; random updates expensive. LSM = append cheaply, sort in the background, pay on reads/compaction; reads check multiple files.** They are different bets about workload shape, not interchangeable implementations — picking wrong is a six-month rewrite.
+- **Reads and writes are zero-sum at some layer.** Fast reads (B-tree) cost writes; fast writes (LSM) cost reads or compaction; fast at both only for small in-memory datasets. No design is free in all dimensions.
+- **Random vs sequential I/O is the hidden ruler.** ~100× gap on HDDs, ~10× on SSDs, ~3× on NVMe — never zero, and random small writes still cause write amplification that wears flash. Storage engine design is downstream of this ratio.
+- **Cardinality and selectivity matter more than which column is "important."** An index on `gender` (2 values) is useless; one on `email` (50M unique) is golden.
+- **Composite index `(a, b)` only helps when `a` appears in the WHERE clause** — `(a, b)` ≠ `(b, a)`. Think about query patterns and index once, rather than indexing every permutation.
+- **The buffer pool / page cache is your real database; disk is cold storage.** The working set must fit in RAM — an index that fits is thousands of times faster than one that doesn't. Treat buffer pool hit rate as a north-star metric.
+- **Heap vs clustered tables changes the cost model of secondary indexes.** (Clustered means secondary lookups become two lookups; heap means row moves require index updates.)
+- **LSM trees are write-optimized; their pain shows up in compaction and read amplification.** Know which bloom filter false positive rate yours is configured for.
+- **Random PKs (UUIDv4) destroy B-tree insert performance via page-split storms.** Use sortable IDs (UUIDv7, ULIDs).
+- **A query using an index is not automatically fast** — index scans over a large match set can lose to a sequential scan. And `SELECT *` defeats covering-index optimizations.
+- **Drop unused indexes ruthlessly** (`idx_scan = 0`). Each drop accelerates every write to that table; treat index hygiene as continuous. `REINDEX CONCURRENTLY` is the right answer for a regressed long-running index.
+- **The query plan is downstream of the storage layout — look at terrain first.** When something is slow, walk the chain (hardware → data structure → plan → perceived latency); the answer is usually at the storage layer, not the SQL. Check the explain plan and the working set *before* tuning, and instinctively *subtract* indexes that aren't earning their keep rather than adding more. Storage engine choice constrains what's achievable — no query tuning fixes a B-tree on a write-skewed workload, and you pick "Postgres vs MySQL vs Cassandra" by workload shape, not feature checklist.
 
 ---
 
-## Final Mental Model
+## Interview angle
 
-> **An index is a deal: pay extra on writes, pay less on reads. The art of database engineering is making that deal *exactly* where it pays off, and nowhere else.**
+What interviewers are testing:
 
-The hardware shapes the data structure. The data structure shapes the query plan. The query plan shapes user-perceived performance. When something is slow, walk the chain — almost always, the answer is at the storage layer, not the SQL.
+1. **Why is a B-tree shaped like a B-tree?** Fanout × depth = log scaling, and fanout is dictated by page size. Saying "log N" without "because page size limits fanout" is reciting, not reasoning.
+2. **Explain LSM vs B-tree as a tradeoff** — not "LSM is faster for writes" but *why* it's faster, what it costs in reads and space, and when each is right.
+3. **Composite index column order** (almost guaranteed): `(status, created_at)` is great for "filter by status, sort by date" but not for "filter by date, sort by status."
+4. **Covering indexes** — bonus points for raising them unprompted on a hot read path.
+5. **Indexed UUID primary keys** — a trap; the answer involves random vs sequential UUIDs and B-tree page split behavior.
+6. **The "should I add an index" reflex test** — correct answer: *"it depends on the read/write ratio, the cardinality, and what's already indexed."*
 
-A senior engineer's instinct, tuning a database, isn't to add indexes. It's to look at the working set, the cache hit rate, the index list, the row width, and the access pattern — and to *subtract* whatever isn't earning its keep.
-
-That's storage engineering. That's the disk you're standing on, every time you write a query.
+Common traps: thinking more indexes = faster; confusing clustered and non-clustered indexes; missing the difference between LSM read amplification and write amplification; forgetting indexes must fit (mostly) in RAM to help.

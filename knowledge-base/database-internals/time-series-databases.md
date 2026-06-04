@@ -319,60 +319,26 @@ The unifying observation: **time-series databases are storage and query engines 
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **time-series demands specialized storage**.
-- That **cardinality drives cost**.
-- That **compression is dramatic** for time-series.
-- That **downsampling** is standard practice.
-- That **retention policies** matter.
+- **Time is the primary index.** Most queries filter by time range; storage is partitioned by time, enabling partition pruning and cheap retention drops.
+- **Append-only writes.** Time-series isn't updated, only added — simplifying storage, replication, and compression.
+- **Compression is dramatic.** Delta / delta-of-delta encoding, bit packing, RLE, and dictionary encoding give 10-100× compression (Gorilla: 1.37 bytes/point vs 16+ for RDBMS).
+- **Cardinality drives cost and is the #1 operational issue.** Each unique label combination is a separate series; high-cardinality labels (user_id, request_id, full URL) blow it up and OOM the TSDB.
+- **Downsampling is standard practice.** Pre-aggregate old data at coarser resolution; storage shrinks and old-data queries stay fast.
+- **Retention policies** drop old data via aging-out partitions — cheap, bounded by chunk granularity.
+- **Inverted indexes on labels** (postings/bitmap) resolve `label=value` lookups via set intersection.
+- **Continuous queries / materialized views** pre-compute common aggregates — lower query cost for slightly higher write cost.
+- **High write rates are normal** (millions/sec on dedicated TSDBs); query rates are thousands/sec depending on complexity.
+- **OLAP convergence:** columnar OLAP engines like ClickHouse now serve time-series excellently; the category line blurs.
+- **The senior reflexes:** audit cardinality continuously, choose the TSDB by workload/ecosystem, plan tiered retention with downsampling, and monitor ingest/query rates.
+- **Net model:** TSDBs take the data's shape seriously, yielding storage 10-100× more efficient and queries 10-100× faster than generic alternatives. The cost is operational specialization; the benefit is monitoring/IoT/observability that scales with the business without bankrupting the team.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **audit cardinality**.
-- They **plan retention** with downsampling.
-- They **choose TSDB** based on workload.
-- They **monitor ingest and query rates**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's time-series data?"** Indexed by time; high writes; aggregations.
-2. **"Why specialized DB?"** Compression, partitioning, query patterns.
-3. **"What's downsampling?"** Pre-aggregate at coarser resolution.
-4. **"Cardinality?"** Number of unique label combinations.
-5. **"Prometheus vs InfluxDB?"** Different ecosystems and trade-offs.
-
-Common traps:
-- Treating TSDB as a generic database.
-- Ignoring cardinality.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Time is primary index**.
-2. **Partition by time**.
-3. **Compress aggressively**.
-4. **Cardinality drives cost**.
-5. **Downsampling for old data**.
-6. **Retention policies** drop old data.
-7. **Inverted indexes** on labels.
-8. **Continuous queries** pre-compute aggregates.
-9. **High write rates** are normal.
-10. **OLAP convergence**: ClickHouse for time-series.
-
----
-
-## Final Mental Model
-
-> **Time-series databases take the data's shape seriously. The result is storage 10-100× more efficient and queries 10-100× faster than generic alternatives. The cost is operational specialization; the benefit is sustainable monitoring, IoT, and observability infrastructure.**
-
-The senior engineer designing for metrics, IoT, or observability reaches for a TSDB. They plan cardinality. They tier retention. They use downsampling. The result: monitoring that scales with the business; observability that doesn't bankrupt the team.
-
-That's time-series databases. That's the storage shape under every modern monitoring system. That's the engineering response to the data type that ate the world.
+- **"What's time-series data?"** Indexed by time; high writes; aggregation-dominant queries.
+- **"Why a specialized DB?"** Compression, time-partitioning, and a query path tuned for time-range + labels + aggregation.
+- **"What's downsampling?"** Pre-aggregating at coarser resolution for older data.
+- **"What's cardinality?"** The number of unique metric+label combinations (each is one series).
+- **"Prometheus vs InfluxDB?"** Pull vs push; PromQL vs Flux/InfluxQL; different ecosystems and trade-offs.
+- **Common traps:** treating a TSDB as a generic database; ignoring cardinality.

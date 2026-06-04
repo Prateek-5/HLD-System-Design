@@ -359,64 +359,24 @@ The unifying observation: **Go's runtime is what makes Go's concurrency story wo
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **goroutines need bounding** to avoid leaks.
-- That **GOMAXPROCS** matters in containers.
-- That **channels integrate with scheduler**.
-- That **context propagation** is mandatory.
-- That **race detector** is essential.
-- That **panics in goroutines crash the process**.
+- **Goroutines are M:N multiplexed** onto OS threads via the GMP scheduler (G = goroutine, M = OS thread, P = logical processor), which uses work-stealing — idle P's steal from busy ones.
+- **Channels coordinate by communication**, not shared memory; they integrate with the scheduler so blocked goroutines are descheduled and the thread picks up other work.
+- **Blocking I/O looks blocking but isn't** — goroutines waiting on I/O are descheduled via the network poller (epoll/kqueue/IOCP); the M takes another goroutine.
+- **Goroutines are cheap, not free** — ~2KB initial stack, nanosecond switches. Believing they are free is a classic trap; they still need bounding (worker pools) to avoid leaks and OOM.
+- **Context propagation is mandatory** — pass `context.Context` through async paths for cancellation and deadlines.
+- **Run the race detector in CI** — it catches data races (e.g. shared map without mutex) in tests.
+- **GOMAXPROCS matters in containers** — without container-aware settings Go sees host CPUs, causing excessive context switching (default container-aware since Go 1.25; before that use `uber-go/automaxprocs`).
+- **Panics in goroutines crash the whole process** unless recovered — use `recover()` in a deferred function inside the goroutine.
+- **GC pauses are sub-millisecond** with concurrent mark-sweep; profile with pprof and watch goroutine count as a metric to detect leaks.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **bound goroutine concurrency**.
-- They **propagate context**.
-- They **use channels for coordination**.
-- They **run race detector** in CI.
-- They **profile with pprof**.
-- They **set GOMAXPROCS** for container awareness.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's a goroutine?"** Lightweight execution unit.
-2. **"Channels?"** Coordination via message passing.
-3. **"GMP scheduler?"** G's run on M's via P's.
-4. **"How does Go handle blocking I/O?"** Goroutine descheduled; thread takes another.
-5. **"What's work-stealing?"** Idle P steals from busy.
-6. **"How do you cancel work?"** context.Context.
-
-Common traps:
-- Believing goroutines are free.
-- Not knowing about GOMAXPROCS in containers.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Goroutines = M:N** multiplexed onto threads.
-2. **GMP scheduler** with work-stealing.
-3. **Channels coordinate** by communication.
-4. **Blocking I/O via network poller**.
-5. **Context propagation** for cancellation.
-6. **Bound concurrency** to prevent leaks.
-7. **Race detector** in CI.
-8. **GC sub-ms** pauses.
-9. **GOMAXPROCS** = CPU count.
-10. **Recover panics** in goroutines.
-
----
-
-## Final Mental Model
-
-> **Go's runtime is what made "cheap concurrent units" production-ready at scale. The combination of goroutines, channels, M:N scheduling, and integrated I/O is engineered for the workloads where threads-and-locks fail. The systems that adopted Go found patterns of concurrency that were awkward elsewhere natural in Go.**
-
-The senior Go engineer leans on the runtime. Goroutines for parallelism; channels for coordination; context for cancellation. They know the scheduler's quirks. They watch for leaks. They use the race detector. The runtime handles the complexity; they focus on the program.
-
-That's Go's runtime. That's goroutines. That's the most-deployed work-stealing concurrent runtime in production — and the design that influenced async runtimes everywhere.
+- **"What's a goroutine?"** Lightweight execution unit, M:N multiplexed onto threads.
+- **"Channels?"** Coordination via message passing.
+- **"GMP scheduler?"** G's run on M's via P's, with work-stealing.
+- **"How does Go handle blocking I/O?"** Goroutine descheduled; thread takes another.
+- **"What's work-stealing?"** Idle P steals from a busy P's queue.
+- **"How do you cancel work?"** `context.Context`.
+- Common traps: believing goroutines are free; not knowing about GOMAXPROCS in containers.

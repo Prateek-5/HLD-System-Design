@@ -59,25 +59,6 @@ The pattern: consensus moved from theoretical curiosity (Paxos, hard to understa
 
 ---
 
-## Core Mental Models
-
-**1. Consensus is about a quorum agreeing.**
-Not unanimity (impossible if some nodes are down) but a majority. With 5 nodes, 3 must agree. With 3 nodes, 2 must agree. The math is identical to Dynamo-style quorums (R+W > N).
-
-**2. The leader is a performance optimization.**
-Pure Paxos has no leader; every operation is a multi-round consensus. Multi-Paxos and Raft elect a leader to handle most operations efficiently — once a leader is established, subsequent operations need just one round of agreement. Leader election is itself a consensus problem.
-
-**3. Safety vs liveness.**
-*Safety*: the algorithm never produces a wrong answer (e.g., two leaders simultaneously). *Liveness*: the algorithm eventually makes progress. FLP says you can't always have both perfectly. Real systems prioritize safety; liveness is achieved with timeouts and randomization.
-
-**4. The log is the consensus.**
-In Raft, what gets replicated isn't a single value — it's an *ordered log* of operations. Once a log entry is committed (replicated to a majority), it's durable forever. The replicated state machine is built by every node applying log entries in order.
-
-**5. Membership changes are special.**
-Adding or removing a node from a consensus group is itself a consensus decision. Doing it naively can violate safety (two majorities, two leaders). Joint consensus is the standard answer — a transitional configuration that overlaps old and new memberships.
-
----
-
 ## Deep Technical Explanation
 
 ### The consensus problem
@@ -299,72 +280,44 @@ The unifying observation: **consensus is the ground truth primitive for distribu
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **consensus requires majority quorum**, not all nodes.
-- That **even-sized clusters are an anti-pattern**.
-- That **consensus is slow per-operation** (1 RTT to majority).
-- That **the leader is a performance optimization**, not a requirement.
-- That **disk speed matters** for consensus throughput.
-- That **reads have multiple consistency levels** (leader, lease, follower).
-- That **membership changes need joint consensus**.
-- That **untested partition behavior is broken** — Jepsen exists for this reason.
+**The core model**
+- **Consensus = majority quorum agreement** in the presence of failures — not unanimity. With 2f+1 nodes you tolerate f failures (3→1, 5→2). The math mirrors Dynamo-style quorums (R+W > N).
+- **Use odd cluster sizes** (3, 5, 7), never 4. Even sizes have the same fault tolerance as the next-smaller odd size while adding failure surface.
+- **The leader is a performance optimization, not a requirement.** Pure Paxos is leaderless (multi-round per op); Multi-Paxos/Raft elect a leader so most ops need one round. Leader election is itself consensus.
+- **Raft = leader election + log replication + safety.** The replicated unit is an *ordered log*; once an entry is committed to a majority it is durable forever and survives leader crashes.
+- **Safety vs liveness:** real systems always prioritize safety (never two valid leaders); liveness comes from timeouts and randomization (FLP says you can't perfectly guarantee both).
+
+**Performance and scaling**
+- **Each operation costs at least 1 RTT to a majority** — the latency floor (50–200ms inter-region). **fsync is the throughput bottleneck**; every entry needs a durable log write.
+- **Multi-Raft scales writes** by sharding into many independent consensus groups (e.g. CockroachDB ranges); aggregate throughput is proportional to group count.
+- **Reads have multiple consistency levels:** leader reads (linearizable), lease-based reads (linearizable without coordination, but assume bounded clock skew), follower reads (cheap but possibly stale).
+
+**Operating it**
+- **Membership changes need joint consensus** — naive add/remove can create two majorities and two leaders. Always use library-provided procedures; never write your own consensus algorithm.
+- **Disk speed matters:** slow fsync stalls elections and replication.
+- **Monitor leader election rate** as a stability signal; frequent re-elections signal an unstable cluster (mitigate flaky networks with longer timeouts and Pre-Vote).
+- **Untested partition behavior is broken** — test partitions with chaos engineering and read Jepsen reports before adopting any consensus-backed system.
+- **Where consensus is too slow, use sagas or eventual consistency** — explicitly accepting the weaker guarantees.
+
+> **Consensus is what computers do when humans aren't around to break ties.** Every binding decision in a distributed system — who's the leader, what order things happened, did this transaction commit — is either backed by consensus or quietly broken. The hard part is no longer the algorithm (Raft is readable, libraries are trustworthy) — it's *operating* the systems built on it.
 
 ---
 
-## What Senior Engineers Instinctively Notice
-
-- They **insist on odd cluster sizes**.
-- They **monitor leader election rates** as a stability signal.
-- They **understand the read consistency they're getting** vs the one they want.
-- They **never write their own consensus algorithm** — use a library.
-- They **plan for membership changes carefully**.
-- They **read Jepsen reports** before adopting any distributed system.
-- They **distinguish multi-Raft systems** from single-Raft for scaling reasoning.
-- They **test partition behavior** explicitly.
-
----
-
-## Interview Perspective
+## Interview Angle
 
 What gets tested:
 
-1. **"How does Raft work?"** Senior candidates explain leader election, log replication, and the safety invariants. Bonus for naming joint consensus.
-2. **"Why odd cluster sizes?"** Tests fundamental literacy. Even sizes have the same fault tolerance as the smaller odd size.
-3. **"What's the FLP impossibility?"** Tests theoretical depth. Real systems sidestep with timeouts.
-4. **"How does a leader handle a follower that's far behind?"** AppendEntries with retries; snapshot installation if the follower is too far behind.
-5. **"Why is consensus slow?"** Per-operation: 1 RTT to majority. Mitigations: leader leases for reads, multi-Raft for write throughput.
-6. **"What's split-brain and how does Raft prevent it?"** Quorum requirement: only one majority can exist at a time. Membership changes preserve this via joint consensus.
-7. **"Design a configuration store."** Tests applied design — likely outcome is "use etcd or Consul." Bonus for explaining why writing one yourself is unwise.
+1. **"How does Raft work?"** Explain leader election, log replication, and the safety invariants. Bonus for naming joint consensus.
+2. **"Why odd cluster sizes?"** Even sizes have the same fault tolerance as the smaller odd size.
+3. **"What's the FLP impossibility?"** No deterministic algorithm guarantees both safety and liveness in a fully async system with one faulty node. Real systems sidestep with timeouts.
+4. **"How does a leader handle a follower that's far behind?"** AppendEntries with retries; snapshot installation if too far behind.
+5. **"Why is consensus slow?"** 1 RTT to majority per op. Mitigations: leader leases for reads, multi-Raft for write throughput.
+6. **"What's split-brain and how does Raft prevent it?"** Quorum requirement — only one majority can exist at a time; membership changes preserve this via joint consensus.
+7. **"Design a configuration store."** Likely outcome: use etcd or Consul. Bonus for explaining why writing one yourself is unwise.
 
 Common traps:
 - Confusing "consensus" with "agreement" (informal sense).
-- Believing larger clusters are always more available (each member adds latency, complexity).
+- Believing larger clusters are always more available (each member adds latency and complexity).
 - Not knowing about lease-based reads.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Consensus = majority agreement** in the presence of failures.
-2. **Odd cluster sizes**: 3, 5, 7. Never 4.
-3. **2f+1 nodes tolerate f failures.**
-4. **Raft = leader election + log replication + safety.**
-5. **Each operation is 1 RTT to majority** (latency floor).
-6. **Multi-Raft scales** by sharding consensus groups.
-7. **Lease-based reads** scale linearizable reads without coordination.
-8. **Membership changes need joint consensus.**
-9. **Leader is an optimization**, not a requirement.
-10. **Use libraries; don't roll your own.**
-
----
-
-## Final Mental Model
-
-> **Consensus is what computers do when humans aren't around to break ties. Every binding decision in a distributed system — who's the leader, what order did things happen, did this transaction commit — is either backed by consensus or quietly broken.**
-
-The senior engineer working on a distributed system doesn't try to *avoid* consensus — they recognize where it's needed and use battle-tested implementations (etcd, ZooKeeper, the embedded Raft in CockroachDB or TiKV). Where consensus would be too slow, they use sagas or eventual consistency, with explicit acknowledgment of the weaker guarantees.
-
-The remarkable thing about Raft is that, after decades of "consensus is hard," we now have algorithms understandable enough that engineers can read them, libraries trustworthy enough that engineers should use them, and operational experience refined enough that the common pitfalls are documented. The hard part isn't the algorithm anymore — it's *operating* the systems built on it: monitoring, capacity planning, partition testing, observability of the consensus layer.
-
-That's leader election. That's consensus. That's the foundation primitive of every distributed system that ever made a binding decision and lived to tell the tale.

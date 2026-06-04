@@ -54,25 +54,6 @@ The pattern: gRPC won the internal-RPC race. The combination of protobuf + HTTP/
 
 ---
 
-## Core Mental Models
-
-**1. gRPC = HTTP/2 + protobuf + code generation.**
-Each piece is independently useful; together they're a coherent framework.
-
-**2. Streaming is first-class.**
-Four call types: unary, server streaming, client streaming, bidirectional streaming. Use the right one for the work.
-
-**3. Deadlines propagate.**
-A request with a 1-second deadline tells every downstream call: "you have ≤1 second from when this started." Naturally bounds end-to-end latency.
-
-**4. Schema is the contract.**
-Both sides regenerate code from the same `.proto`. Type safety enforced at compile time.
-
-**5. Wire format is binary.**
-Protobuf's tag-and-value encoding is compact, fast, schema-driven. Powerful but harder to debug than JSON.
-
----
-
 ## Deep Technical Explanation
 
 ### Protocol Buffers
@@ -413,61 +394,24 @@ The unifying observation: **gRPC is what happens when you take the cost of inter
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **proto tags are forever**.
-- That **deadlines must be set**.
-- That **Kubernetes LB doesn't work natively for gRPC**.
-- That **gRPC-Web exists** for browser interop.
-- That **status codes differ** from HTTP.
+- **gRPC = HTTP/2 + protobuf + code generation.** Each piece is independently useful; together they form a coherent, opinionated framework that's hard to match with hand-rolled REST.
+- **Four call types**: unary, server streaming, client streaming, bidirectional. Use the right one for the work; avoid streaming for simple request-response.
+- **Deadlines propagate and are mandatory.** A 1-second deadline tells every downstream call "you have ≤1 second from when this started," naturally bounding end-to-end latency. The default — wait forever — causes cascading failures. Juniors miss that deadlines must be set; seniors enforce them in code review.
+- **Schema is the contract, and tags are forever.** Both sides regenerate from the same `.proto`; type safety is enforced at compile time. Reusing a tag number silently corrupts data — use the `reserved` keyword and schema discipline (registry or strong review).
+- **Wire format is compact binary** (protobuf tag-and-value, varint encoding) — fast and small but harder to debug than JSON. Test manually with `grpcurl`.
+- **Status codes are gRPC-specific**, not HTTP codes — let clients distinguish retry-safe (`UNAVAILABLE`) from give-up (`INVALID_ARGUMENT`). A common newcomer trap.
+- **Client-side load balancing is typical.** In Kubernetes, native LB doesn't work for gRPC (connection resolved once, pinned to one pod) — use a headless service plus client-side round-robin.
+- **Connection pooling is mandatory** — one multiplexed connection per service, not one per call.
+- **Interceptors** handle cross-cutting concerns (auth, tracing, metrics, retry).
+- **gRPC-Web (or Connect)** exists for browser interop, since browsers lack native gRPC support.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **enforce deadlines**.
-- They **use schema discipline** for proto evolution.
-- They **configure client-side LB**.
-- They **add interceptors** for tracing/metrics.
-- They **avoid streaming** for simple request-response.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"gRPC vs REST?"** Tests fundamental.
-2. **"Streaming types?"** Unary, server, client, bidirectional.
-3. **"Deadlines?"** Propagated through call chain.
-4. **"Schema evolution?"** Tag numbers forever.
-5. **"Load balancing?"** Client-side typically.
-
-Common traps:
-- Reusing tag numbers.
-- No deadlines.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **gRPC = HTTP/2 + protobuf + codegen**.
-2. **Four call types**: unary + 3 streaming.
-3. **Deadlines propagate**.
-4. **Schema is the contract**; tags are forever.
-5. **Wire format is compact** binary.
-6. **Status codes are gRPC-specific**.
-7. **Client-side LB** is typical.
-8. **Interceptors** for cross-cutting concerns.
-9. **gRPC-Web** for browsers.
-10. **Connection pooling** is mandatory.
-
----
-
-## Final Mental Model
-
-> **gRPC is opinionated infrastructure for service-to-service communication. The opinions — binary serialization, schema-first, code generation, HTTP/2, streaming, deadlines — together form a framework that's hard to match with hand-rolled REST. For internal service communication at scale, gRPC is the default choice; understanding why it's defaulted is understanding what it solves.**
-
-The senior engineer using gRPC treats schema as a long-lived contract; deadlines as mandatory; load balancing as client-side; debugging as tooling-assisted. The framework rewards discipline; production gRPC at scale is well-trodden ground.
-
-That's gRPC. That's the framework under most modern microservice deployments. That's what service-to-service RPC looks like when correctness, performance, and tooling are co-designed.
+- **"gRPC vs REST?"** — tests the fundamental trade-off (binary/typed/streaming vs discoverable/browser-friendly/simple).
+- **"What are the streaming types?"** — unary, server, client, bidirectional.
+- **"How do deadlines work?"** — propagated through the call chain.
+- **"How does schema evolution work?"** — tag numbers are forever; never reuse them.
+- **"How is load balancing done?"** — client-side, typically.
+- Common traps to call out: reusing tag numbers; omitting deadlines.

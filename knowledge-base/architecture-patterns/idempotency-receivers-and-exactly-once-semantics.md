@@ -56,25 +56,6 @@ The pattern: each generation made effectively-once easier. The impossibility of 
 
 ---
 
-## Core Mental Models
-
-**1. At-least-once + idempotent processing = effectively-once.**
-This is the key formula. Network gives you at-least-once. Application code gives you idempotency. Together, the visible effect is exactly-once.
-
-**2. Idempotency is end-to-end.**
-At every boundary of your system. The HTTP handler dedupes. The queue consumer dedupes. The downstream API call dedupes. Anywhere a retry could occur, the receiver must dedupe.
-
-**3. Exactly-once delivery is impossible; don't promise it.**
-"Our system delivers exactly once" is a marketing claim that hides the engineering reality. Real systems are at-least-once with idempotent receivers.
-
-**4. Idempotency keys must be unique per logical operation.**
-"This is the same call you already made" requires identifying *the same call*. Naming the operation correctly is essential.
-
-**5. The dedup window matters.**
-Keep idempotency records long enough for retries to be deduped. Too short: real duplicates re-execute. Too long: storage grows. 24 hours is typical.
-
----
-
 ## Deep Technical Explanation
 
 ### The impossibility theorem (informal)
@@ -341,70 +322,22 @@ The unifying observation: **idempotency is the application-layer compensation fo
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **exactly-once delivery is impossible**.
-- That **at-least-once + idempotent = effectively-once**.
-- That **idempotency must be at every layer**.
-- That **idempotency keys must be unique** per operation.
-- That **the dedup window TTL matters**.
-- That **mid-process crashes** can cause re-execution if dedup isn't atomic with business effect.
-- That **commutativity is also useful** for out-of-order delivery.
-- That **a CRDT's merge is idempotent** (the operation itself is not, unless deduped).
+- **Exactly-once delivery is impossible** over an unreliable network — don't promise it. Real systems are at-least-once with idempotent receivers; "exactly-once delivery" is a marketing claim that hides the engineering reality.
+- **At-least-once + idempotent processing = effectively-once.** The network gives at-least-once; application code gives idempotency; together the visible effect is exactly-once. This is the foundational formula.
+- **Idempotency is end-to-end.** Dedup at every retry boundary — API gateway, application code, queue consumer, downstream API call, database INSERT. Missing any one layer lets duplicates leak through.
+- **Idempotency keys must be unique per logical operation** (use UUIDs); naming the operation correctly is what makes "this is the same call" detectable.
+- **The dedup window (TTL) matters.** Too short, real retries re-execute; too long, storage grows. Set it to cover the longest realistic retry window — 24h+ is typical. Keep audit logs.
+- **Dedup must be atomic with the business effect.** A mid-process crash between applying the effect and recording the dedup record causes re-execution. Use the same DB transaction (or a unique constraint on the operation/message ID).
+- **Use the outbox pattern** for reliable event emission, solving the dual-write problem within a single DB transaction; combined with idempotent consumers it yields effectively-once.
+- **Kafka EOS** gives effectively-once *within* Kafka (idempotent + transactional producers, transactional consumers); external systems still need idempotent receivers, and it carries a throughput/latency cost.
+- **A CRDT's merge is idempotent** (commutative and associative too); the underlying operation is not idempotent unless you dedupe by ID. **Commutativity** is additionally useful for out-of-order delivery.
+- **Distinguish delivery semantics from effect semantics**, and **document the semantics precisely** to users.
+- **Test with chaos-injected / simulated retries** to validate idempotency.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
+Common questions: exactly-once vs at-least-once; what is an idempotency key; the outbox pattern (dual-write awareness); how Kafka EOS works; how to make a payment API idempotent (applied design); what atomic dedup means (subtle correctness).
 
-- They **enforce idempotency keys** on state-changing APIs.
-- They **dedup at every retry boundary**.
-- They **use outbox pattern** for reliable event emission.
-- They **test with chaos-injected retries**.
-- They **set sensible TTLs** on dedup records.
-- They **distinguish delivery semantics from effect semantics**.
-- They **never claim exactly-once delivery**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Exactly-once vs at-least-once?"** Tests fundamental literacy.
-2. **"What's an idempotency key?"** Tests practical knowledge.
-3. **"Outbox pattern?"** Tests dual-write awareness.
-4. **"How does Kafka EOS work?"** Tests Kafka-specific.
-5. **"How would you make a payment API idempotent?"** Tests applied design.
-6. **"What's atomic dedup?"** Tests subtle correctness.
-
-Common traps:
-- Believing exactly-once delivery is achievable.
-- Not knowing about outbox.
-- Skipping idempotency at one layer.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Exactly-once delivery is impossible.**
-2. **At-least-once + idempotent = effectively-once.**
-3. **Idempotency keys** for state-changing APIs.
-4. **Dedup at every layer**: API, queue, database.
-5. **Outbox pattern** for reliable event emission.
-6. **Kafka EOS** for in-Kafka effectively-once.
-7. **Atomic dedup record** with business effect.
-8. **TTL idempotency records** appropriately.
-9. **CRDT merges are idempotent** (the operation isn't, unless deduped).
-10. **Document semantics precisely** to users.
-
----
-
-## Final Mental Model
-
-> **The network gives you at-least-once. Your application, with discipline, gives you effectively-once. The discipline is idempotency keys, atomic dedup, outbox patterns, and idempotent consumers. The reward is application-level correctness in the face of network unreliability — and the immunity to a class of bugs that would otherwise haunt you forever.**
-
-The senior engineer designing reliable systems treats idempotency as a foundation, not an enhancement. Every API with side effects has idempotency. Every queue consumer dedupes. Every retried operation is safe. The cost is a small amount of plumbing; the benefit is correctness even under arbitrary failure.
-
-The systems that handle billions of dollars without double-charging customers are the ones with this discipline. The systems that have made the news for double-charging or losing data are the ones that didn't. The technique is well-understood; the discipline of applying it everywhere is what separates teams.
-
-That's idempotency receivers. That's effectively-once semantics. That's how you build correctness on top of an unreliable network — and the foundation under every payment, every transaction, every reliable distributed action you've ever depended on.
+Common traps: believing exactly-once delivery is achievable; not knowing about the outbox pattern; skipping idempotency at one layer.

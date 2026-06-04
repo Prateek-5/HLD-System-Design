@@ -54,25 +54,6 @@ The pattern: GPUs went from niche graphics to the core of compute. Custom accele
 
 ---
 
-## Core Mental Models
-
-**1. CPU optimizes latency; GPU optimizes throughput.**
-Different goals; different architectures.
-
-**2. Data parallelism is the GPU's sweet spot.**
-Many independent operations on different data. Branching/sequential code is hostile.
-
-**3. Memory bandwidth is the limit.**
-GPUs have huge bandwidth (1+ TB/sec) but compute is even faster. Often you're memory-bandwidth-bound, not compute-bound.
-
-**4. The host-device boundary is expensive.**
-Data must move from CPU memory to GPU memory. PCIe is slow (50-100 GB/sec) compared to GPU memory (1+ TB/sec).
-
-**5. SIMT execution.**
-Single Instruction Multiple Threads. Threads in a warp execute together; divergent branches serialize.
-
----
-
 ## Deep Technical Explanation
 
 ### CPU vs GPU architecture
@@ -302,13 +283,6 @@ What goes wrong:
 - **The cost shock.** Bills 10× expected because of underutilized GPUs. Mitigation: monitor utilization; right-size instance types; spot pricing.
 - **The CUDA version mismatch.** Driver version incompatible with library version. Production crashes. Mitigation: containerize the entire stack.
 
-The senior AI infrastructure engineer's habits:
-- **Keep data on GPU** as much as possible.
-- **Profile** with nsight before optimizing.
-- **Use established frameworks** for production.
-- **Monitor GPU utilization** as primary metric.
-- **Plan for cost** — GPUs are expensive.
-
 ---
 
 ## Failure Scenarios
@@ -370,61 +344,26 @@ The unifying observation: **GPUs are the right tool for data-parallel, throughpu
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **transfer cost** often dominates.
-- That **branching kills** GPU performance.
-- That **memory bandwidth** is the typical bottleneck.
-- That **CUDA versions** matter.
-- That **GPUs are expensive** — utilization matters.
+- **CPU optimizes latency; GPU optimizes throughput.** Different goals, different architectures. GPUs are the right tool for data-parallel, throughput-bound work — and the wrong tool for branchy, sequential, or small-data work.
+- **Data parallelism is the GPU's sweet spot.** Many independent operations on different data; branching/sequential code is hostile.
+- **Memory bandwidth is usually the limit.** GPUs have huge bandwidth (1-3 TB/sec) but compute is even faster, so most ML inference is memory-bandwidth-bound, not compute-bound.
+- **The host-device boundary is expensive.** Data must move CPU↔GPU over PCIe (~32-64 GB/sec) vs GPU internal ~3 TB/sec. Keep data on GPU; batch operations. For one-shot work on small data, transfer cost dominates.
+- **SIMT execution.** Single Instruction Multiple Threads — a warp of 32 threads runs in lockstep; divergent branches serialize, so avoid branching within warps.
+- **Frameworks abstract GPU programming.** Most engineers use PyTorch/TensorFlow/JAX and never write CUDA; drop to low-level (CUDA, Triton) only when squeezing performance.
+- **Inference is optimized via quantization** (FP16, INT8, INT4), KV cache, PagedAttention, continuous batching, speculative decoding, Flash Attention.
+- **Multi-GPU for large models:** data, model, pipeline, and tensor parallelism, often combined; NVLink/Infiniband for fast interconnect.
+- **Custom accelerators (TPU, Trainium/Inferentia, Cerebras, Groq) are emerging,** but CUDA's ecosystem network effects keep NVIDIA dominant; vendor lock-in is real.
+- **GPUs are expensive — utilization matters.** Profile (nsight) before optimizing; monitor GPU utilization as the primary metric; plan cost explicitly; watch CUDA driver/library version compatibility (containerize the stack).
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
+- **"CPU vs GPU architecture?"** Latency vs throughput.
+- **"What's SIMT?"** Single Instruction Multiple Threads; warps serialize on divergent branches.
+- **"What's the bottleneck?"** Often memory bandwidth or host-device transfer.
+- **"What workloads fit GPUs?"** Data-parallel, regular access patterns, large data.
+- **"Multi-GPU strategies?"** Data, model, pipeline, tensor parallelism.
+- **Common traps:** believing GPUs are universally faster; ignoring transfer cost.
 
-- They **profile before optimizing**.
-- They **keep data on GPU**.
-- They **use established frameworks**.
-- They **monitor utilization**.
-- They **plan cost** explicitly.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"CPU vs GPU architecture?"** Latency vs throughput.
-2. **"What's SIMT?"** Single Instruction Multiple Threads.
-3. **"What's the bottleneck?"** Often memory bandwidth or transfer.
-4. **"What workloads fit GPUs?"** Data-parallel, regular, large.
-5. **"Multi-GPU strategies?"** Data, model, pipeline, tensor parallelism.
-
-Common traps:
-- Believing GPUs are universally faster.
-- Ignoring transfer cost.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **CPU = latency**, **GPU = throughput**.
-2. **Data parallelism** is the GPU sweet spot.
-3. **Memory bandwidth** often the bottleneck.
-4. **Host-device transfer** is expensive.
-5. **SIMT** — branches serialize warps.
-6. **Frameworks abstract** GPU programming.
-7. **Quantization** (FP16, INT8) for inference.
-8. **Multi-GPU** for large models.
-9. **Custom accelerators** (TPU, etc.) are emerging.
-10. **GPUs are expensive** — utilize them.
-
----
-
-## Final Mental Model
-
-> **GPUs are the right tool for data-parallel, throughput-bound work. They're the wrong tool for everything else. AI exists at the scale it does because GPUs made the necessary computation economically feasible. The infrastructure category is the engineering response to that.**
-
-The senior AI infrastructure engineer treats GPUs as a constraint and a capability. Plan for data movement; optimize for throughput; bound costs; use frameworks. The architecture rewards alignment with its strengths; misalignment produces expensive disappointment.
-
-That's GPU and accelerator computing. That's the substrate of modern AI. That's the hardware revolution that made deep learning, then large language models, then the AI era — possible.
+> **Final mental model:** AI exists at the scale it does because GPUs made the necessary computation economically feasible. Plan for data movement, optimize for throughput, bound costs, and use frameworks — the architecture rewards alignment with its strengths and punishes misalignment with expensive disappointment.

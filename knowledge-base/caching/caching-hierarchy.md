@@ -57,25 +57,6 @@ The pattern: each generation pushed the cache *closer to the consumer* of the da
 
 ---
 
-## Core Mental Models
-
-**1. A cache is a deal: faster read, possibly stale data.**
-Every cache makes the same tradeoff. If you can't tolerate any staleness, you don't have a cache — you have a slower indirection.
-
-**2. The hit rate is everything.**
-A cache with 99% hit rate is fast on average; a 90% hit rate is still much faster than no cache (the miss path only adds a sub-millisecond cache check before falling through to the source). Where hit rate really compounds is *origin load*: 90% hit means the source sees 10% of traffic (a 10× reduction), and 99% hit means 1% (a 100× reduction). The economics depend on the asymmetry between hit cost and miss cost.
-
-**3. There are only three meaningful cache patterns.**
-Cache-aside (lazy load). Read-through (cache loads on miss). Write-through / write-behind (cache absorbs writes). Every "design pattern" library page is variations on these three.
-
-**4. Invalidation is a distributed systems problem.**
-The instant your cache lives outside the same memory space as the source of truth, you have a *consistency problem*. Cache invalidation is just consistency-model design with a different name.
-
-**5. The cost of staleness varies wildly by data type.**
-Stale rendering of a marketing page: nobody cares. Stale balance on a checkout page: someone is suing you. The same caching infrastructure can be right or wrong depending on the data.
-
----
-
 ## Deep Technical Explanation
 
 ### The full hierarchy (modern web app)
@@ -310,51 +291,6 @@ The unifying observation: **caching is what every layer does when the layer belo
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That **cache invalidation is a distributed systems problem**, not a coding pattern.
-- That **hit rate's biggest payoff is origin-load reduction**, not user latency — 90% hit cuts source traffic 10×, 99% cuts it 100×.
-- That **storing values without size limits will OOM the cache** at the worst possible time.
-- That **`DELETE` then `SET` ordering creates race conditions** that look like ghosts in production.
-- That **TTLs based on access (sliding) can keep stale data alive forever** under steady load.
-- That **the cache is not always available** — every cache call needs a fallback path.
-- That **cache stampedes are the rule, not the edge case**, on hot keys.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They monitor **cache hit rate as a primary metric**, not as a vanity stat.
-- They reflexively check **what happens when the cache is cold** during capacity planning.
-- They use **single-flight or probabilistic refresh** on hot keys without being asked.
-- They cap **value size and key size** at the cache layer.
-- They distinguish **acceptable staleness** per data type and choose TTLs accordingly.
-- They know whether their cache is **in-process** or **out-of-process** and the cost difference.
-- They treat **cache invalidation as a consistency model** and design it explicitly.
-- They never store data **only in a cache** without explicit persistence guarantees.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"How would you cache user profile data?"** Junior: "use Redis." Senior: "cache-aside with TTL, key by user ID, value-size cap, invalidate on profile updates with versioned keys to avoid the stale-write race, fallback to DB if cache is unavailable."
-2. **"What happens during a cache stampede?"** Tests whether the candidate knows the problem exists and can name a mitigation (mutex, probabilistic refresh, stale-while-revalidate).
-3. **"How do you invalidate a cache?"** A trap. The right answer is "depending on consistency requirements, here are the options" — not a single technique.
-4. **"What's your eviction policy?"** Tests whether the candidate has thought about hit-rate optimization or just defaulted to LRU.
-5. **"How do you handle cache-database write ordering?"** Tests understanding of the race conditions. Bonus for naming the "double delete" pattern or versioned keys.
-6. **"Design a CDN."** Tests whether the candidate sees CDN as a distributed cache hierarchy with edge nodes, origin shields, and invalidation challenges.
-7. **"When wouldn't you cache?"** Tests engineering judgment: cheap-to-compute values, low hit rate, high invalidation cost, security-sensitive data.
-
-Common traps:
-- Treating cache invalidation as trivial.
-- Assuming Redis is always available.
-- Storing complex objects without size limits.
-- Using cache-aside with no protection against stampedes.
-
----
-
 ## Worked Example — Multi-Tier Caching for a Product Page
 
 A high-traffic e-commerce product page. Goal: low latency globally, low origin load, fresh-enough data.
@@ -531,27 +467,36 @@ The hierarchy collapses load by 100×; user-perceived latency is dominated by ne
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **Caching trades freshness for speed.** Every cache decision is a freshness budget.
-2. **Hit rate is the dominant metric.** 99% hit rate >> 90% hit rate, by orders of magnitude in capacity savings.
-3. **Three patterns: cache-aside, write-through, write-behind.** Everything else is a variant.
-4. **TTL is your primary knob.** Tune per-data-type.
-5. **Cache stampedes are real.** Use single-flight, probabilistic refresh, or stale-while-revalidate.
-6. **Cache invalidation is distributed-systems consistency.** The same theorem applies.
-7. **Always have a fallback.** Cache unavailability ≠ application unavailability.
-8. **Cap value sizes.** OOM at worst time.
-9. **Versioned keys** beat delete-then-write race conditions.
-10. **The cache is at every layer.** CPU, OS, app, Redis, CDN, browser. Same idea, six orders of magnitude.
+- **Caching trades freshness for speed.** Every cache decision is a freshness budget. If you can't tolerate any staleness, you don't have a cache — you have a slower indirection.
+- **The cost of staleness varies wildly by data type.** Stale marketing page: nobody cares. Stale checkout balance: someone is suing you. The same infrastructure is right or wrong depending on the data — distinguish acceptable staleness per data type and choose TTLs accordingly.
+- **Hit rate is the dominant metric, and its biggest payoff is origin-load reduction, not user latency.** 90% hit means the source sees 10% of traffic (10× reduction); 99% means 1% (100× reduction). Monitor it as a primary metric, not a vanity stat.
+- **Three patterns: cache-aside, write-through, write-behind.** Everything else (read-through, refresh-ahead) is a variant.
+- **TTL is your primary knob.** Tune per-data-type. Sliding (access-based) TTLs can keep stale data alive forever under steady load.
+- **Cache stampedes are the rule, not the edge case, on hot keys.** Use single-flight, probabilistic early refresh, or stale-while-revalidate — reach for these on hot keys without being asked.
+- **Cache invalidation is distributed-systems consistency design.** Once the cache lives outside the source's memory space, it's a consistency problem with a different name. Design it explicitly.
+- **Versioned keys beat delete-then-write race conditions.** `DELETE`-then-`SET` ordering creates races that look like ghosts in production.
+- **Always have a fallback.** The cache is not always available; cache unavailability must not equal application unavailability. Every cache call needs a fallback path, and you should reflexively check what happens when the cache is cold during capacity planning.
+- **Cap value sizes (and key sizes) at the cache layer.** Unbounded values OOM the cache at the worst possible time.
+- **Never store data only in a cache** without explicit persistence guarantees.
+- **Know whether your cache is in-process or out-of-process** and the cost difference — a network-hop cache can be slower than recomputation for cheap values.
+- **The cache is at every layer.** CPU, OS, app, Redis, CDN, browser. Same idea, six orders of magnitude apart. Every cache is a small distributed system; every invalidation is a small consistency problem.
+
+The senior instinct, looking at any system, is to scan the latency hierarchy and ask: *where is the slow layer? what's the working set above it? what's the freshness requirement of the data?* The right cache, in the right place, with the right TTL, hides almost any backend problem. The wrong one becomes the next outage. The senior engineer treats cache invalidation as a *design problem*, not an implementation detail.
 
 ---
 
-## Final Mental Model
+## Interview angle
 
-> **Caching is the answer when the question is "how do I make this faster without rewriting it?" — but the answer always comes with a hidden invoice for staleness, complexity, and the operational risk of cache failure modes.**
+What gets tested:
 
-Every cache is a small distributed system. Every cache invalidation is a small consistency problem. Every cache hierarchy is a small operating system. The *theory* you need to operate caches well is the same theory you need for everything else in distributed engineering — applied at smaller scales, with prettier APIs.
+1. **"How would you cache user profile data?"** Junior: "use Redis." Senior: "cache-aside with TTL, key by user ID, value-size cap, invalidate on profile updates with versioned keys to avoid the stale-write race, fallback to DB if cache is unavailable."
+2. **"What happens during a cache stampede?"** Tests whether the candidate knows the problem exists and can name a mitigation (mutex, probabilistic refresh, stale-while-revalidate).
+3. **"How do you invalidate a cache?"** A trap. The right answer is "depending on consistency requirements, here are the options" — not a single technique.
+4. **"What's your eviction policy?"** Tests whether the candidate has thought about hit-rate optimization or just defaulted to LRU.
+5. **"How do you handle cache-database write ordering?"** Tests understanding of the race conditions. Bonus for naming the "double delete" pattern or versioned keys.
+6. **"Design a CDN."** Tests whether the candidate sees CDN as a distributed cache hierarchy with edge nodes, origin shields, and invalidation challenges.
+7. **"When wouldn't you cache?"** Tests engineering judgment: cheap-to-compute values, low hit rate, high invalidation cost, security-sensitive data.
 
-The senior instinct, looking at any system, is to scan the latency hierarchy and ask: *where is the slow layer? what's the working set above it? what's the freshness requirement of the data?* The right cache, in the right place, with the right TTL, hides almost any backend problem. The wrong one becomes the next outage.
-
-Phil Karlton was right. Cache invalidation is hard. The senior engineer is the one who treats it as a *design problem*, not an implementation detail.
+Common traps: treating cache invalidation as trivial; assuming Redis is always available; storing complex objects without size limits; using cache-aside with no protection against stampedes.

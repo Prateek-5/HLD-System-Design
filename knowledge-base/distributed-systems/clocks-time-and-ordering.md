@@ -58,25 +58,6 @@ The pattern: each generation refined what "time" means in distributed systems. L
 
 ---
 
-## Core Mental Models
-
-**1. There is no global time.**
-In a distributed system, "now" is not a single thing. Each node has its own "now," and they disagree. Designs that assume otherwise fail.
-
-**2. Causal ordering is what matters, not wall-clock ordering.**
-"A happened before B" usually means "A causally influenced B" — there was a message, a write, a dependency. This is *Lamport's happens-before relation*, and it's what most distributed correctness depends on.
-
-**3. Clocks have skew. Clocks can jump.**
-NTP keeps clocks within ~10ms of each other. Some systems do better; some do worse (VMs, containers, leap seconds). Clocks can also *jump backward* during corrections — your code must handle this.
-
-**4. Different problems need different clocks.**
-Need to order operations? Logical clock. Need to detect concurrency? Vector clock. Need real-time correctness with bounded uncertainty? TrueTime or HLC. Choosing the wrong primitive is the bug.
-
-**5. Time is a coordination cost.**
-Whoever you trust to assign timestamps is your bottleneck or your single point of correctness. Distributed timestamps require coordination, which has latency.
-
----
-
 ## Deep Technical Explanation
 
 ### Lamport's logical clocks
@@ -233,15 +214,6 @@ What goes wrong:
 - **The cache TTL inconsistency.** Cache TTL set to 60 seconds. Cache server clock is 30 seconds ahead. Items expire 30 seconds early. Cache hit rate drops; backend load spikes.
 - **The "sortable UUID" surprise.** UUIDv1 has a timestamp; team expected sorting by UUID = sorting by time. Discovers that timestamps in UUIDs aren't the wall-clock value (they're 100ns intervals since 1582-10-15) and clock skew still affects them.
 
-The senior engineer's habits:
-- **Use monotonic clocks** for elapsed time.
-- **Use logical clocks** for ordering.
-- **Use HLCs** for distributed timestamps that need to be roughly time-like.
-- **Don't trust wall-clock comparison** across machines.
-- **Test with clock skew** in chaos engineering.
-- **Monitor NTP status** as an operational metric.
-- **Document time assumptions** in protocols.
-
 ---
 
 ## Failure Scenarios
@@ -312,73 +284,44 @@ The unifying observation: **time is the hidden coordination mechanism in every d
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **clocks across machines disagree**, often by enough to matter.
-- That **wall-clock time can go backward**.
-- That **timestamps don't reliably order distributed events**.
-- That **monotonic clocks** are different from wall-clock and necessary for elapsed-time measurement.
-- That **leap seconds exist** and can break code.
-- That **VM clocks are particularly unreliable**.
-- That **logical clocks exist** as a solution.
-- That **causal ordering** is the right model for most distributed correctness.
+**The core truths**
+- **There is no global time.** In a distributed system, "now" is not a single thing — each node has its own "now," and they disagree. Designs that assume otherwise fail.
+- **Causal ordering is what matters, not wall-clock ordering.** "A happened before B" usually means "A causally influenced B" — a message, a write, a dependency. This is *Lamport's happens-before relation*, the fundamental relation most distributed correctness depends on.
+- **Time is a coordination cost.** Whoever you trust to assign timestamps is your bottleneck or single point of correctness; distributed timestamps require coordination, which has latency.
+
+**Clock behavior reality**
+- **Clocks have skew and can jump.** NTP keeps clocks within ~10ms (not zero); some systems do worse (VMs, containers, leap seconds). Clocks can *jump backward* during corrections — your code must handle `now() < lastNow()` without crashing.
+- **Wall-clock comparison across machines is unreliable.** Timestamps don't reliably order distributed events.
+- **Monotonic clocks are different from wall-clock** and are necessary for elapsed-time measurement; they never go backward.
+- **Leap seconds and VM time warps are real failure modes** — not edge cases to ignore.
+
+**Choose the clock for the problem (the wrong clock is a bug)**
+- **Lamport logical clocks** for total ordering consistent with causality (cheap).
+- **Vector clocks** for concurrency detection — but they don't scale (size grows with node count).
+- **HLCs** for distributed timestamps that need to be roughly time-like; bounded by clock skew, constant size.
+- **TrueTime** for externally-consistent transactions; needs GPS + atomic-clock hardware.
+
+**Senior engineer habits**
+- Distinguish wall-clock from monotonic time; avoid wall-clock comparison across machines.
+- Reach for HLCs for distributed timestamps; handle clock jumps in protocol code.
+- Monitor NTP status as an operational metric; test with clock skew in chaos engineering.
+- Document time assumptions in protocols; read Lamport's paper at least once.
+- Ask early: *what ordering do we actually need?* (Causal / total / real-time / external consistency.) The answer drives the clock choice.
 
 ---
 
-## What Senior Engineers Instinctively Notice
-
-- They **distinguish wall-clock from monotonic time**.
-- They **avoid wall-clock comparison across machines**.
-- They **reach for HLCs** for distributed timestamps.
-- They **monitor NTP status** as a metric.
-- They **handle clock jumps** in protocol code.
-- They **understand happens-before** as the fundamental relation.
-- They **read Lamport's paper** at least once.
-- They **test with clock skew** in chaos engineering.
-
----
-
-## Interview Perspective
+## Interview angle
 
 What gets tested:
 
-1. **"Why can't we just use timestamps?"** Tests fundamental literacy. Right answer: clock skew, jumps, no global time.
-2. **"What's a logical clock?"** Tests Lamport awareness.
-3. **"What's a vector clock?"** Tests concurrent-detection awareness.
-4. **"What's TrueTime?"** Tests Spanner literacy. Bonus for explaining commit-wait.
-5. **"What's an HLC?"** Tests modern distributed-systems literacy.
-6. **"Monotonic vs wall-clock time?"** Tests practical knowledge.
-7. **"Design a distributed counter."** Tests how clocks interact with consistency.
+1. **"Why can't we just use timestamps?"** Fundamental literacy. Right answer: clock skew, jumps, no global time.
+2. **"What's a logical clock?"** Lamport awareness.
+3. **"What's a vector clock?"** Concurrent-detection awareness.
+4. **"What's TrueTime?"** Spanner literacy. Bonus for explaining commit-wait.
+5. **"What's an HLC?"** Modern distributed-systems literacy.
+6. **"Monotonic vs wall-clock time?"** Practical knowledge.
+7. **"Design a distributed counter."** How clocks interact with consistency.
 
-Common traps:
-- Believing NTP makes clocks "the same."
-- Using wall-clock for elapsed-time measurement.
-- Not knowing about leap seconds.
-- Thinking vector clocks scale.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **There is no global time.**
-2. **Wall-clock comparison across machines is unreliable.**
-3. **Use monotonic clocks** for elapsed time.
-4. **Lamport clocks** for total ordering consistent with causality.
-5. **Vector clocks** for concurrency detection.
-6. **HLCs** for distributed timestamps; bounded by clock skew.
-7. **TrueTime** for externally-consistent transactions; needs hardware.
-8. **NTP keeps clocks within ~10ms**; not zero.
-9. **Leap seconds and VM time warps** are real failure modes.
-10. **Choose the clock for the problem.** The wrong clock is a bug.
-
----
-
-## Final Mental Model
-
-> **Time in a distributed system is not what your wristwatch tells you. It's a coordination protocol that multiple machines run, with various levels of fidelity to physical reality, chosen for the consistency you need to provide. Engineers who treat distributed time as "just clocks" produce systems with subtle, devastating ordering bugs. Engineers who treat it as a *design choice* produce systems that work.**
-
-The senior engineer designing a distributed system asks early: *what ordering do we actually need?* Causal? Total? Real-time? External consistency? The answer drives the clock choice. Logical clocks for cheap causality. HLCs for time-like distributed timestamps. TrueTime for global externally-consistent transactions, when you have the hardware budget.
-
-Most production systems live with NTP plus careful design — accepting clock skew, designing protocols to be skew-tolerant, using HLCs where time matters. The systems that make wall-clock assumptions hide ordering bugs that surface during clock anomalies, leap seconds, VM migrations. The systems that respect time-as-a-design-property are the ones that survive.
-
-That's clocks. That's time. That's ordering. That's the hidden engine of distributed correctness — and the silent source of half the "we don't know how this happened" bugs in production systems.
+Common traps: believing NTP makes clocks "the same"; using wall-clock for elapsed-time measurement; not knowing about leap seconds; thinking vector clocks scale.

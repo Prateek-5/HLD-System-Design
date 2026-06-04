@@ -52,25 +52,6 @@ The pattern: each generation reduced friction. The model is sound; the ergonomic
 
 ---
 
-## Core Mental Models
-
-**1. A Future is a state machine the compiler builds.**
-`async fn` becomes a state machine implementing the `Future` trait. Each `await` is a state transition. The compiler does this; you write the linear-looking code.
-
-**2. Futures are lazy.**
-Calling an `async fn` doesn't run anything. It returns a future. The future runs when *polled* — typically by a runtime.
-
-**3. Polls happen on threads.**
-A future may be polled from any thread the runtime chooses. Across an `await`, the future might move threads. Anything held across an `await` must be `Send` (sendable across threads).
-
-**4. The borrow checker reaches into futures.**
-References held across `await` must outlive the future. Mutable references across await are particularly tricky. `&mut self` async methods have special restrictions.
-
-**5. `Pin` is about not moving futures.**
-Once a future is being polled, it can't move in memory (because internal references would be invalidated). `Pin` is the type that enforces this.
-
----
-
 ## Deep Technical Explanation
 
 ### Futures as state machines
@@ -267,14 +248,6 @@ What goes wrong:
 - **The runtime confusion.** Mixing tokio and async-std accidentally; subtle bugs. Mitigation: pick one runtime; stick.
 - **The cancellation surprise.** Future dropped mid-execution; no cleanup. Resources leaked. Mitigation: explicit cleanup; structured concurrency patterns.
 
-The senior async Rust engineer's habits:
-- **Use tokio's primitives** (mutex, sleep, fs).
-- **Avoid blocking calls** in async paths.
-- **Prefer `Arc` over `Rc`** in async code.
-- **Structure code** to minimize borrows across await.
-- **Read compiler errors** carefully.
-- **Profile** to verify async helps the bottleneck.
-
 ---
 
 ## Failure Scenarios
@@ -336,31 +309,31 @@ The unifying observation: **async Rust pushes safety guarantees into concurrency
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **async Rust requires Send/Sync awareness**.
-- That **blocking calls poison async code**.
-- That **`Pin` is about not moving futures**.
-- That **async traits had restrictions** until recently.
-- That **runtimes don't compose freely**.
-- That **borrow checker reaches across awaits**.
-- That **cancellation has subtle correctness implications**.
+**Core mental models**
+- A Future is a **lazy state machine the compiler builds**: `async fn` compiles to a `Future`-trait state machine where each `await` is a state transition, and nothing runs until the future is *polled* by a runtime.
+- Polls happen on threads: a future may be polled from any runtime thread and can move threads across an `await`, so anything held across an `await` must be `Send`.
+- The **borrow checker reaches across awaits**: references held across an `await` must outlive the future; `&mut` borrows held across await are especially restrictive (no one else can touch the data for the whole function).
+- **`Pin` is about not moving futures**: self-referential state machines can't move in memory once polled; `Pin` enforces this. Most futures are `Unpin`; `Pin` only becomes day-to-day vocabulary when you hand-write a `Future`.
+
+**The 20% that covers 80%**
+- Don't block in async code; use tokio primitives (`tokio::sync::Mutex`, `tokio::time::sleep`, `tokio::fs`) instead of their blocking std equivalents.
+- Prefer `Arc` over `Rc` in async paths (`Rc` is not `Send`).
+- Structure code to minimize borrows held across `await`.
+- Cancellation has subtle correctness implications (dropping a future mid-flight skips cleanup) and must be handled explicitly.
+- Runtimes don't compose freely — pick one (tokio) and stick with it.
+- Async traits had restrictions until 2023; some limits (return-position async, dyn compatibility) remain.
+- Performance is excellent when you get it right, but the cost is verbosity, a months-long learning curve, and slow compile times from complex future types.
+
+**What separates senior from junior intuition**
+- Juniors miss that async Rust requires Send/Sync awareness, that blocking calls poison async code, and that the borrow checker reaches across awaits.
+- Seniors treat the compiler as a partner — errors are information that becomes recognizable with practice — read errors carefully, profile under realistic load, and weigh the trade-offs vs threads or other languages.
+- The mental model: async Rust is the most powerful *and* most demanding async runtime in production use. The reward is concurrency without GC, without data races, without surprises — performance close to C with safety better than Java — paid for with proof work done up front for the compiler. The teams that ship it at scale (Discord, Cloudflare, AWS) invested in the learning curve; those that bounce off rarely get past the first compile-error wall.
 
 ---
 
-## What Senior Engineers Instinctively Notice
-
-- They **use tokio primitives**, not std blocking.
-- They **prefer `Arc` over `Rc`** in async paths.
-- They **structure async code** to minimize cross-await borrows.
-- They **handle cancellation** explicitly.
-- They **read errors carefully** (the messages help once you understand).
-- They **profile under realistic load**.
-- They **understand the trade-offs** vs threads or other languages.
-
----
-
-## Interview Perspective
+## Interview angle
 
 What gets tested:
 
@@ -374,30 +347,3 @@ What gets tested:
 Common traps:
 - Believing async Rust is like JS async (it's harder).
 - Mixing blocking and async code.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Futures are lazy state machines** the compiler builds.
-2. **`Send` required** for multi-threaded runtimes.
-3. **Don't block** in async code.
-4. **Use tokio primitives** (mutex, sleep, etc.).
-5. **`Pin`** is about preventing moves.
-6. **Borrow checker** spans awaits.
-7. **`Arc` not `Rc`** in async.
-8. **Cancellation** must be handled explicitly.
-9. **Runtimes don't compose**; pick one.
-10. **Performance is excellent** when you get it right.
-
----
-
-## Final Mental Model
-
-> **Async Rust is the most powerful and most demanding async runtime in any production language. The borrow checker, the type system, and the runtime conspire to ensure correctness; the cost is a learning curve that's measured in months, not days. The reward is concurrency without garbage collection, without data races, without surprises — performance close to C with safety better than Java.**
-
-The senior async Rust engineer treats the compiler as a partner. Errors are information. `Send` and `Sync` requirements are the cost of multi-threading correctness. `Pin` is the cost of zero-cost futures. Each arcane concept exists for a reason; understanding the reason makes the concept easier.
-
-The teams that ship production async Rust at scale (Discord, Cloudflare, AWS) are the teams that invested in the learning curve. The teams that bounce off async Rust often don't get past the first compile-error wall. The technology is real; the difficulty is real; the rewards are real for those who push through.
-
-That's async Rust. That's the borrow checker meeting concurrency. That's what's possible when a language refuses to compromise on safety, garbage collection, or performance — and asks the developer to do the proof work to make it all consistent.

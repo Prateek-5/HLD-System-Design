@@ -58,25 +58,6 @@ The pattern: each generation pushed sharding from application code, into middlew
 
 ---
 
-## Core Mental Models
-
-**1. The partition key is a contract with your queries.**
-Every query gets routed by the partition key. Queries that include it are fast (they hit one shard). Queries that don't are slow (scatter-gather across all shards). The partition key must be present in your hot-path queries by design.
-
-**2. Hot keys are the death of partitioning.**
-A partition with disproportionate load is a single-shard bottleneck. The whole point of partitioning is undone. Real systems must guard against — or design around — uneven load distribution.
-
-**3. Rebalancing is the operation you didn't plan for.**
-Adding a shard means moving data. Done badly, this involves downtime or data loss. Done well, it's continuous, throttled, and barely visible. Modern systems use *consistent hashing* or *range splitting* to minimize movement.
-
-**4. Cross-shard queries are second-class citizens.**
-Joining across shards, transactions across shards, aggregations across shards — all are dramatically more expensive than local equivalents. Schema design should minimize cross-shard work.
-
-**5. The right partitioning makes your system look like N independent systems.**
-That's the goal. Each partition is operationally independent — its failure affects only its data. Its load is its own. Its scaling is local. When this is achieved, you've successfully decoupled.
-
----
-
 ## Deep Technical Explanation
 
 ### Partitioning strategies
@@ -223,14 +204,6 @@ What goes wrong with sharding in production:
 - **The cross-shard transaction that hung.** A "rare" operation that updates two users' balances. Implemented with 2PC. Coordinator died. Locks held on both shards. Production stalled. Fix: redesign as a saga.
 - **The query that "worked in dev."** Dev had 1 shard. Prod has 64. Query without partition key scatter-gathered. Local: 5ms. Production: 500ms. Discovered after deploy.
 
-The senior engineer's habits:
-- **Choose the partition key intentionally**, with the access patterns explicitly considered.
-- **Watch for hot partitions** as a primary scaling metric.
-- **Test cross-shard queries** under realistic shard counts.
-- **Plan rebalancing capacity** before reaching saturation.
-- **Treat the partition key as an ABI** — changing it is a major operation.
-- **Build with sharding-eligible schemas** from day one, even on single-node deployments.
-
 ---
 
 ## Failure Scenarios
@@ -293,52 +266,6 @@ The unifying observation: **sharding is divide-and-conquer applied to data, with
 - **Stripe's "rate-limited rebalances"**: documented patterns for minimizing impact during shard rebalancing in their high-throughput payment infrastructure.
 - **Pinterest's MySQL sharding**: well-known case study of "shard by user ID" for billions of pins, with the inherent cross-user-query challenges.
 - **Cassandra at Netflix scale**: documented case studies on partition key selection, hot key mitigations, and capacity planning.
-
----
-
-## What Junior Engineers Usually Miss
-
-- That **the partition key is in your queries forever** — a long-term contract.
-- That **hot keys can defeat partitioning** entirely.
-- That **cross-shard joins are expensive** and should be designed around.
-- That **range partitioning has hot-write issues** for time-series data.
-- That **rebalancing is slow and impactful** at scale.
-- That **`shard_count = N` is a configuration that's hard to change later**.
-- That **single-database queries that work locally** may scatter-gather in production.
-- That **2PC across shards is rarely the right answer** — sagas are.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **examine query patterns** before choosing a partition key.
-- They **design schemas to be partitionable from day one**.
-- They **monitor per-shard load** as a primary metric.
-- They **identify hot keys** early and design mitigations.
-- They **avoid cross-shard transactions** by design, not by exception.
-- They **plan rebalancing capacity** as part of operational reviews.
-- They **distinguish logical from physical partition counts** for flexibility.
-- They **respect the partition key as an architectural constraint**, not a tunable.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"How would you shard a social network's user data?"** Senior answer: hash by user ID, watch for celebrity accounts, replicate small reference data, accept cross-user queries as expensive.
-2. **"What's consistent hashing?"** Tests algorithm literacy. Bonus for explaining vnodes and minimal-movement properties.
-3. **"How would you handle a hot partition?"** Bucketing, caching, application-level special-casing.
-4. **"Why not just shard by random number?"** Distribution is even, but every query without a key scatters. Useless in practice.
-5. **"How do you do cross-shard transactions?"** Senior answer: avoid them; use sagas; pre-aggregate.
-6. **"Range vs hash partitioning?"** Range for time-series and ordered queries; hash for even distribution. Composite often best.
-7. **"What's the operational cost of sharding?"** Rebalancing, schema migrations multiplied by N, cross-shard queries, monitoring complexity.
-
-Common traps:
-- Recommending sharding without considering query patterns.
-- Believing sharding is "free scalability."
-- Not knowing about hot keys.
-- Recommending 2PC across shards.
 
 ---
 
@@ -548,27 +475,25 @@ The OLTP path stays clean (per-tenant sharded). Cross-tenant data is aggregated 
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **Partition key is a contract** with your queries.
-2. **Hot keys break partitioning.** Design for them.
-3. **Cross-shard queries are expensive.** Schema must minimize them.
-4. **Consistent hashing minimizes rebalance movement.**
-5. **Range partitioning has write hotspots** for sequential data.
-6. **Composite (hash + range) keys** combine best of both.
-7. **Many small shards** > few big ones for operational flexibility.
-8. **Design schemas as partitioned from day one**, even on single-node.
-9. **Cross-shard transactions are rarely worth it.** Use sagas.
-10. **Rebalancing is slow.** Plan capacity ahead.
+- **The partition key is a contract with your queries — forever.** Queries that include it hit one shard (fast); queries that don't scatter-gather across all shards (slow). It must be present in your hot-path queries by design, and it's hard to change later — treat it as an architectural constraint / ABI, not a tunable.
+- **Choose the partition key by analyzing query patterns first.** A senior engineer asks "what will the hot queries look like?" before "what columns do we need?" — the key falls out of the access-pattern analysis. The key must distribute load evenly, be present in hot queries, co-locate naturally-joined data, and be stable.
+- **Hot keys break partitioning entirely.** A disproportionately loaded partition is a single-shard (single-thread) bottleneck no cluster capacity can fix. Design for them: bucketing/composite keys, caching, replication of hot keys, application-level special-casing. Monitor per-shard load as a primary scaling metric.
+- **Cross-shard queries are second-class citizens.** Joins, transactions, and aggregations across shards are dramatically more expensive than local equivalents. Design the schema to keep hot queries on one shard; denormalize, replicate small reference data, push cross-shard work to batch jobs/warehouses. Test cross-shard queries under realistic shard counts — what works in single-shard dev scatters in production.
+- **Cross-shard transactions (2PC) are rarely worth it.** Latency multiplied, conflicts amplified, locks held on failure. Use sagas with idempotent operations instead. Avoid by design, not by exception.
+- **Range partitioning has write hotspots** for sequential data (timestamps, autoincrement IDs all hit the newest partition). Hash distributes evenly but scatters range queries. **Composite (hash + range)** often combines the best of both.
+- **Consistent hashing minimizes rebalance movement** (only ~1/N of keys move when adding a node); vnodes refine this and spread a failed node's load. **Rebalancing is slow and impactful** at scale (petabyte rebalances take days) — throttle aggressively and plan capacity well ahead.
+- **Distinguish logical from physical partition counts.** Many small shards beat few large ones for operational flexibility; powers of 2 ease doubling. Start with many logical partitions (e.g. 64-128) even on few physical nodes so routing stays stable as you scale.
+- **Design schemas as if sharded from day one**, even on a single node — always include a partition-eligible key, avoid full-dataset queries. Then sharding is an operational migration, not an application rewrite ("shard later" is the antipattern). The right partitioning makes your system look like N independent systems: each partition's failure, load, and scaling are its own.
 
----
+## Interview angle
 
-## Final Mental Model
-
-> **Partitioning is what happens when your data outgrows your machine. The partition key is the most consequential decision you make about that data — and it's the decision you make first, often without realizing how much weight it carries.**
-
-A senior engineer designing a schema asks "what will the hot queries look like?" before "what columns do we need?" The partition key falls out of the answer. Once committed, it shapes every operational decision that follows: rebalancing, monitoring, query optimization, cross-shard work, capacity planning.
-
-The systems that scaled gracefully are the systems that picked the right partition key the first time. The systems that didn't are the systems that spent years migrating, often visibly, often painfully. There is no automatic answer; there is only the access-pattern analysis you do *before* choosing.
-
-That's sharding. That's partitioning. That's the choice that makes "linear scaling" possible — or that turns "we need to scale" into a multi-year refactor.
+- **"How would you shard a social network's user data?"** Hash by user ID, watch for celebrity accounts, replicate small reference data, accept cross-user queries as expensive.
+- **"What's consistent hashing?"** Tests algorithm literacy; bonus for explaining vnodes and minimal-movement properties.
+- **"How would you handle a hot partition?"** Bucketing, caching, application-level special-casing.
+- **"Why not just shard by random number?"** Distribution is even, but every query without a key scatters — useless in practice.
+- **"How do you do cross-shard transactions?"** Avoid them; use sagas; pre-aggregate.
+- **"Range vs hash partitioning?"** Range for time-series and ordered queries; hash for even distribution; composite often best.
+- **"What's the operational cost of sharding?"** Rebalancing, schema migrations multiplied by N, cross-shard queries, monitoring complexity.
+- **Common traps:** recommending sharding without considering query patterns; believing sharding is "free scalability"; not knowing about hot keys; recommending 2PC across shards.

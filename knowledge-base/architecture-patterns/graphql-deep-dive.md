@@ -54,25 +54,6 @@ The pattern: GraphQL solved a specific problem; was over-applied; settled into a
 
 ---
 
-## Core Mental Models
-
-**1. Schema is the contract.**
-Types, queries, mutations, subscriptions defined upfront. Strong typing throughout.
-
-**2. Resolvers are the runtime.**
-Each field has a resolver — a function that produces its value. Resolvers are where complexity lives.
-
-**3. Client-driven shape.**
-Client sends a query specifying exactly the fields needed. Server returns matching shape.
-
-**4. One endpoint, many queries.**
-Single HTTP endpoint (typically `/graphql`); query in the body.
-
-**5. Complexity must be bounded.**
-Without limits, clients can request unboundedly expensive queries. DoS-via-query is real.
-
----
-
 ## Deep Technical Explanation
 
 ### The schema
@@ -366,27 +347,6 @@ A car dealership where you can specify exact options. The factory must support a
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The unbounded query.** Engineer adds a debug query that fetches "all posts and their comments and their authors." Production: 100K-row scan. DB CPU melts. Mitigation: depth limits; complexity scoring; persisted queries.
-- **The N+1 disaster.** No DataLoader; resolver fans out. Page that should make 3 DB queries makes 300. Latency 100×. Fix: DataLoader.
-- **The auth gap.** New field added; auth check forgotten; sensitive data exposed. Mitigation: schema-driven auth (directives); audit on schema changes.
-- **The federation latency.** Cross-service query: gateway calls Users service, then Posts service for each user's posts, then Comments for each post. Latency stacks. Fix: smart federation; or query batching.
-- **The cache miss.** GraphQL responses harder to cache than REST. Falls through to backend constantly. Fix: persisted queries; field-level cache.
-- **The type explosion.** Schema grows to thousands of types; nobody understands it. Mitigation: schema governance; ownership boundaries.
-
-The senior GraphQL engineer's habits:
-- **DataLoader for every resolver** that does I/O.
-- **Depth limits and complexity scoring** in production.
-- **Persisted queries** for production traffic.
-- **Schema-driven auth** with field-level checks.
-- **Schema governance** — ownership, deprecation discipline.
-- **Monitor query patterns** — identify expensive queries.
-
----
-
 ## Failure Scenarios
 
 **Scenario 1 — The DoS via query.**
@@ -447,61 +407,29 @@ The unifying observation: **GraphQL is client-power and server-complexity. Where
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **N+1 is the default** without DataLoader.
-- That **complexity must be bounded**.
-- That **caching is harder**.
-- That **auth is per-field**.
-- That **federation has costs**.
+**Core mental models**
+- **Schema is the contract** — types, queries, mutations, subscriptions defined upfront; strong typing throughout.
+- **Resolvers are the runtime** — each field has a resolver function; this is where complexity lives.
+- **Client-driven shape** — the client queries for exactly the fields it needs; server returns the matching shape.
+- **One endpoint, many queries** — single HTTP endpoint (typically `/graphql`), query in the body.
+- **Subscriptions** provide real-time updates over WebSocket/SSE.
 
----
+**What's commonly missed / the 80/20**
+- **N+1 is the default** without DataLoader — naive resolvers fan out; DataLoader batches and caches per-request (use it for every resolver that does I/O — non-negotiable in production).
+- **Complexity must be bounded** — unbounded nested queries are a real DoS vector; enforce depth limits, complexity scoring, per-user quotas.
+- **Persisted queries** for production traffic — only allow pre-registered queries; most secure and enables edge/HTTP caching.
+- **Caching is harder than REST** — everything is POST to one URL; mitigate with response cache, field-level cache, or persisted queries + GET.
+- **Auth is per-field** — each field needs its own check; prefer schema-driven (directive) auth, default-deny, audit on every schema change (auth gaps are a common, severe bug).
+- **Federation has costs** — unifies multiple services under one schema (each team owns its subgraph), but cross-service resolvers add latency and operational complexity; use timeouts and circuit breakers.
+- **Schema governance matters** — schemas can explode to thousands of types with undeletable deprecated fields; enforce ownership, deprecation discipline, and monitor query patterns / usage to find expensive or unused fields.
+- **Know where GraphQL fits vs not** — fits mobile/diverse clients, BFF aggregators, public APIs; poor fit for internal service-to-service (gRPC), simple CRUD (REST), and high-performance edge.
 
-## What Senior Engineers Instinctively Notice
+**Interview angle**
+- Common questions: *GraphQL vs REST?*; *What is N+1?* (naive resolvers fan out); *What is DataLoader?* (per-request batching/caching solution to N+1); *How do you protect against expensive queries?* (depth limits, complexity scoring, persisted queries); *What is federation?* (multiple services unified into one schema).
+- Common traps: believing GraphQL eliminates backend complexity (it relocates it from network round-trips to server resolvers); forgetting DataLoader.
 
-- They **use DataLoader everywhere**.
-- They **enforce complexity limits**.
-- They **use persisted queries** in production.
-- They **audit schema** for unused fields.
-- They **distinguish where GraphQL fits** from where it doesn't.
+**Final mental model**
 
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"GraphQL vs REST?"** Tests fundamental.
-2. **"What's N+1?"** Naive resolvers fan out.
-3. **"DataLoader?"** Batching solution.
-4. **"How to protect against expensive queries?"** Depth limit, complexity, persisted queries.
-5. **"Federation?"** Multiple services unified.
-
-Common traps:
-- Believing GraphQL eliminates backend complexity.
-- Forgetting DataLoader.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Schema-first**, strong types.
-2. **Client-driven shape**.
-3. **Resolvers** are the runtime.
-4. **DataLoader for N+1**.
-5. **Bound query complexity**.
-6. **Persisted queries** for production.
-7. **Per-field auth**.
-8. **Federation** for multi-service.
-9. **Caching is harder**.
-10. **Subscriptions** for real-time.
-
----
-
-## Final Mental Model
-
-> **GraphQL pushes complexity from network round-trips to server resolvers. The trade is worthwhile when you have many diverse clients with shifting data needs; less so when you don't. Like every architectural choice, the right answer depends on whether the benefits match your actual problems.**
-
-The senior engineer using GraphQL treats it as a tool with specific use cases, not a universal API style. They use DataLoader, bound complexity, persist queries, and design auth carefully. The framework rewards discipline; without it, GraphQL becomes the source of operational pain rather than developer joy.
-
-That's GraphQL. That's client-driven query at the cost of server complexity. That's a tool that fits some problems beautifully and others not at all.
+> GraphQL pushes complexity from network round-trips to server resolvers. The trade is worthwhile when you have many diverse clients with shifting data needs; less so when you don't. It's a tool with specific use cases, not a universal API style — the framework rewards discipline (DataLoader, bounded complexity, persisted queries, careful auth), and punishes its absence with operational pain.
