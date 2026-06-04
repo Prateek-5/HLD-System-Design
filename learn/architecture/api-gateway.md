@@ -76,18 +76,24 @@ Multi-service e-commerce:
 - [ ] Knows BFF.
 
 ## L. Potential Gaps & Improvements
-- Service mesh (Istio) overlap.
-- GraphQL as an aggregation layer replacement.
+- **Service mesh overlap (Istio, Linkerd)** — a mesh manages service-to-service ("east-west") traffic with sidecar proxies, overlapping the gateway's auth/retry/mTLS; learn the boundary so you don't reinvent one inside the other (→ see Guided Deep-Learning Layer).
+- **GraphQL as an aggregation-layer replacement** — a query language that lets a client fetch exactly the fields it needs in one request, often replacing the gateway's BFF (Backend For Frontend) aggregation; matters when designing mobile/web data-fetching.
+- **mTLS (mutual TLS)** — both client and server present certificates so each proves its identity, not just the server; gateways and meshes use it to secure internal hops, a common "how do services trust each other" answer.
+- **Sidecar proxy** — a small proxy (usually Envoy) deployed alongside each service instance to transparently handle traffic; understanding it explains how meshes add features without changing app code.
+
+**🔧 How to close:** Spin up a local gateway and watch routing in action: run `docker run -d --name kong-test -e KONG_DATABASE=off -p 8000:8000 -p 8001:8001 kong:latest`, then `curl -s http://localhost:8001/` to see the admin API, register a service/route via the Admin API, and `curl -v http://localhost:8000/your-route` to observe the gateway forwarding the request and adding its headers.
 
 ---
 
 ### 🧭 Guided Deep-Learning Layer
 
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
 #### 🕸️ Gap 1 — Service Mesh Overlap with API Gateway
 - 🔹 **What it is**: Service mesh (Istio, Linkerd) handles east-west (service-to-service) traffic. API Gateway handles north-south (external-to-internal). Both do auth, retry, mTLS, observability — overlap at the boundary.
 - 🔹 **Why it matters**: In 2026 architectures, the two coexist. Engineers often confuse them. The gateway sees public clients; the mesh sees internal services.
 - 🔹 **Connection**: This file introduces API Gateway. Mesh is its internal counterpart — both are specialized reverse proxies at different positions.
-- 🔹 **When needed**: 🔴 **Important for senior interviews** on microservice architectures.
+- 🔹 **When needed**: 🟢 **Foundational** — the north-south vs east-west distinction is worth learning right after the basics; it comes up whenever microservices are mentioned.
 - 🔹 **Intuition**: Gateway = hotel front desk. Mesh = internal phone system between hotel departments. Both handle "routing calls" but at different boundaries.
 - 🔹 **If you go deeper**: Study how Istio's gateway (north-south) and Envoy sidecar (east-west) complement each other. Understand that both run Envoy under the hood, just configured differently.
 - 🔹 **Interview hook**: *"Where does the gateway end and the service mesh begin?"* → gateway terminates external TLS + handles external concerns; mesh handles internal reliability + security.
@@ -98,7 +104,7 @@ Multi-service e-commerce:
 - 🔹 **What it is**: GraphQL can collapse multiple backend calls into one client request, replacing the "BFF" aggregation pattern of traditional API Gateways.
 - 🔹 **Why it matters**: Modern mobile/web apps often prefer GraphQL over REST-with-BFF. Gateway's aggregation value decreases; its cross-cutting concerns stay.
 - 🔹 **Connection**: The "aggregation" bullet in this file (BFF pattern) is sometimes better served by GraphQL. Know when each wins.
-- 🔹 **When needed**: 🔴 **Important for frontend/mobile-facing senior interviews**.
+- 🔹 **When needed**: 🟡 **Mid-level** — useful once the BFF/aggregation basics are solid; common in frontend/mobile-facing design discussions.
 - 🔹 **Intuition**: BFF = custom API tailored to one client. GraphQL = self-service; client picks what it needs. Same goal, different mechanism.
 - 🔹 **If you go deeper**: Understand where GraphQL hurts — N+1 query problem, CDN caching, rate limiting per endpoint. Tools: Apollo Federation, GraphQL gateway.
 - 🔹 **Interview hook**: *"You have 5 services and 3 client types (web, iOS, Android). Design the aggregation layer."* → BFF per client vs one GraphQL gateway; discuss tradeoffs.

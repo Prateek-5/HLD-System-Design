@@ -14,9 +14,7 @@ Naive hashing `shard = hash(key) % N` means: if N changes, almost every key goes
 
 **The problem they solve**: with just 3 physical nodes placed randomly on a ring, you often get *very uneven arcs*. Node A might own 50% of the ring, Node B 10%, Node C 40%. Load distribution = disaster.
 
-**The fix**: each physical node owns **many** points on the ring (e.g., 200 virtual nodes per shard). With 3 × 200 = 600 points, the arcs become statistically uniform.
-
-Each physical shard owns **many** points on the ring (e.g., 200 virtual nodes per shard). Smooths out load and gives finer control when removing/adding a physical node.
+**The fix**: each physical node owns **many** points on the ring (e.g., 200 virtual nodes per shard). With 3 × 200 = 600 points, the arcs become statistically uniform — which smooths out load and gives finer control when removing or adding a physical node.
 
 > **🧠 What if you skipped virtual nodes?**
 > - Uneven load → some servers idle, others melting.
@@ -95,19 +93,23 @@ Rebalance on node add:
 - ❌ Forgetting virtual nodes.
 
 ## L. Potential Gaps & Improvements
-- Rendezvous hashing (HRW) — a competing scheme, sometimes better.
-- Jump hash — simpler alternative for stable N+1 scaling.
-- Load-aware hashing.
+- **Rendezvous Hashing (HRW — Highest Random Weight)** — each key hashes against every node and picks the highest score, spreading keys evenly without a ring; worth knowing as a simpler, lower-skew alternative.
+- **Jump Hash (Jump Consistent Hash)** — a tiny, ring-free algorithm that maps a key to one of N buckets and moves minimal keys when N grows; great when your node count just scales up by one.
+- **Load-Aware Hashing (bounded-load consistent hashing)** — caps how many keys any single node may hold and spills overflow to the next node, so one hot key cannot melt one server; the fix for real-world hotspots.
+
+**🔧 How to close:** Write a 30-line script that hashes 1,000,000 keys across 10 nodes using both modulo (`hash(key) % N`) and a consistent-hash ring (e.g. Python's `hashlib` + a sorted list of 100 virtual nodes per server), then add an 11th node and count how many keys change owners — you should see ~90% move under modulo versus ~9% on the ring.
 
 ---
 
 ### 🧭 Guided Deep-Learning Layer
 
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
 #### 🎲 Gap 1 — Rendezvous Hashing (HRW — Highest Random Weight)
 - 🔹 **What it is**: For each key, compute `hash(key, node_id)` across all nodes; pick the node with the highest score. No ring, no virtual nodes.
 - 🔹 **Why it matters**: Simpler than consistent hashing, better load distribution without virtual nodes, similar ~1/N key movement on node add/remove. Used internally by some CDNs.
 - 🔹 **Connection**: Direct alternative to the ring approach in this file. Same goals, cleaner mechanism.
-- 🔹 **When needed**: 🟡 **Useful at mid-level**, 🔴 **Important if interviewing at places using HRW** (some CDN teams).
+- 🔹 **When needed**: 🟡 **Mid-level** — useful once the ring basics are solid; common as a "name another scheme" follow-up.
 - 🔹 **Intuition**: For each key, "audition" every node (hash it together). Pick the winner. On node add, only keys where the new node scores highest move.
 - 🔹 **If you go deeper**: Understand the `argmax(hash(key, node))` selection, replication (pick top-K nodes), and why it doesn't need virtual nodes. Read Thaler & Ravishankar's 1998 paper.
 - 🔹 **Interview hook**: *"Besides consistent hashing, what algorithms distribute keys across nodes with minimal churn?"* → HRW, jump hash.
@@ -129,7 +131,7 @@ Rebalance on node add:
 - 🔹 **What it is**: Extensions to consistent hashing that consider *current load* (not just hash) — route to the lightly-loaded node among top-K candidates.
 - 🔹 **Why it matters**: Plain consistent hashing can still create hot nodes due to hot keys or heterogeneous node capacity. Load-aware variants smooth this.
 - 🔹 **Connection**: Addresses the "hot key" weakness of plain consistent hashing mentioned in this file.
-- 🔹 **When needed**: 🔴 **Important for senior interviews** designing cache/DB clusters at scale.
+- 🔹 **When needed**: 🟡 **Mid-level** to grasp the hot-node motivation; 🔴 **Senior** for the bounded-load variant when designing cache/DB clusters at scale.
 - 🔹 **Intuition**: Consistent hashing picks your favorite restaurant by location. Load-aware peeks at the line first and picks a close-enough restaurant with a shorter queue.
 - 🔹 **If you go deeper**: Read "Consistent hashing with bounded loads" (Google, 2016) — picks the hash owner unless overloaded, in which case spills to next-on-ring. Guarantees each node ≤ ε above average load.
 - 🔹 **Interview hook**: *"Consistent hashing still creates hotspots in my cache — what next?"* → bounded-load consistent hashing.

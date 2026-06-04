@@ -277,23 +277,27 @@ Being able to answer this table fluently = senior signal.
 ---
 
 ## L. Potential Gaps & Improvements
-- Congestion control deserves a dedicated deep-dive (slow start, AIMD, Cubic vs BBR).
-- Nagle's algorithm and `TCP_NODELAY` — classic interview topic I glossed over.
-- TCP buffer sizes and how they interact with bandwidth-delay product (BDP).
-- SCTP (a third transport protocol used in telecom) — rarely asked but worth 10 min.
-- QUIC deserves its own file since it's the future of the transport layer.
+- **Congestion control** — the algorithms (slow start, AIMD = Additive-Increase/Multiplicative-Decrease, Cubic, BBR = Bottleneck Bandwidth and Round-trip propagation time) that decide how fast TCP sends; explains real-world throughput. (→ see Guided Deep-Learning Layer)
+- **Nagle's algorithm** — batches tiny TCP writes into one packet to cut header overhead; matters because it can add ~40 ms latency to interactive traffic.
+- **`TCP_NODELAY`** — the socket option that turns Nagle off so small messages send immediately; essential to know for WebSockets, games, and SSH.
+- **BDP (Bandwidth-Delay Product)** — bandwidth × RTT = the bytes "in flight" needed to fill a link; if TCP buffers are smaller than this you cap throughput on long-distance links.
+- **TCP buffer sizes** — the send/receive buffers (e.g. `net.ipv4.tcp_rmem`) that bound the sliding window; under-sized buffers starve high-BDP "long-fat" connections.
+- **SCTP (Stream Control Transmission Protocol)** — a third transport with multiple reliable streams plus multi-homing failover; rare outside telecom but shows TCP/UDP aren't the only options.
+- **QUIC (Quick UDP Internet Connections / HTTP/3)** — a UDP-based TCP+TLS replacement with per-stream ordering and 0-RTT resumption; the future of web transport, worth its own file. (→ see Guided Deep-Learning Layer)
 
-**How to close:** run `ss -tan` on a live server and read the states (ESTABLISHED, TIME_WAIT, FIN_WAIT). Seeing real counts is more educational than any theory.
+**🔧 How to close:** run `ss -tan` on a live server and read the connection states (ESTABLISHED, TIME_WAIT, FIN_WAIT). Seeing real counts is more educational than any theory.
 
 ---
 
 ### 🧭 Guided Deep-Learning Layer
 
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
 #### 🚦 Gap 1 — Congestion Control (Cubic, BBR)
 - 🔹 **What it is**: The algorithms deciding how fast a sender can push data before backing off. Cubic is the default in Linux; BBR is Google's newer model.
 - 🔹 **Why it matters**: It's the difference between using 30% of your link's capacity (old Reno) and 95% (BBR on lossy paths). Real throughput depends on it.
 - 🔹 **Connection**: The "sender slows down" line in this file hides an algorithm. Which algorithm determines *by how much* and *when*. That's the gap.
-- 🔹 **When needed**: 🔴 **Important for senior / infra roles**, 🟡 useful mid-level if you discuss performance.
+- 🔹 **When needed**: 🔴 **Senior** — congestion-control algorithm internals are genuinely deep/infra; 🟡 mid-level if you only discuss performance at a high level.
 - 🔹 **Intuition**: Cubic reacts to packet loss ("probably congestion"). BBR actively probes bandwidth + RTT and assumes loss ≠ congestion. On lossy wireless, Cubic panics; BBR doesn't.
 - 🔹 **If you go deeper**: Read (a) slow start + AIMD math (additive-increase, multiplicative-decrease); (b) Cubic's curve; (c) BBR's bandwidth/RTT model; (d) when switching to BBR hurts (some shared links get starved — it can be aggressive).
 - 🔹 **Interview hook**: *"Your mobile users report 10× slower downloads than desktop — why?"* → lossy wireless + Cubic misinterprets loss as congestion → backs off unnecessarily. BBR helps.
@@ -304,7 +308,7 @@ Being able to answer this table fluently = senior signal.
 - 🔹 **What it is**: Nagle's algorithm buffers small writes into one larger packet to reduce header overhead. `TCP_NODELAY` disables it for latency-critical workloads.
 - 🔹 **Why it matters**: Real-time protocols (WebSocket, games, interactive SSH) break badly under Nagle — 40ms delays on keystrokes. Knowing when to disable is a professional-engineer skill.
 - 🔹 **Connection**: Every time this file mentions TCP as "slower than UDP" — part of that slowness is Nagle buffering. Disabling it flips the tradeoff.
-- 🔹 **When needed**: 🟡 **Useful for mid-level**, 🔴 **Important if designing real-time systems**.
+- 🔹 **When needed**: 🟡 **Mid-level** — a classic, absorbable right after the basics and common in mid-level interviews; lean 🔴 only when designing real-time systems.
 - 🔹 **Intuition**: Nagle = "wait till we have a full postcard before sending". `TCP_NODELAY` = "send every letter as it's written".
 - 🔹 **If you go deeper**: The **Nagle + delayed ACK interaction bug** — classic 40ms stall. HTTP/2 servers uniformly disable Nagle.
 - 🔹 **Interview hook**: *"Your WebSocket server has 40ms spikes on small messages — why?"* → Nagle + delayed ACK. Set `TCP_NODELAY`.
@@ -315,7 +319,7 @@ Being able to answer this table fluently = senior signal.
 - 🔹 **What it is**: TCP's send/receive buffers determine max "in-flight" bytes. BDP = bandwidth × RTT — the ideal buffer size for full link utilization.
 - 🔹 **Why it matters**: Under-sized buffers cap throughput over high-RTT links. A 10 Gbps link across the ocean (200ms RTT) needs ~250 MB buffers per connection to saturate — default is usually 4 MB.
 - 🔹 **Connection**: Explains why "TCP" alone doesn't saturate long-fat networks. The sliding window maxes out at the buffer size.
-- 🔹 **When needed**: 🔴 **Important for infra / video streaming / cross-region replication roles**.
+- 🔹 **When needed**: 🔴 **Senior** — genuinely infra-deep; matters for video streaming / cross-region replication roles.
 - 🔹 **Intuition**: A long pipe with a small bucket at one end — no matter how fast you pour, you're bottlenecked by the bucket.
 - 🔹 **If you go deeper**: Linux auto-tuning (`net.ipv4.tcp_rmem`), jumbo buffers for replication, how modern kernels auto-size based on measured BDP.
 - 🔹 **Interview hook**: *"Your cross-region DB replication tops out at 50 Mbps on a 10 Gbps link — why?"* → TCP window limited by default buffer size; need to tune for BDP.
@@ -326,7 +330,7 @@ Being able to answer this table fluently = senior signal.
 - 🔹 **What it is**: A UDP-based replacement for TCP+TLS, designed by Google, now standard. Independent streams (no HOL blocking), 0-RTT resumption, connection ID survives IP changes.
 - 🔹 **Why it matters**: It's the current direction of web transport. Cloudflare, Google, Meta all push HTTP/3. Mobile users benefit most (WiFi ↔ LTE switch doesn't drop).
 - 🔹 **Connection**: QUIC solves exactly the HOL-blocking limitation of TCP mentioned in this file, by moving ordering guarantees from the OS kernel to the app layer.
-- 🔹 **When needed**: 🔴 **Important for senior / frontend / mobile roles in 2026+**.
+- 🔹 **When needed**: 🟡 **Mid-level** — increasingly mainstream and graspable soon after basics; common for frontend / mobile roles in 2026+.
 - 🔹 **Intuition**: TCP is a single pipe with strict ordering (loss blocks everything). QUIC is many small pipes (loss in one doesn't block others), running over the "best-effort" post office (UDP).
 - 🔹 **If you go deeper**: Connection IDs (survives network change), 0-RTT resumption, stream multiplexing, how HTTP/3 maps to QUIC streams. Read Cloudflare's QUIC blog series.
 - 🔹 **Interview hook**: *"Why did HTTP/3 move to UDP?"* → Escape TCP's in-order delivery which causes HOL blocking across multiplexed streams. UDP gives QUIC freedom to implement per-stream ordering.
@@ -337,7 +341,7 @@ Being able to answer this table fluently = senior signal.
 - 🔹 **What it is**: A transport protocol with multi-streaming (like HTTP/2) and multi-homing (built-in failover across NICs). Mostly used in telecom signaling (SS7 over IP).
 - 🔹 **Why it matters**: Rarely encountered outside telecom. Included here for completeness.
 - 🔹 **Connection**: Demonstrates that TCP and UDP aren't the only transport choices; protocol design is context-dependent.
-- 🔹 **When needed**: 🟢 **Curiosity only** unless you work in telecom.
+- 🔹 **When needed**: 🟢 **Foundational** — curiosity-level only; easy to skim now, but irrelevant unless you work in telecom.
 - 🔹 **Intuition**: TCP = one reliable pipe. UDP = no pipe. SCTP = several reliable pipes with automatic failover between them.
 - 🔹 **If you go deeper**: Read the overview, don't spend more than 30 minutes unless interviewing for telecom.
 - 🔹 **Interview hook**: Won't come up in typical product-engineering interviews.
