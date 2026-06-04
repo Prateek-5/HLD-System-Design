@@ -235,11 +235,13 @@ This pattern (L7 + least-conn + connection draining) is used by Netflix and YouT
 ---
 
 ## L. Potential Gaps & Improvements
-- Global Server Load Balancing (GSLB) — the layer above regional LBs — deserves its own section.
-- Backend connection pooling math (e.g., "for 10k client conns to LB, how many upstream conns do I need?") — missing.
-- TCP keep-alive vs HTTP keep-alive tuning — missing.
-- Deep discussion of "direct server return" (DSR) for L4 LBs — very performance-relevant, omitted.
-- BGP-based anycast LBs deserve a deep-dive.
+- **GSLB (Global Server Load Balancing)** — routes users to the nearest/healthiest *region* (usually via DNS or anycast) before any regional load balancer sees them; key for multi-region, low-latency designs.
+- **Backend connection pooling** — reusing a small set of warm upstream connections instead of opening a new one per request; the math ("10k client conns → how many upstream conns?") decides whether your servers run out of sockets. (→ see Interview Lens)
+- **TCP keep-alive vs HTTP keep-alive** — TCP keep-alive probes whether a dead peer is still alive at the transport layer; HTTP keep-alive holds a connection open to reuse it for more requests. Confusing the two leads to mis-tuned timeouts and leaked connections.
+- **DSR (Direct Server Return)** — an L4 load-balancer trick where the backend replies straight to the client, skipping the LB on the return path; halves LB traffic and matters a lot for high-throughput, asymmetric workloads.
+- **BGP (Border Gateway Protocol) anycast** — advertising the same IP from many locations so the internet's routing naturally sends each user to the closest site; the foundation of how global LBs and CDNs scale. (→ see Interview Lens)
+
+**🔧 How to close:** Run `ss -tan state established | wc -l` on a server while load-testing it (e.g. `ab -n 1000 -c 50 http://localhost/`) to watch the live connection count, then add `-k` (keep-alive) to the same test and compare — you'll see firsthand how connection reuse changes the pool size.
 
 ---
 

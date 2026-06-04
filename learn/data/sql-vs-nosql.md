@@ -84,5 +84,9 @@ Pitfalls:
 - ❌ "Use X for everything."
 
 ## L. Potential Gaps & Improvements
-- Cost-per-ops comparison (RDS vs DynamoDB pricing at scale).
-- Migration strategies SQL↔NoSQL (dual-write, CDC).
+- **Cost-per-ops comparison** — comparing RDS (Relational Database Service) vs DynamoDB pricing at scale; matters because the "cheaper" engine flips depending on read/write volume and storage.
+- **Migration strategies (SQL↔NoSQL)** — planned ways to move data between a relational and a non-relational store without downtime; central to "we outgrew our database" questions. (→ see Advanced Questions)
+- **Dual-write** — the app writes the same change to both the old and new database at once during a migration; simple but risky because the two writes can drift if one fails.
+- **CDC (Change Data Capture)** — tools like Debezium stream every row change out of a database so a second store stays in sync; the safer alternative to dual-write for keeping two stores consistent.
+
+**🔧 How to close:** Run `docker run --rm -p 8000:8000 amazon/dynamodb-local`, then with the AWS CLI create one table, `put-item` a few records, and `query` them — feel the no-JOIN, single-key access pattern firsthand, then contrast it by modeling the same data in a quick `sqlite3 demo.db` schema with a JOIN.

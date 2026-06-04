@@ -68,6 +68,10 @@ Service mesh with Istio: per-pod sidecar; automatic mTLS cert issuance by Citade
 - [ ] Knows cert chain of trust.
 
 ## L. Potential Gaps & Improvements
-- QUIC's integrated TLS.
-- Certificate Transparency logs.
-- Cipher suite tuning.
+- **QUIC's integrated TLS** — QUIC (Quick UDP Internet Connections, the transport under HTTP/3) bakes TLS 1.3 directly into the transport so connection setup and encryption happen together; matters because it cuts handshake round-trips and powers modern HTTP/3.
+- **Certificate Transparency (CT) logs** — public, append-only logs that record every TLS certificate a CA issues so rogue or mis-issued certs can be spotted; matters for catching attacks where someone fraudulently obtains a cert for your domain.
+- **Cipher suite tuning** — choosing which encryption/key-exchange algorithms a server will accept (e.g. preferring modern AEAD ciphers, disabling weak ones); matters for balancing security against compatibility with older clients.
+- **SNI (Server Name Indication)** — a field in the ClientHello telling the server which hostname you want, so one IP can serve many HTTPS sites with the right cert; matters for multi-tenant hosting and CDNs (→ see Advanced Questions).
+- **OCSP (Online Certificate Status Protocol) stapling** — the server fetches and "staples" a signed proof that its cert isn't revoked into the handshake, so the client skips a separate revocation lookup; matters for faster, more private cert validation.
+
+**🔧 How to close:** Run `openssl s_client -connect google.com:443 -servername google.com </dev/null 2>/dev/null | openssl x509 -noout -issuer -subject -dates` to see the live leaf cert's issuer, subject, and validity window; then re-run with `-tls1_2` vs `-tls1_3` and watch the handshake differences.

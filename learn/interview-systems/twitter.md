@@ -116,6 +116,8 @@ Push fan-out for a celeb = melt the feed-cache cluster. Pull for the celeb = at 
 - [ ] Can defend Cassandra for tweets.
 
 ## K. Potential Gaps & Improvements
-- Deletion propagation.
-- Ranking model serving.
-- DM (messaging) subsystem.
+- **Deletion propagation** — when a user deletes a tweet, you must remove it from every follower timeline it was already fanned-out to; matters because stale deleted content is a privacy and correctness bug (→ see Interview Lens).
+- **Ranking model serving** — the online ML (Machine Learning) service that scores and reorders timeline entries in real time; key because chronological order alone misses what users actually want to see.
+- **DM (Direct Message) subsystem** — the private one-to-one and group messaging feature, separate from the public tweet/timeline path; learners care because it needs its own storage, delivery, and read-receipt model.
+
+**🔧 How to close:** Model fan-out yourself with a quick Redis experiment: `docker run --rm -d -p 6379:6379 redis`, then `redis-cli` and push a tweet ID into several follower timelines with `LPUSH timeline:1 tweet42`, `LPUSH timeline:2 tweet42`; now simulate deletion propagation by scanning and removing it from each list (`LREM timeline:1 0 tweet42`) and observe why per-follower deletion is O(followers) work.

@@ -54,5 +54,9 @@ Forum:
 - [ ] Knows it's eventual on the read side.
 
 ## L. Potential Gaps & Improvements
-- CDC tooling (Debezium) for sync.
-- Read model rebuilds.
+- **CDC (Change Data Capture)** — tools like Debezium stream every row change out of the write database into the read side so the two models stay in sync; the standard answer to "how do you sync without dual-writes?"
+- **Read model rebuilds** — replaying the full event/change log to regenerate a query view from scratch; lets you fix bugs, add new projections, or recover a corrupted read store without touching the write side.
+- **Eventual consistency lag** — the delay between a write landing and the read model reflecting it; matters because users may not see their own change immediately (→ see Interview Lens).
+- **Projection idempotency** — making the projector safe to re-run the same event twice without double-counting; essential because at-least-once delivery means events repeat.
+
+**🔧 How to close:** Spin up the Debezium tutorial stack with `docker-compose -f debezium-mysql.yaml up`, insert a row into the source MySQL table, then `kafka-console-consumer --topic dbserver1.inventory.customers` and watch the change event appear — that captured event is exactly what a CQRS projector would consume to update a read model.

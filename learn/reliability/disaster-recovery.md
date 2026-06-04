@@ -57,5 +57,10 @@ Multi-region setup:
 - [ ] Knows practiced runbooks matter.
 
 ## L. Potential Gaps & Improvements
-- Chaos engineering as DR confidence.
-- Multi-region data consistency challenges.
+- **Chaos Engineering** — deliberately injecting failures (kill a node, drop a region) to prove recovery works before a real outage does; turns DR from hope into measured confidence.
+- **Multi-region data consistency** — keeping copies across regions agreeing despite network lag; you must choose between strong (slow, coordinated) and eventual (fast, may diverge) and reconcile conflicts.
+- **CDC (Change Data Capture)** — tools like Debezium stream every row change out of the primary database so the DR region stays current; key for "keep two stores consistent" replication.
+- **RTO (Recovery Time Objective) / RPO (Recovery Point Objective)** — the two numbers that price every DR tier; restate them as concrete minutes/seconds for each strategy (→ see Interview Lens).
+- **DNS failover & TTL (Time To Live)** — health-checked A-record swaps reroute users to the DR region, but cached TTLs delay cutover; learners care because it caps how fast "flip DNS" actually works.
+
+**🔧 How to close:** Spin up two Postgres containers with `docker-compose`, set the second as a streaming replica, then `docker stop` the primary and run `pg_promote()` (or `SELECT pg_promote();`) on the standby — time how long until it accepts writes to feel RTO firsthand.

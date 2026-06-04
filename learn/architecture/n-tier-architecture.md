@@ -46,4 +46,10 @@ A basic blog: browser + SPA → API tier → DB. Add cache tier (Redis) when rea
 - [ ] Can draw 3-tier.
 
 ## L. Potential Gaps & Improvements
-- Clean architecture / hexagonal architecture — specific-layer patterns.
+- **Clean Architecture / Hexagonal Architecture (Ports & Adapters)** — layering styles where business logic sits in the center and databases/UIs plug in at the edges; care because it makes tiers swappable and testable without rewiring core code.
+- **Dependency Inversion Principle (DIP)** — higher tiers depend on interfaces, not concrete lower tiers; matters because it lets you mock the data tier in tests and swap implementations.
+- **Tier vs. Layer distinction** — a "layer" is a logical grouping of code while a "tier" is a physical/deployable boundary; knowing this avoids confusing a 3-layer codebase with a 3-tier deployment.
+- **Horizontal scaling of the middle tier** — running many stateless app-tier instances behind a load balancer; key for handling traffic growth without scaling the database.
+- **Session affinity vs. stateless app tier** — whether requests stick to one server or any server can serve any user; matters because shared/external session state is what lets the app tier scale freely.
+
+**🔧 How to close:** Spin up a 3-tier stack locally with `docker-compose up` using three services (an `nginx` web tier, a small `node`/`flask` app tier, and a `postgres` data tier), then scale the app tier with `docker-compose up --scale app=3` and watch nginx round-robin requests across the instances.

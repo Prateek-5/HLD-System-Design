@@ -54,5 +54,8 @@ Payments SLI: success rate and p99 latency. SLO: 99.95% success, p99 < 500 ms ov
 - [ ] Knows error budget policy.
 
 ## L. Potential Gaps & Improvements
-- Burn-rate alerting math.
-- Multi-window, multi-burn-rate alert configurations.
+- **Burn-rate alerting math** — burn rate is how fast you are spending the error budget relative to "normal"; a 2× burn rate means you will exhaust the month's budget in half a month, so it tells you when to page versus ignore noise.
+- **Multi-window, multi-burn-rate alerts** — pairing a fast/short window (catch sudden outages) with a slow/long window (catch slow leaks) and different burn-rate thresholds; reduces false pages while still catching real budget burns (Google SRE's recommended setup).
+- **Error budget policy** — the agreed rule for what happens when the budget is spent (e.g., freeze risky deploys until recovered); turns SLOs from a number into an actionable engineering decision (→ see Interview Lens).
+
+**🔧 How to close:** Compute a burn rate by hand. Take a 99.9% availability SLO over 30 days: the budget is `0.001 × 30 × 24 × 60 = 43.2` minutes/month. If a 1-hour window shows 6 minutes of errored requests, the burn rate is `(6/60) / 0.001 = 100×` — meaning you would blow the whole month in ~26 minutes. Repeat for a 5-minute and a 6-hour window to see why multi-window alerting needs different thresholds for each.

@@ -60,5 +60,9 @@ Geo-distributed e-commerce:
 - [ ] Knows latency vs consistency is a *constant* call, not only during partitions.
 
 ## L. Potential Gaps & Improvements
-- Concrete latency numbers for sync-replication RTT costs.
-- Spanner's TrueTime — how Google made strong consistency + low latency possible globally (via GPS + atomic clocks).
+- **RTT (Round-Trip Time)** — the time a request takes to reach a peer and return; concrete sync-replication RTT numbers (e.g. ~1ms same-AZ vs ~70ms cross-region) make the "consistency costs latency" tradeoff tangible.
+- **Sync vs async replication** — whether a write waits for replicas to acknowledge (sync = consistent but slow) or returns immediately (async = fast but stale); this is the exact knob PACELC's L-vs-C axis describes.
+- **Spanner's TrueTime** — Google's clock API that bounds time uncertainty using GPS and atomic clocks, letting Spanner give strong consistency at low latency globally; the standout proof that PC/EC can be made fast.
+- **Quorum (R + W > N)** — requiring a majority of replicas to agree on reads/writes so you never read stale data; tunable quorums let you slide along the latency-vs-consistency line per query (→ see Internal Working).
+
+**🔧 How to close:** Spin up a 3-node CockroachDB cluster with `docker compose` (their official quickstart), then run `SET CLUSTER SETTING ...` and time the same `INSERT` with `EXPLAIN ANALYZE` — compare a local single-node write against a write that must reach a quorum across simulated regions to feel the RTT cost of strong consistency yourself.

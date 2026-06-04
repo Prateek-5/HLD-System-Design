@@ -76,8 +76,12 @@ Multi-service e-commerce:
 - [ ] Knows BFF.
 
 ## L. Potential Gaps & Improvements
-- Service mesh (Istio) overlap.
-- GraphQL as an aggregation layer replacement.
+- **Service mesh overlap (Istio, Linkerd)** — a mesh manages service-to-service ("east-west") traffic with sidecar proxies, overlapping the gateway's auth/retry/mTLS; learn the boundary so you don't reinvent one inside the other (→ see Guided Deep-Learning Layer).
+- **GraphQL as an aggregation-layer replacement** — a query language that lets a client fetch exactly the fields it needs in one request, often replacing the gateway's BFF (Backend For Frontend) aggregation; matters when designing mobile/web data-fetching.
+- **mTLS (mutual TLS)** — both client and server present certificates so each proves its identity, not just the server; gateways and meshes use it to secure internal hops, a common "how do services trust each other" answer.
+- **Sidecar proxy** — a small proxy (usually Envoy) deployed alongside each service instance to transparently handle traffic; understanding it explains how meshes add features without changing app code.
+
+**🔧 How to close:** Spin up a local gateway and watch routing in action: run `docker run -d --name kong-test -e KONG_DATABASE=off -p 8000:8000 -p 8001:8001 kong:latest`, then `curl -s http://localhost:8001/` to see the admin API, register a service/route via the Admin API, and `curl -v http://localhost:8000/your-route` to observe the gateway forwarding the request and adding its headers.
 
 ---
 

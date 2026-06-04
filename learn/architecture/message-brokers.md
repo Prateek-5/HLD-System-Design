@@ -48,6 +48,9 @@ Order → Payment service: put order on queue; payment worker consumes; on succe
 - [ ] Understands delivery semantics.
 
 ## L. Potential Gaps & Improvements
-- Kafka internals (partitions, offsets, ISR).
-- Dead-letter queues.
-- Schema evolution (Avro, Protobuf).
+- **Kafka internals (partitions, offsets, ISR (In-Sync Replicas))** — partitions shard a topic for parallelism, offsets track each consumer's read position, and ISR is the set of replicas caught up enough to be promoted on failure; understanding these explains Kafka's throughput and durability guarantees. (→ see Advanced Questions)
+- **DLQ (Dead Letter Queue)** — a side queue where messages land after repeatedly failing processing, so a single poison message doesn't block the pipeline or get lost silently; essential for any "what happens when a consumer can't handle a message?" question. (→ see Interview Lens)
+- **Schema evolution (Avro, Protobuf)** — versioned message formats that let producers and consumers add or change fields without breaking each other, so you can deploy services independently; key for long-lived event streams.
+- **EOS (Exactly-Once Semantics)** — broker plus idempotent-producer and transactional features that ensure a message is neither lost nor processed twice, unlike cheaper at-least-once delivery; matters whenever duplicates corrupt results (e.g. billing). (→ see Interview Lens)
+
+**🔧 How to close:** Spin up Kafka locally with `docker run -p 9092:9092 apache/kafka:latest`, then create a 3-partition topic with `kafka-topics.sh --create --topic demo --partitions 3 --bootstrap-server localhost:9092`, produce a few messages, and watch how `kafka-consumer-groups.sh --describe --group g1 --bootstrap-server localhost:9092` shows per-partition offsets and lag move.

@@ -53,5 +53,9 @@ An e-commerce app with users, catalog, orders, analytics. Federate into 4 DBs; u
 - [ ] Knows cross-functional joins require analytics warehouse or aggregation service.
 
 ## L. Potential Gaps & Improvements
-- CDC tools (Debezium, Kafka Connect) deserve coverage.
-- Data warehouse / lakehouse architectures.
+- **CDC (Change Data Capture)** — tools like Debezium tail a database's write-ahead log and stream every row change out as events; the core trick for keeping federated DBs and warehouses in sync without dual writes. (→ see Interview Lens)
+- **Kafka Connect** — a framework of ready-made connectors that pipe data between Kafka and external stores; lets you wire up CDC pipelines with config instead of custom code.
+- **Data warehouse** — a query-optimized store (BigQuery, Snowflake, Redshift) that ingests data from all your federated DBs so you can run cross-domain reports and joins you can't do live. (→ see Interview Lens)
+- **Data lakehouse** — a newer architecture (Delta Lake, Apache Iceberg) blending a cheap raw-file data lake with warehouse-style tables and transactions; worth knowing when interviewers ask "warehouse vs lake."
+
+**🔧 How to close:** Spin up Debezium against a local Postgres with `docker compose` (the official `debezium/example-postgres` stack), `INSERT` a row, then `kafka-console-consumer --topic dbserver1.public.customers` to watch the change event arrive — see CDC end to end in five minutes.

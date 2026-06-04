@@ -106,6 +106,9 @@ Each transition emits an event (Kafka) consumed by billing, analytics, notificat
 - [ ] Payments via saga.
 
 ## K. Potential Gaps & Improvements
-- Carpool / Uber Pool matching (harder optimization).
-- Fraud detection (fake trips).
-- Driver incentives modeling.
+- **Carpool / Uber Pool matching** — grouping multiple riders whose routes overlap into one car; a much harder optimization problem (route detours, ETA tradeoffs) that tests how you model constraints under load.
+- **Fraud detection (fake trips)** — spotting GPS spoofing or collusion where drivers/riders fake rides to farm incentives; matters because payments and trust depend on it.
+- **Driver incentives modeling** — surge pricing and bonus schemes that nudge driver supply toward high-demand areas; key for any "balance supply and demand" question. (→ see Advanced Questions)
+- **ETA prediction** — machine-learning model that estimates arrival time from live traffic and historical data; learners care because matching and pricing both depend on accurate ETAs.
+
+**🔧 How to close:** Build a tiny in-memory geo-index demo: install the `geohash2` Python package (`pip install geohash2`), encode 20 random lat/long pairs to geohashes, then write a function that, given a rider's geohash prefix, returns all drivers sharing that prefix — this is exactly how proximity matching narrows the search space.

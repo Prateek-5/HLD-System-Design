@@ -99,9 +99,12 @@ Fixes:
 - ❌ Forgetting failover promotes data loss risk with async.
 
 ## L. Potential Gaps & Improvements
-- CDC (Change Data Capture) via Debezium / Kafka Connect — missing.
-- Quorum-based replication math (W+R>N) — belongs near CAP.
-- Group replication / Paxos-based (Spanner, CockroachDB) — missing.
+- **CDC (Change Data Capture)** — tools like Debezium tail the database's write-ahead log and stream every row change as events so caches, search indexes, and warehouses stay in sync; the standard answer to "keep two stores consistent" (→ see Guided Deep-Learning Layer).
+- **WAL (Write-Ahead Log) / binlog** — the append-only change journal a database writes before applying changes; understanding it explains how both replication and CDC actually move data.
+- **Quorum replication (W+R>N)** — a tunable rule where a write needs W acknowledgements and a read queries R replicas; when W+R exceeds N (total replicas) every read sees the latest write, letting you trade consistency for latency per query (→ see Guided Deep-Learning Layer).
+- **Group / consensus-based replication (Paxos, Raft)** — instead of one primary, every write needs a majority vote before commit, giving strong consistency with no data-loss window; this is how Spanner (Paxos) and CockroachDB (Raft) replicate across regions (→ see Guided Deep-Learning Layer).
+
+**🔧 How to close:** Spin up Postgres with logical replication and watch CDC live — run `docker run -d --name pg -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres -c wal_level=logical`, then `docker exec -it pg psql -U postgres -c "CREATE TABLE t(id int); SELECT * FROM pg_create_logical_replication_slot('s','test_decoding');"`, insert a row, and run `SELECT * FROM pg_logical_slot_get_changes('s', NULL, NULL);` to see the change events the WAL emits.
 
 ---
 

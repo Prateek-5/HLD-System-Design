@@ -379,16 +379,19 @@ You should now be able to:
 ## L. Potential Gaps & Improvements
 
 **What this file does not yet cover (gaps you should be aware of):**
-- **BGP** (Border Gateway Protocol) — the actual protocol that routers use to exchange reachability information. I only hinted at it. A senior interview for a network-heavy role will go deep on BGP.
-- **ICMP** — the protocol underneath `ping` and `traceroute`. Worth a deeper read if you want to *see* TTL in action.
-- **IPsec** — network-layer encryption. Relevant if the interview veers into VPNs.
-- **IP fragmentation** — what happens when a packet exceeds the MTU (typically 1500 bytes). Mostly a legacy concern but occasionally asked.
-- **Ephemeral port range** — closer to the TCP/UDP topic, but relevant here because NAT needs ports to disambiguate.
+- **BGP (Border Gateway Protocol)** — the protocol routers use to exchange reachability info between networks on the internet; matters because it decides the actual path your packets take across the globe (→ see Interview Lens).
+- **ICMP (Internet Control Message Protocol)** — the helper protocol behind `ping` and `traceroute` that carries error and diagnostic messages; care because it's how you *see* TTL (Time To Live) decrement hop by hop.
+- **IPsec (Internet Protocol Security)** — encryption and authentication at the network layer; relevant whenever an interview veers into VPNs (Virtual Private Networks) or securing site-to-site links.
+- **IP fragmentation** — splitting a packet that exceeds the link's MTU (Maximum Transmission Unit, typically 1500 bytes) into smaller pieces; worth knowing because fragmentation causes subtle performance bugs and is occasionally asked.
+- **MTU (Maximum Transmission Unit)** — the largest packet size a network link will carry without fragmenting; care because mismatched MTUs (e.g. over VPN tunnels) silently break large transfers.
+- **Ephemeral port range** — the pool of short-lived source ports (often 49152–65535) the OS hands out for outbound connections; relevant here because NAT (Network Address Translation) relies on these ports to tell many internal hosts apart behind one public IP.
 
 **How to close these gaps:**
 - Run `traceroute google.com` on your laptop. Stare at the output. Every hop decremented TTL.
 - Read the first 20 pages of *Computer Networking: A Top-Down Approach* (Kurose & Ross) on the network layer.
 - Set up a tiny home lab with two subnets and a static route — you'll never forget how routing tables work.
+
+**🔧 How to close:** Run `traceroute -I google.com` (or `traceroute google.com`) and watch the hop-by-hop list — each line is one router decrementing TTL. Then run `ping -s 1500 -M do google.com` to force a packet larger than the MTU and see the "message too long" / fragmentation-needed error firsthand.
 
 **Where this topic is intentionally thin because it belongs elsewhere:**
 - Port numbers → [TCP/UDP](tcp-udp.md)

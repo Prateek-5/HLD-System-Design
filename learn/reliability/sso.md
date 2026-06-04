@@ -48,5 +48,10 @@ Okta as IdP; each app configured as OIDC relying party; back-channel logout endp
 - [ ] Knows SAML vs OIDC.
 
 ## L. Potential Gaps & Improvements
-- Multi-factor auth (MFA) integration.
-- Session fixation and CSRF.
+- **MFA (Multi-Factor Authentication)** — requires a second proof (app code, hardware key) beyond the password; SSO is a great place to enforce it once for all apps.
+- **Session Fixation** — attacker plants a known session ID before login so they ride the victim's authenticated session; matters because the fix (rotate the session ID on login) is a classic interview gotcha.
+- **CSRF (Cross-Site Request Forgery)** — a malicious site tricks your already-logged-in browser into firing state-changing requests; learners should know `state` params and SameSite cookies defend SSO redirect flows.
+- **PKCE (Proof Key for Code Exchange)** — adds a one-time secret to the OAuth code exchange so a stolen authorization code is useless; now mandatory for public/SPA clients (→ see Interview Lens).
+- **Back-channel / front-channel logout** — server-to-server vs browser-redirect ways to sign a user out of every app at once; the hard part of "design SSO logout" questions (→ see Interview Lens).
+
+**🔧 How to close:** Spin up Keycloak locally with `docker run -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak start-dev`, create one realm with two OIDC clients, and log into both from one browser session to watch the second app skip the login prompt; then decode the resulting `id_token` at https://jwt.io to inspect its claims.

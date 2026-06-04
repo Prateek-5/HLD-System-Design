@@ -84,5 +84,9 @@ A 5-year-old monolith: extract the payments module into a service. Steps: isolat
 - [ ] Knows the operational prerequisites (observability, tracing, CI/CD).
 
 ## L. Potential Gaps & Improvements
-- Modular monolith as a middle ground.
-- Strangler fig pattern for migration.
+- **Modular Monolith** — a single deployable app whose code is split into strict, well-bounded modules; gives you clean boundaries without distributed-systems pain, so it's often the right first answer before microservices.
+- **Strangler Fig Pattern** — incrementally route slices of traffic from an old monolith to new services until the old one is fully replaced; lets you migrate safely with no big-bang rewrite.
+- **Bounded Context (Domain-Driven Design)** — a clear ownership boundary around a business capability that decides where one service ends and the next begins; getting this wrong is the top cause of "distributed monolith" pain.
+- **Distributed Monolith** — services that are deployed separately but still tightly coupled and must ship together; the worst of both worlds, and the trap microservices migrations fall into. (→ see Advanced Questions)
+
+**🔧 How to close:** Spin up a 2-service `docker-compose` (e.g. an `orders` and a `payments` service plus one Postgres each), then deliberately add a synchronous HTTP call from `orders` to `payments`; stop the `payments` container with `docker compose stop payments` and watch `orders` fail — that failure is the coupling cost you must justify when you choose microservices.

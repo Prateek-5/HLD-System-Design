@@ -287,11 +287,13 @@ This is a microcosm of a real Twitter-scale feed.
 ---
 
 ## L. Potential Gaps & Improvements
-- **Read-through / lazy-loading** patterns deserve explicit sections (I implied but did not contrast explicitly).
-- **Cache-aside** vs write-through — cache-aside is the most common pattern in practice; deserves formal coverage.
-- **Negative caching** (caching NOT-FOUND answers) — missing.
-- **Cache partitioning / sharding** across Redis cluster — deserves math treatment.
-- **Secondary indexes inside cache** — real pattern, not covered.
+- **Read-through / lazy-loading** — the cache library fetches from the source on a miss instead of your app code; matters because it hides miss-handling but reduces your control (→ see Guided Deep-Learning Layer).
+- **Cache-aside (lazy population)** — your app checks the cache, and on a miss reads the DB then writes back; it is the most common real-world pattern, so you should be able to defend it in interviews.
+- **Negative caching** — storing "this key does NOT exist" with a short TTL (Time To Live); matters because it stops scanners probing nonexistent IDs from hammering your database.
+- **Cache partitioning / sharding** — splitting keys across many Redis nodes (Redis Cluster uses 16384 hash slots); matters because one node caps at limited RAM and QPS (Queries Per Second), so scale needs many.
+- **Secondary indexes inside cache** — extra lookup keys (e.g. email → user_id) so you can find data by a non-primary field; matters because Redis is primary-key oriented and otherwise forces a DB hit.
+
+**🔧 How to close:** Run `docker run -p 6379:6379 redis`, then in `redis-cli` build a tiny cache-aside flow: `SET user:1 alice EX 60` (positive entry with 60s TTL), `SET miss:user:999 NULL EX 10` (negative cache), and `TTL user:1` to watch expiry. Then add a secondary index with `SET email:alice@x.com 1` and resolve it with `GET email:alice@x.com` followed by `GET user:1`.
 
 ---
 

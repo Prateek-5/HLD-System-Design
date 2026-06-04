@@ -87,6 +87,10 @@ Three strategies:
 - [ ] Read/write path in under 3 min.
 
 ## K. Potential Gaps & Improvements
-- URL safety (phishing detection).
-- Rate limiting abusers.
-- Multi-region active-active complication.
+- **URL safety / phishing detection** — scan submitted long URLs against blocklists (e.g. Google Safe Browsing) so your shortener doesn't become a malware redirect; expected follow-up in any "what could go wrong" prompt.
+- **Rate limiting** — cap how many short URLs an IP or API key can create per window (token-bucket / leaky-bucket) to stop spammers from exhausting your keyspace and quotas.
+- **Multi-region active-active** — running writable replicas in several regions for low latency, but it forces you to solve write conflicts and key uniqueness across regions (→ see Interview Lens).
+- **Key-generation collisions** — when two nodes pick the same short code; avoid with a central counter, pre-allocated key ranges (KGS, Key Generation Service), or base62-encoded unique IDs.
+- **Cache stampede** — many requests miss the cache for the same hot short code at once and hammer the database; mitigate with request coalescing or a short TTL (Time To Live) lock.
+
+**🔧 How to close:** Spin up a one-file shortener and prove base62 codes are collision-free: `python3 -c "import string; a=string.ascii_letters+string.digits; n=125; s=''; \nwhile n: s=a[n%62]+s; n//=62\nprint(s)"` to see ID 125 become a short code, then loop over 1,000,000 sequential IDs and assert the resulting codes are all unique.

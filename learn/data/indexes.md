@@ -88,6 +88,11 @@ Avoid indexing `content` with B-tree; use Elasticsearch for text search.
 - ❌ Indexing high-cardinality + high-churn columns blindly.
 
 ## L. Potential Gaps & Improvements
-- BRIN, GIN, GiST details.
-- Index-only scans, bitmap scans.
-- Partial / filtered indexes.
+- **BRIN (Block Range INdex)** — stores min/max values per block range instead of every row, so it stays tiny on huge, naturally-ordered tables (e.g. time-series); cheap to maintain when rows arrive in order.
+- **GIN (Generalized Inverted Index)** — maps each contained value (words, JSONB keys, array elements) to the rows holding it; the index behind fast full-text search and `jsonb @>` containment queries. (→ see Advanced Questions)
+- **GiST (Generalized Search Tree)** — a balanced-tree framework for "fuzzy" matches like geometric overlap, ranges, and nearest-neighbour search; learn it when B-tree equality/ordering isn't enough.
+- **Index-only scan** — query is answered entirely from the index without touching the table heap; matters because skipping heap reads is a big latency win for covering queries. (→ see Interview Lens)
+- **Bitmap scan** — builds an in-memory bitmap of matching row locations from one or more indexes, then visits the heap in physical order; bridges the gap when many rows match but a full table scan is still overkill.
+- **Partial / filtered index** — an index built over only the rows matching a `WHERE` predicate (e.g. `WHERE active = true`); smaller and faster when you only ever query a subset.
+
+**🔧 How to close:** Spin up Postgres (`docker run --rm -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres`), create a table with a few hundred-thousand rows via `generate_series`, then compare `EXPLAIN (ANALYZE, BUFFERS) SELECT ...` before and after `CREATE INDEX` — watch the plan switch from `Seq Scan` to `Index Only Scan` / `Bitmap Heap Scan` and note the drop in shared-buffer reads.

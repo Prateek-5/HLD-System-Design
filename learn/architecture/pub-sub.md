@@ -52,5 +52,9 @@ User signs up → publish `user.created` → email service, CRM sync, analytics 
 - [ ] Knows ordering guarantees.
 
 ## L. Potential Gaps & Improvements
-- Schema registry.
-- Exactly-once semantics (EOS) in Kafka transactions.
+- **Schema Registry** — a central service that stores and versions the message format (e.g. Avro/Protobuf) so producers and consumers agree on structure; matters because it stops a renamed field from silently breaking every downstream consumer.
+- **EOS (Exactly-Once Semantics)** — Kafka transactions plus idempotent producers guarantee each message is processed once even after retries or crashes; learners care because "at-least-once" defaults can cause duplicate charges or double-counted events. (→ see Advanced Questions)
+- **DLQ (Dead Letter Queue)** — a side topic/queue where messages that repeatedly fail processing get parked instead of blocking the stream; essential so one poison message doesn't stall the whole consumer.
+- **Idempotent consumers** — designing handlers so reprocessing the same message has no extra effect (via dedup keys); the practical answer to "what if a message is delivered twice?".
+
+**🔧 How to close:** Spin up Kafka locally and watch ordering and consumer-group rebalancing firsthand: `docker run -d --name=kafka -p 9092:9092 apache/kafka:latest`, then create a 3-partition topic with `kafka-topics.sh --create --topic demo --partitions 3 --bootstrap-server localhost:9092`, produce keyed messages with `kafka-console-producer.sh --topic demo --property "parse.key=true" --property "key.separator=:" --bootstrap-server localhost:9092`, and start two `kafka-console-consumer.sh --topic demo --group g1` instances to see partitions split across the group.

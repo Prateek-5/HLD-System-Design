@@ -74,6 +74,9 @@ Chat app 1M concurrent users. Shard users across WS server pool by hash(user_id)
 - [ ] Knows WS + LB implications.
 
 ## L. Potential Gaps & Improvements
-- WebRTC for p2p (different beast).
-- QUIC / HTTP/3 streaming.
-- MQTT for IoT.
+- **WebRTC (Web Real-Time Communication)** — a browser standard for direct peer-to-peer audio, video, and data streams without routing through your server; a different beast you reach for in video-call and screen-share designs.
+- **QUIC (Quick UDP Internet Connections)** — a UDP-based transport that powers HTTP/3, giving multiplexed streams without head-of-line blocking and faster reconnects; matters when mobile clients roam between networks mid-stream.
+- **HTTP/3** — the latest HTTP version running over QUIC instead of TCP, so a dropped packet on one stream no longer stalls the others; relevant for low-latency push over flaky links.
+- **MQTT (Message Queuing Telemetry Transport)** — a lightweight publish/subscribe protocol built for low-bandwidth, high-latency IoT (Internet of Things) devices; the go-to answer when millions of sensors must push tiny messages cheaply.
+
+**🔧 How to close:** Spin up a quick SSE (Server-Sent Events) demo: run `python3 -m http.server` next to a tiny Node/Flask endpoint that emits `data: <ts>\n\n` every second, open it with `curl -N http://localhost:PORT/events`, and watch the stream stay open — then compare the connection lifetime against a plain `curl` request using `ss -tan | grep :PORT` in another terminal.

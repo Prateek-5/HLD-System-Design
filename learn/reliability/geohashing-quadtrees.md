@@ -59,6 +59,10 @@ Store each driver location keyed by geohash-6 in Redis set. On rider request, co
 - [ ] Knows edge-of-cell pitfall.
 
 ## L. Potential Gaps & Improvements
-- Uber H3 (hex grid) vs geohash.
-- S2 Cells (Google).
-- R-tree details.
+- **H3 (Hexagonal Hierarchical Geospatial Indexing)** — Uber's open-source library that tiles the world into hexagons instead of squares, so every neighbor cell is exactly the same distance away; avoids the uneven-neighbor and cell-boundary problems geohash has.
+- **S2 Cells (Spherical Geometry library)** — Google's index that maps the round Earth onto a cube then a space-filling (Hilbert) curve, giving low distortion near the poles; useful when you need accurate areas/distances globally.
+- **R-tree (Rectangle tree)** — a balanced tree of nested bounding boxes that indexes arbitrary shapes (not just points), so range and "what overlaps this box" queries stay fast; the spatial index built into PostGIS and many databases.
+- **kNN (k-Nearest-Neighbors) query** — "give me the closest K drivers" search run after the coarse geohash/cell filter; the core operation behind every "find nearby" feature (→ see Interview Lens).
+- **Space-filling curve (Hilbert / Z-order curve)** — a 1-D ordering that keeps points close on the map also close in the index, which is exactly how geohash and S2 turn 2-D location into a sortable key.
+
+**🔧 How to close:** Install the geohash CLI and verify the prefix property yourself: `pip install python-geohash` then run a tiny script — `python -c "import geohash; print(geohash.encode(37.7749,-122.4194,6)); print(geohash.encode(37.7750,-122.4195,6))"` and confirm the two nearby San Francisco points share a leading prefix; then re-encode a point right on a cell edge and watch the prefix change to feel the boundary pitfall.

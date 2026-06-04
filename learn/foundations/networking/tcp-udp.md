@@ -277,13 +277,15 @@ Being able to answer this table fluently = senior signal.
 ---
 
 ## L. Potential Gaps & Improvements
-- Congestion control deserves a dedicated deep-dive (slow start, AIMD, Cubic vs BBR).
-- Nagle's algorithm and `TCP_NODELAY` — classic interview topic I glossed over.
-- TCP buffer sizes and how they interact with bandwidth-delay product (BDP).
-- SCTP (a third transport protocol used in telecom) — rarely asked but worth 10 min.
-- QUIC deserves its own file since it's the future of the transport layer.
+- **Congestion control** — the algorithms (slow start, AIMD = Additive-Increase/Multiplicative-Decrease, Cubic, BBR = Bottleneck Bandwidth and Round-trip propagation time) that decide how fast TCP sends; explains real-world throughput. (→ see Guided Deep-Learning Layer)
+- **Nagle's algorithm** — batches tiny TCP writes into one packet to cut header overhead; matters because it can add ~40 ms latency to interactive traffic.
+- **`TCP_NODELAY`** — the socket option that turns Nagle off so small messages send immediately; essential to know for WebSockets, games, and SSH.
+- **BDP (Bandwidth-Delay Product)** — bandwidth × RTT = the bytes "in flight" needed to fill a link; if TCP buffers are smaller than this you cap throughput on long-distance links.
+- **TCP buffer sizes** — the send/receive buffers (e.g. `net.ipv4.tcp_rmem`) that bound the sliding window; under-sized buffers starve high-BDP "long-fat" connections.
+- **SCTP (Stream Control Transmission Protocol)** — a third transport with multiple reliable streams plus multi-homing failover; rare outside telecom but shows TCP/UDP aren't the only options.
+- **QUIC (Quick UDP Internet Connections / HTTP/3)** — a UDP-based TCP+TLS replacement with per-stream ordering and 0-RTT resumption; the future of web transport, worth its own file. (→ see Guided Deep-Learning Layer)
 
-**How to close:** run `ss -tan` on a live server and read the states (ESTABLISHED, TIME_WAIT, FIN_WAIT). Seeing real counts is more educational than any theory.
+**🔧 How to close:** run `ss -tan` on a live server and read the connection states (ESTABLISHED, TIME_WAIT, FIN_WAIT). Seeing real counts is more educational than any theory.
 
 ---
 

@@ -89,6 +89,8 @@ Graph:     (User:1) -[FOLLOWS]-> (User:2) -[POSTED]-> (Photo:9)
 - ❌ Picking MongoDB for heavily relational data.
 
 ## L. Potential Gaps & Improvements
-- LSM-tree vs B-tree is a critical deep-dive I only touched.
-- DynamoDB partition + sort key design is its own topic.
-- Graph DB query languages deserve hands-on.
+- **LSM-tree (Log-Structured Merge-tree) vs B-tree** — two on-disk storage engines; LSM batches writes in memory then flushes sorted files (fast writes, used by Cassandra/RocksDB) while B-trees update in place (fast reads, used by most SQL DBs). Knowing the trade-off explains why a given NoSQL store is write- or read-optimized.
+- **DynamoDB partition key + sort key design** — the partition key decides which physical shard a row lands on and the sort key orders rows within it; getting this wrong creates "hot partitions" and is the make-or-break of any DynamoDB schema question.
+- **Graph DB query languages** — declarative languages like Cypher (Neo4j) or Gremlin that traverse relationships ("friends of friends") in a single query; worth hands-on practice because relational JOINs get painful for deep graph traversals.
+
+**🔧 How to close:** Run a local NoSQL store and watch the engine behave — start one with `docker run -d -p 27017:27017 mongo`, then in `mongosh` insert 1000 docs in a loop and run `db.coll.find({...}).explain("executionStats")` to see whether a query hits an index or scans the collection; add an index with `db.coll.createIndex({field:1})` and re-run to watch the scanned-doc count drop.

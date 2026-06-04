@@ -66,6 +66,9 @@ Your SaaS exposes an API. 3rd-party apps register → get client_id + secret →
 - [ ] Knows OAuth = authorization, OIDC = authentication.
 
 ## L. Potential Gaps & Improvements
-- PKCE for SPA / mobile.
-- Device code flow for TVs.
-- Token binding / mTLS tokens.
+- **PKCE (Proof Key for Code Exchange)** — adds a one-time secret to the auth code flow so a stolen code is useless to an attacker; now the default for SPAs (Single-Page Apps) and mobile where no client secret can be hidden.
+- **Device Code Flow** — lets input-limited devices (TVs, CLIs) show a short code the user enters on their phone to authorize; key when a device has no keyboard or browser.
+- **Token Binding** — cryptographically ties a token to the client's TLS (Transport Layer Security) connection so a leaked token can't be replayed elsewhere; raises the bar against token theft.
+- **mTLS (mutual TLS) tokens** — both client and server present certificates and the access token is bound to the client cert, proving the holder is the rightful client; common in high-security or machine-to-machine APIs.
+
+**🔧 How to close:** Spin up a local OAuth provider with `docker run -p 8080:8080 quay.io/keycloak/keycloak start-dev`, register a public client, and walk the Authorization Code + PKCE flow by hand — generate a verifier/challenge (`openssl rand -base64 32 | tr -d '=+/' | cut -c1-43`), hit the `/auth` endpoint, then exchange the code at `/token` with `curl` and inspect the returned JWT at jwt.io.

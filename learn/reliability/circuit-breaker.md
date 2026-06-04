@@ -97,8 +97,12 @@ Fallback: serve cached / degraded response while open.
 - [ ] Knows to combine with timeout, retry+backoff, and fallback.
 
 ## L. Potential Gaps & Improvements
-- Bulkheads (resource isolation).
-- Hedging (send duplicate requests to multiple backends).
+- **Bulkheads (resource isolation)** — give each downstream its own thread/connection pool so one sick dependency can't starve the rest; matters because a breaker alone still lets a slow call hog shared threads (→ see Guided Deep-Learning Layer).
+- **Hedging (duplicate requests)** — fire the same request at two backends and take the first reply; trims tail (p99) latency at ~2x load cost, useful when slow-but-successful calls hurt UX (→ see Guided Deep-Learning Layer).
+- **Backoff with jitter** — randomize retry delays so 1000 clients don't all retry on the same tick; prevents the self-inflicted DDoS (Distributed Denial of Service) that breakers are meant to avoid (→ see Interview Lens).
+- **Timeouts** — cap how long a call may block; without one, a breaker still waits forever on a hung downstream and threads pile up.
+
+**🔧 How to close:** Build a 30-line circuit breaker yourself. Write a Python script with a `call(fn)` wrapper that counts failures, flips to OPEN after 3 fails, and after a 5s cooldown lets one probe through (HALF-OPEN). Point it at a fake downstream (`def flaky(): raise if random.random() < 0.7`), run it in a loop, and print the state on each call so you can watch Closed → Open → Half-Open → Closed live.
 
 ---
 

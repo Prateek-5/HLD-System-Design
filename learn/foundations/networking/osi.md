@@ -238,9 +238,11 @@ Almost every real performance problem maps cleanly to a layer. This is why the m
 ---
 
 ## L. Potential Gaps & Improvements
-- No coverage of specific protocols at each layer beyond names. A focused deep-dive on BGP (L3) and ARP (L2) would strengthen this.
-- The "encapsulation" section deserves a worked example with actual byte counts.
-- I did not cover TCP/IP's 4-layer model in parallel — that would help since most real-world docs use it.
-- QUIC / HTTP/3 deserve their own mini-section because they meaningfully break the traditional layering.
+- **BGP (Border Gateway Protocol)** — the L3 protocol that routers use to share reachability info between networks across the whole internet; learn it because it's how packets find their way between autonomous networks (and how outages like the 2021 Facebook one happen).
+- **ARP (Address Resolution Protocol)** — the L2 helper that maps an IP address to a MAC (Media Access Control) hardware address on the local network; matters because every packet leaving your machine needs the next hop's MAC, and `arp -a` is a real debugging step.
+- **Encapsulation with byte counts** — a worked example showing each header's actual size (Ethernet ~14 bytes, IP ~20, TCP ~20) added as data goes down the stack; helps because it makes "overhead per packet" and MTU (Maximum Transmission Unit) limits concrete instead of abstract.
+- **TCP/IP 4-layer model** — the simpler model (Link, Internet, Transport, Application) that real-world docs and tools actually use; worth mapping side-by-side since interviewers and RFCs switch between it and OSI freely.
+- **QUIC (Quick UDP Internet Connections)** — Google's transport that bundles TLS and connection setup into one handshake over UDP; deserves its own note because it deliberately breaks the clean layering and underlies HTTP/3 (→ see Tradeoffs).
+- **HTTP/3** — the latest version of HTTP that runs on QUIC over UDP instead of TCP; matters because it sidesteps TCP head-of-line blocking and is now widely deployed, yet doesn't fit the textbook layer stack.
 
-**How to close these:** run `tcpdump -nn -vv -X` on a local curl request and watch the headers unwrap. One afternoon with Wireshark on a localhost HTTP call teaches more about layers than any diagram.
+**🔧 How to close:** run `sudo tcpdump -nn -vv -X -c 5 'tcp port 80'` in one terminal, then `curl http://example.com` in another, and watch the Ethernet → IP → TCP → HTTP headers unwrap byte by byte. One afternoon with Wireshark on a localhost HTTP call teaches more about layers than any diagram.

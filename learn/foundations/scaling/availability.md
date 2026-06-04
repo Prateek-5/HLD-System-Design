@@ -105,6 +105,9 @@ Conclusion: **redundant LB** is the next upgrade.
 - ❌ Treating availability as a single number rather than per-service, per-SLI.
 
 ## L. Potential Gaps & Improvements
-- MTTR (Mean Time to Recovery) and MTBF (Mean Time Between Failures) — closely related but not covered.
-- Regional vs global SLOs — deserve treatment.
-- Error budgets (Google SRE style) — missing.
+- **MTTR (Mean Time To Recovery)** — average time to restore a service after it breaks; lowering it raises availability faster than chasing fewer failures.
+- **MTBF (Mean Time Between Failures)** — average uptime between two outages; pairs with MTTR to model how reliable a component really is.
+- **Regional vs Global SLOs (Service Level Objectives)** — a target met per-region can still miss globally; learners need to know which scope they are promising.
+- **Error Budgets (Google SRE style)** — the small slice of allowed downtime left over from your SLO; spend it on shipping features, run out and you freeze releases.
+
+**🔧 How to close:** Compute your own error budget by hand: for a 99.9% monthly SLO, run `python3 -c "print(30*24*60*(1-0.999), 'minutes/month allowed downtime')"` — then redo it for 99.99% to feel how each extra nine shrinks the budget tenfold.

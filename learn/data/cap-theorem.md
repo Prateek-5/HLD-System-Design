@@ -115,9 +115,13 @@ Multi-region write system. CP: primary in one region, replicas in others, writes
 - ❌ Ignoring that P is effectively required.
 
 ## L. Potential Gaps & Improvements
-- CRDTs deserve a standalone section.
-- Linearizability vs eventual — more formal coverage.
-- Jepsen findings on real DBs (Aphyr) — great reading.
+- **CRDTs (Conflict-free Replicated Data Types)** — data structures that merge concurrent edits automatically so replicas always converge; the clean way to do AP (Available + Partition-tolerant) without writing conflict-resolution code (→ see Guided Deep-Learning Layer).
+- **Linearizability vs eventual consistency** — linearizability means every read sees the latest write as if on one global clock, while eventual means replicas only agree *some time later*; knowing the difference lets you answer "how consistent is it, exactly?" precisely instead of hand-waving "strongly consistent."
+- **LWW (Last-Write-Wins)** — a conflict-resolution rule that keeps the write with the newest timestamp and discards the rest; cheap but silently loses data, so learners should know when it is and isn't safe.
+- **Vector clocks** — per-replica counters that tag each write so the system can tell which updates are causally newer vs truly concurrent; the basis for detecting (not just hiding) conflicts.
+- **Jepsen (Kyle Kingsbury / Aphyr)** — an open-source test suite that hammers real databases with partitions to check if their advertised guarantees actually hold; teaches you that vendor claims often overstate consistency (→ see Guided Deep-Learning Layer).
+
+**🔧 How to close:** Run a 3-node Cassandra cluster locally and watch AP vs CP behavior firsthand: `docker run --name cas1 -d cassandra:latest`, then start `cas2`/`cas3` joined to it, insert a row at `CONSISTENCY ONE`, use `docker network disconnect` to partition one node, write conflicting values on each side, reconnect, and run `SELECT writetime(col) FROM t` to see Last-Write-Wins pick a winner and silently drop the other update.
 
 ---
 

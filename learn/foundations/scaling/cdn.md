@@ -90,6 +90,8 @@ User (Mumbai) ──→ [Mumbai edge] ─miss─→ [Regional] ─miss─→ [Or
 - ❌ "I'll just purge it" — purges are slow; use immutable URLs.
 
 ## L. Potential Gaps & Improvements
-- Edge compute (Cloudflare Workers, Lambda@Edge) — the frontier, not covered.
-- Bitrate-adaptive video (HLS/DASH) caching quirks — missing.
-- Signed URLs for access control — missing.
+- **Edge compute (Cloudflare Workers, AWS Lambda@Edge)** — run small bits of code on the CDN's edge servers near users instead of a distant origin; matters because it cuts latency and offloads logic like auth or A/B routing.
+- **ABR (Adaptive Bitrate) streaming via HLS (HTTP Live Streaming) / DASH (Dynamic Adaptive Streaming over HTTP)** — video is sliced into many small quality variants the player switches between; learners care because caching thousands of tiny segments behaves very differently from caching one big file.
+- **Signed URLs** — time-limited links carrying a cryptographic signature so only authorized users can fetch a cached object; key for serving paid or private content from a public CDN.
+
+**🔧 How to close:** Sign up for a free Cloudflare account, deploy a hello-world Worker with `npm create cloudflare@latest`, then run `curl -sI https://<your-worker>.workers.dev` and inspect the `cf-ray` and `cf-cache-status` headers to see edge handling in action.

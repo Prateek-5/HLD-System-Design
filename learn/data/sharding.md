@@ -100,9 +100,11 @@ When one key takes 80% of traffic (celebrity tweet, viral meme, Black Friday SKU
 - ❌ Picking a shard key that doesn't match the dominant query pattern.
 
 ## L. Potential Gaps & Improvements
-- Vitess-style resharding workflow.
-- Re-sharding with zero downtime (dual-write + backfill + cutover).
-- Sharding metadata / topology service design.
+- **Vitess-style resharding workflow** — Vitess is a database clustering layer (born at YouTube) that automates splitting/merging MySQL shards while traffic flows; worth knowing because it shows how big shops reshard without hand-rolling everything.
+- **Zero-downtime re-sharding (dual-write + backfill + cutover)** — write to both old and new shards, copy historical rows in the background, then flip reads over; the canonical safe-migration pattern interviewers love to probe. (→ see Advanced Questions)
+- **Sharding metadata / topology service** — a small authoritative store that maps each key range to its shard so clients/routers know where data lives; without it nodes can't agree on who owns what.
+
+**🔧 How to close:** Spin up two MySQL containers with `docker run -d --name shardA -e MYSQL_ROOT_PASSWORD=pw -p 3307:3306 mysql` and a second on `3308`, create a `users` table in each, then write a 20-line script that hash-shards rows by `id % 2` and routes inserts to the right container — then add a third shard and watch how many keys must move.
 
 ---
 

@@ -72,8 +72,12 @@ API gateway rate limit: 100 req/s per API key. Token bucket in Redis via Lua. If
 - [ ] Knows fail-open vs fail-closed tradeoff.
 
 ## L. Potential Gaps & Improvements
-- Distributed token bucket via gossip.
-- Weighted limits by plan/tier.
+- **Distributed token bucket via gossip** — when many rate-limiter nodes share one limit, they swap counter state over a peer-to-peer gossip protocol instead of a central store, so no single node becomes a bottleneck; matters for any "rate-limit at global scale" question.
+- **Weighted limits by plan/tier** — charge expensive endpoints more "tokens" and give paying customers bigger buckets, so a free user and an enterprise user hit different ceilings; common product requirement in API design.
+- **Centralized counter store (Redis INCR + EXPIRE)** — a shared Redis key with atomic increment and a TTL gives all app servers one source of truth for a request count; simplest way to make limits consistent across a fleet (→ see Interview Lens).
+- **Sliding window log vs fixed window counter** — the log keeps every request timestamp for exact limits but costs memory, while the fixed window just counts per interval and is cheap but allows burst spikes at boundaries; pick based on accuracy-vs-cost tradeoff.
+
+**🔧 How to close:** Spin up Redis locally and watch a fixed-window limiter in action: `docker run -d --rm -p 6379:6379 redis`, then in another terminal run `redis-cli` and try `INCR ratelimit:user1`, `EXPIRE ratelimit:user1 10`, and hammer `INCR ratelimit:user1` repeatedly within 10 seconds — once your returned count exceeds your chosen limit (say 5) you would reject the request; observe how the counter resets after the key expires.
 
 ---
 

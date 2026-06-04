@@ -93,9 +93,11 @@ Rebalance on node add:
 - ❌ Forgetting virtual nodes.
 
 ## L. Potential Gaps & Improvements
-- Rendezvous hashing (HRW) — a competing scheme, sometimes better.
-- Jump hash — simpler alternative for stable N+1 scaling.
-- Load-aware hashing.
+- **Rendezvous Hashing (HRW — Highest Random Weight)** — each key hashes against every node and picks the highest score, spreading keys evenly without a ring; worth knowing as a simpler, lower-skew alternative.
+- **Jump Hash (Jump Consistent Hash)** — a tiny, ring-free algorithm that maps a key to one of N buckets and moves minimal keys when N grows; great when your node count just scales up by one.
+- **Load-Aware Hashing (bounded-load consistent hashing)** — caps how many keys any single node may hold and spills overflow to the next node, so one hot key cannot melt one server; the fix for real-world hotspots.
+
+**🔧 How to close:** Write a 30-line script that hashes 1,000,000 keys across 10 nodes using both modulo (`hash(key) % N`) and a consistent-hash ring (e.g. Python's `hashlib` + a sorted list of 100 virtual nodes per server), then add an 11th node and count how many keys change owners — you should see ~90% move under modulo versus ~9% on the ring.
 
 ---
 

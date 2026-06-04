@@ -81,6 +81,10 @@ Object  : bucket.s3.amazonaws.com/key        ← web-scale, media, backups
 - ❌ Treating "storage" as one thing.
 
 ## L. Potential Gaps & Improvements
-- Tiered storage (hot/warm/cold, e.g., S3 → Glacier) — not covered.
-- Lifecycle policies, versioning, retention — missing.
-- Erasure coding (Reed-Solomon) used by object stores — missing.
+- **Tiered storage (hot / warm / cold)** — automatically moves rarely-read data to cheaper, slower media (e.g., AWS S3 standard → Glacier); matters because it cuts storage cost without deleting data.
+- **Lifecycle policies** — rules that auto-transition or expire objects by age (e.g., move to cold tier after 30 days, delete after a year); key for controlling long-term storage spend.
+- **Versioning** — keeps prior copies of an object when it is overwritten or deleted, so you can recover from mistakes; the backbone of accidental-delete protection.
+- **Retention** — enforces how long data must (or must not) be kept, often for legal/compliance reasons; relevant to any "audit log" or regulated-data question.
+- **Erasure coding (Reed-Solomon)** — splits data into chunks plus parity so the original survives losing some chunks, using far less space than full replication; how object stores get durability cheaply.
+
+**🔧 How to close:** Run `aws s3api put-bucket-lifecycle-configuration` (or MinIO `mc ilm rule add`) on a local MinIO container to expire objects after 1 day, upload a file, then list it again to watch the policy take effect: `docker run -p 9000:9000 minio/minio server /data` and experiment with `mc`.

@@ -49,5 +49,9 @@ k8s: services register via kube-apiserver; CoreDNS returns endpoint list; kube-p
 - [ ] Knows client-side vs server-side.
 
 ## L. Potential Gaps & Improvements
-- Service mesh (Istio, Linkerd) — SD is built into sidecars.
-- xDS protocol (Envoy).
+- **Service mesh (Istio, Linkerd)** — an infrastructure layer that runs a proxy "sidecar" next to each service; it handles SD (Service Discovery), routing, and retries so app code stays clean — increasingly the default answer to "how do services find each other."
+- **Sidecar pattern** — a helper proxy container deployed alongside your app container that intercepts all network traffic; learn it because it's how the mesh adds discovery and security without touching your code.
+- **xDS protocol (Envoy)** — the family of "discovery service" APIs (Endpoint, Cluster, Route, Listener Discovery Service) that the Envoy proxy uses to fetch live config and endpoint lists from a control plane; worth knowing as the standard way meshes push routing updates dynamically.
+- **Client-side vs server-side discovery** — client-side has the caller query a registry and pick an instance itself, while server-side hides that behind a load balancer; learners should be able to weigh the two in a design interview.
+
+**🔧 How to close:** Run a local registry to watch discovery happen live: `docker run -d -p 8500:8500 consul agent -dev -client=0.0.0.0`, then register a fake service with `curl --request PUT --data '{"Name":"web","Port":80}' http://localhost:8500/v1/agent/service/register` and confirm it appears via `dig @localhost -p 8600 web.service.consul` — you'll see Consul answer DNS for the service you just registered.

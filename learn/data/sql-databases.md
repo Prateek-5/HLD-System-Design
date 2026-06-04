@@ -99,6 +99,10 @@ Postgres, MySQL, Oracle, SQL Server, MariaDB, Amazon Aurora, Google Spanner (glo
 - ❌ Blindly picking SQL for a high-volume event firehose.
 
 ## L. Potential Gaps & Improvements
-- Isolation levels (READ COMMITTED, REPEATABLE READ, SERIALIZABLE) — needs own section.
-- Query plans: EXPLAIN ANALYZE.
-- Connection pooling (pgbouncer etc.) at scale.
+- **Isolation levels (READ COMMITTED, REPEATABLE READ, SERIALIZABLE)** — rules for how much one transaction sees another's in-flight changes; picking the right one trades anomalies for speed and is core to concurrency questions.
+- **MVCC (Multi-Version Concurrency Control)** — the database keeps multiple row versions so readers never block writers; understanding it explains why Postgres stays fast under contention (→ see Interview Lens).
+- **SSI (Serializable Snapshot Isolation)** — Postgres's way of getting the safest SERIALIZABLE level without heavy locking; matters when you need correctness guarantees but still want throughput.
+- **EXPLAIN ANALYZE (query plans)** — shows exactly how the engine will fetch your data (index scan vs full table scan); the first tool to reach for when a query is slow.
+- **Connection pooling (PgBouncer, etc.)** — a proxy that reuses a small set of DB connections across many clients so the database isn't crushed by thousands of short-lived ones; essential at scale.
+
+**🔧 How to close:** Start Postgres in Docker (`docker run --rm -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres`), create a table with a few thousand rows, then run `EXPLAIN ANALYZE SELECT * FROM t WHERE col = 'x';` before and after `CREATE INDEX` to watch the plan flip from Seq Scan to Index Scan and the cost drop.

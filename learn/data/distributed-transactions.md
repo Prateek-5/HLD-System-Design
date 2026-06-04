@@ -78,6 +78,9 @@ Orchestrator: Temporal/Step Functions workflow; stores state durably; retries ea
 - ❌ Proposing 2PC for modern microservice systems without good reason.
 
 ## L. Potential Gaps & Improvements
-- Paxos / Raft as backing consensus for distributed ACID (Spanner, CockroachDB).
-- Idempotency + outbox pattern for saga steps.
-- Try-Cancel-Confirm (TCC) pattern.
+- **Paxos / Raft** — consensus protocols that get many nodes to agree on one value despite failures; they underpin distributed **ACID (Atomicity, Consistency, Isolation, Durability)** in Spanner and CockroachDB, so learn them to explain how those DBs stay consistent.
+- **Idempotency** — designing a saga step so retrying it produces the same result, never a double charge; essential because networks retry and you must avoid duplicate side effects.
+- **Outbox pattern** — write the event to an "outbox" table in the same DB transaction as the business data, then publish it later, so you never lose or duplicate events when crossing the DB/message-broker boundary.
+- **TCC (Try-Confirm-Cancel)** — a saga variant that first reserves resources ("Try"), then either "Confirms" or "Cancels"; useful when you need a tentative hold (e.g. seat reservation) before committing.
+
+**🔧 How to close:** Spin up the classic book-a-trip saga locally: run `docker compose up` with three tiny HTTP services (flight, hotel, payment) plus an orchestrator; deliberately make the payment service return HTTP 500 and watch the orchestrator fire the compensation chain (cancel hotel, cancel flight). Then add an idempotency key to each step and re-send a duplicate request to confirm no double-booking occurs.

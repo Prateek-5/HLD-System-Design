@@ -119,6 +119,10 @@ seg_002.ts
 - [ ] Knows adaptive bitrate.
 
 ## K. Potential Gaps & Improvements
-- DRM and content protection.
-- Offline playback (pre-downloaded).
-- A/B testing framework.
+- **DRM (Digital Rights Management)** — encryption plus license servers that stop a downloaded stream from being copied or replayed; studios won't license content without it.
+- **Content protection (watermarking / forensic marking)** — invisible per-user marks embedded in the video so a leaked copy can be traced back to the account; matters for piracy questions.
+- **Offline playback (pre-downloaded titles)** — files cached and license-bound on the device so they play with no network; raises sync, expiry, and storage-eviction design problems.
+- **A/B testing framework** — infrastructure that splits users into buckets and measures which variant (artwork, ABR algorithm, recommendation) wins on real metrics; how Netflix ships product changes safely.
+- **ABR (Adaptive Bitrate Streaming)** — the player measures bandwidth and swaps to a higher- or lower-quality chunk on the fly so video keeps playing without buffering (→ see Interview Lens).
+
+**🔧 How to close:** Run `ffprobe -v quiet -print_format json -show_format -show_streams <video.mp4>` on any sample video to inspect its codec, bitrate, and resolution, then use `ffmpeg -i input.mp4 -b:v 800k out_800k.mp4` and again at `2500k` to produce two bitrate renditions — this is exactly the multi-rendition input that an ABR/DRM packager consumes.

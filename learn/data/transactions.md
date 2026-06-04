@@ -86,6 +86,9 @@ At Read Committed, you could lose to phantom. At Serializable, correct. Alternat
 - ❌ "Just wrap it in a transaction" without isolation level awareness.
 
 ## L. Potential Gaps & Improvements
-- Snapshot Isolation vs Serializable Snapshot Isolation (SSI) in Postgres.
-- Deadlock detection.
-- Read-write skew anomaly.
+- **Snapshot Isolation vs SSI (Serializable Snapshot Isolation)** — Snapshot Isolation lets each transaction read a consistent point-in-time view; SSI (used by Postgres) adds conflict detection on top to give true serializability without heavy locking — know it to answer "how does Postgres do serializable cheaply?".
+- **Deadlock detection** — the database's mechanism for spotting two transactions each holding a lock the other needs, then killing one so the system unblocks; learners care because it explains random "deadlock detected, transaction aborted" errors and why retry logic matters.
+- **Read-write skew anomaly** — a subtle bug where two transactions each read overlapping data and write based on a now-stale view, leaving the database in an invalid state even though neither overwrote the other; it is the classic reason you need Serializable isolation (→ see Interview Lens).
+- **Retry-on-serialization-failure pattern** — application-side loop that re-runs a transaction when the DB aborts it for a conflict; essential because Serializable/SSI isolation pushes conflict handling back onto your code.
+
+**🔧 How to close:** Spin up Postgres in Docker (`docker run -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres`), open two `psql` sessions, run `BEGIN ISOLATION LEVEL SERIALIZABLE;` in both, then have each read the same row and update a different one — commit both and watch one fail with `ERROR: could not serialize access due to read/write dependencies` to feel read-write skew and SSI firsthand.

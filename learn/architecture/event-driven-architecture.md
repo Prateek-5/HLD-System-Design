@@ -74,5 +74,11 @@ E-commerce: `OrderPlaced` → inventory reserves, payment charges, shipping sche
 - [ ] Knows idempotency/dedup is required.
 
 ## L. Potential Gaps & Improvements
-- Event schema governance (Avro + Schema Registry).
-- Outbox pattern for atomic DB+event writes.
+- **Event schema governance (Avro + Schema Registry)** — Avro is a compact binary format with a defined schema, and a Schema Registry stores and version-checks those schemas so producers can't break consumers; vital for evolving events safely over time.
+- **Outbox pattern for atomic DB+event writes** — write the event into an "outbox" table in the same database transaction as your business change, then relay it to the broker; guarantees you never save data without publishing its event (no lost messages).
+- **CDC (Change Data Capture)** — tools like Debezium tail the database transaction log and emit every row change as an event; a popular way to power the outbox relay and keep downstream systems in sync.
+- **DLQ (Dead Letter Queue)** — a side queue where messages land after repeatedly failing processing, so one poison event doesn't block the whole stream and you can inspect/replay it later.
+- **Idempotent consumers** — design handlers so processing the same event twice has no extra effect (e.g. dedupe by event ID); essential because most brokers deliver "at-least-once" and will sometimes redeliver.
+- **EOS (Exactly-Once Semantics)** — broker features (like Kafka transactions) that ensure each event is processed once even with retries; useful when duplicate side effects (double charges) are unacceptable (→ see Interview Lens).
+
+**🔧 How to close:** Spin up Kafka locally and watch redelivery happen: `docker run -p 9092:9092 apache/kafka:latest`, then in two terminals run `kafka-console-producer.sh --topic demo --bootstrap-server localhost:9092` and `kafka-console-consumer.sh --topic demo --from-beginning --bootstrap-server localhost:9092`; kill the consumer mid-batch before it commits offsets, restart it, and observe the same messages replay — proving why you need idempotent consumers.

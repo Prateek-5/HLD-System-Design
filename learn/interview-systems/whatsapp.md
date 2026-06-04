@@ -94,6 +94,9 @@ If Bob offline: message stays in Cassandra with `pending_delivery` flag. On Bob'
 - [ ] Group-chat fan-out strategies.
 
 ## K. Potential Gaps & Improvements
-- Multi-device sync (WhatsApp is now multi-device — state reconciliation is its own problem).
-- Disappearing messages.
-- Spam/abuse detection at scale.
+- **Multi-device sync** — keeping the same chat state in agreement across a user's phone, laptop, and tablet at once; matters because each device must converge on the same message order without a single source of truth.
+- **State reconciliation** — the algorithm that merges divergent per-device views (e.g. CRDTs or vector clocks) so no message is lost or duplicated when devices reconnect; the hard core of any multi-device feature.
+- **Disappearing messages** — messages auto-deleted after a timer (TTL, Time To Live) on both server and every client; care because you must guarantee deletion even on offline devices.
+- **Spam/abuse detection at scale** — real-time classification of bad actors (bulk senders, scams) across billions of messages; matters because false positives block real users while misses harm them.
+
+**🔧 How to close:** Model multi-device convergence locally: spin up a tiny Redis instance (`docker run -p 6379:6379 redis`), open two `redis-cli` clients, and use a sorted set keyed by message timestamp (`ZADD chat:1 1717459200 "hi"`) from each "device", then `ZRANGE chat:1 0 -1 WITHSCORES` from both to watch how ordering converges and where clock ties would force you to add a tiebreaker.

@@ -62,6 +62,9 @@ Postgres, MySQL, MongoDB, Cassandra, DynamoDB, Redis, BigTable, Snowflake — ea
 - ❌ Treating DB as a black box.
 
 ## L. Potential Gaps & Improvements
-- Query optimizer internals, cost-based vs rule-based.
-- MVCC (multi-version concurrency control) vs 2PL.
-- Page layout on disk (slotted pages in Postgres).
+- **Query optimizer internals** — the engine that decides *how* to run your SQL (which index, join order); knowing **cost-based** (estimates rows/IO from statistics) vs **rule-based** (fixed heuristics) explains why "the same query" can be fast or slow.
+- **MVCC (Multi-Version Concurrency Control)** — keeps multiple row versions so readers never block writers and vice versa; matters because it's how Postgres/MySQL deliver high concurrency without locking everything.
+- **2PL (Two-Phase Locking)** — the older concurrency scheme where transactions grab locks then release them all at the end; worth contrasting with MVCC to understand lock contention and deadlocks.
+- **Slotted pages on disk** — the fixed-size block layout (e.g. Postgres 8 KB pages) where a header points to variable-length rows; understanding it demystifies storage bloat, `VACUUM`, and why updates can be costly.
+
+**🔧 How to close:** Spin up Postgres in Docker (`docker run --rm -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres`), create a table with a few thousand rows, then run `EXPLAIN (ANALYZE, BUFFERS) SELECT ...` with and without an index to watch the cost-based optimizer switch between a sequential scan and an index scan.

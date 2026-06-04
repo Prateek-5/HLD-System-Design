@@ -55,5 +55,9 @@ SaaS platform with customer workloads: use containers per tenant for speed, but 
 - [ ] Knows namespaces + cgroups.
 
 ## L. Potential Gaps & Improvements
-- Kubernetes pod networking (CNI).
-- Image security / supply chain.
+- **CNI (Container Network Interface)** — the plugin standard (Calico, Flannel, Cilium) Kubernetes uses to give every pod its own IP and wire pods together; understand it to reason about pod-to-pod networking and network policies.
+- **Image security / supply chain** — scanning images for known vulnerabilities (CVEs) and signing them so you only run trusted code; matters because a poisoned base image ships straight to production.
+- **microVMs (Firecracker)** — tiny lightweight VMs that boot in milliseconds, giving VM-grade isolation at container-like density; the answer to "containers but stronger security boundary" (→ see Tradeoffs).
+- **OCI (Open Container Initiative)** — the vendor-neutral spec for image and runtime formats so images built once run on any compliant runtime; explains why Docker, containerd, and Podman interoperate.
+
+**🔧 How to close:** Run `docker run --rm -it alpine sh`, then inside it run `cat /proc/1/cgroup` and `ls -l /proc/self/ns/` to see the cgroup and namespace IDs the container lives in; compare them to the same commands on your host to prove the isolation boundary is real.

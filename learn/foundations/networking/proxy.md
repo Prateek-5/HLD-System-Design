@@ -237,7 +237,10 @@ This is why every serious prod system has a reverse proxy at the edge. Not optio
 ---
 
 ## L. Potential Gaps & Improvements
-- Sidecar proxies / service mesh deserve a standalone file.
-- HTTP/2 connection multiplexing at the proxy changes everything about backend pooling — not covered.
-- Connection pooling math (how many backend conns per proxy instance) — missing.
-- Proxy Protocol v1/v2 (PROXY header for real-client-IP preservation with L4 LBs) — missing.
+- **Sidecar proxy / service mesh** — a tiny reverse proxy (Envoy) deployed next to every service so mesh handles TLS, retries, and routing; deserves its own file because it powers modern microservice infra (→ see Real-World Mapping).
+- **HTTP/2 multiplexing** — one connection carries many parallel request streams, so a proxy's old "one backend connection per client request" pooling model breaks down; learn it because it reshapes how you size backend connections.
+- **Connection pooling math** — how many keep-alive backend connections each proxy instance should hold open (roughly concurrent in-flight requests ÷ instances); matters so you don't exhaust backend sockets under load.
+- **PROXY Protocol v1/v2** — a small header an L4 (Layer 4 / TCP) load balancer prepends so the backend still learns the real client IP that TCP would otherwise hide; needed whenever you load-balance below HTTP and lose `X-Forwarded-For`.
+- **xDS (the Envoy discovery APIs)** — the gRPC/REST APIs (LDS, CDS, EDS, RDS) a control plane uses to push live config to Envoy proxies; key to understanding how a service mesh updates routing without restarts.
+
+**🔧 How to close:** Run a local reverse proxy and watch it hide the backend: `docker run -d -p 8080:80 --name web nginx`, then put a second nginx in front of it as a reverse proxy and curl through it with `curl -v http://localhost:8081/`. Inspect the `X-Forwarded-For` and `Server` headers the proxy adds, and use `ss -tan | grep :80` to see the separate front-side and back-side TCP connections the proxy maintains.

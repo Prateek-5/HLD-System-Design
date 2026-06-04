@@ -91,6 +91,11 @@ Vertical:      Horizontal:
 - ❌ Treating scaling as one decision instead of per-tier.
 
 ## L. Potential Gaps & Improvements
-- Amdahl's law for scalability limits (serial portion caps parallelism).
-- Stateful services (DB, cache) scaling techniques deserve a dedicated read.
-- Cost modeling: "how many $ per 1000 QPS?" — not covered.
+- **Amdahl's Law** — a formula showing the serial (non-parallel) fraction of work caps your maximum speedup no matter how many machines you add; explains why scaling out eventually stops paying off.
+- **USL (Universal Scalability Law)** — extends Amdahl by adding a "crosstalk/coordination" penalty, so throughput can actually *drop* past some node count; the math behind "why did adding servers make it slower?"
+- **Stateful service scaling (DB, cache)** — techniques like replication, sharding, and consistent hashing for the tiers that hold data; this is the hard part of horizontal scaling and deserves a dedicated read (→ see Interview Lens).
+- **Cost modeling ($/1000 QPS)** — putting a dollar figure on each tier per thousand Queries Per Second so you can compare scale-up vs scale-out economically; the question interviewers love but learners rarely practice.
+- **Connection draining** — gracefully finishing in-flight requests before removing a node during scale-in, so users don't see dropped connections; key to safe autoscaling.
+- **p99 latency** — the response time the slowest 1% of requests still beat; a far better autoscaling trigger than average latency because it catches tail-latency pain.
+
+**🔧 How to close:** Spin up a tiny stateless web app and put a load test on it to *feel* the bottleneck. Run `docker run --rm -p 8080:80 nginxdemos/hello`, then in another terminal install hey (`go install github.com/rakyll/hey@latest` or `brew install hey`) and fire `hey -z 30s -c 200 http://localhost:8080/` — watch the p99 latency in the output, then run a second container on port 8081 and split traffic to see throughput rise roughly linearly until your laptop's CPU (the shared bottleneck) caps it.

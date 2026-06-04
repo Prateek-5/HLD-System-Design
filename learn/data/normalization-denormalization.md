@@ -87,5 +87,10 @@ A reporting system reads "top 10 products per region, this week" 10k times per s
 - ❌ Always normalizing or always denormalizing.
 
 ## L. Potential Gaps & Improvements
-- OLTP vs OLAP schema styles (star/snowflake) deserve a pass.
-- CDC as a denormalization feeder.
+- **OLTP (Online Transaction Processing)** — workloads with many small reads/writes (orders, payments) that favor normalized schemas for integrity; the default for app databases.
+- **OLAP (Online Analytical Processing)** — workloads that scan huge ranges to aggregate (reports, dashboards) and favor denormalized layouts for fast reads.
+- **Star / snowflake schema** — OLAP table layouts where one central fact table links to dimension tables; the star is flat, the snowflake further normalizes dimensions, so know which trades reads for storage.
+- **CDC (Change Data Capture)** — tools like Debezium stream every row change out of a database so you can rebuild denormalized copies or materialized views without re-querying the source; key for any "keep two stores in sync" question.
+- **Materialized view refresh strategy** — how often a precomputed denormalized table is rebuilt (on-demand, scheduled, or incremental); the policy decides how stale your fast reads can get (→ see Interview Lens).
+
+**🔧 How to close:** Spin up Postgres (`docker run -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres`), create a normalized `orders`/`users` pair plus a denormalized `CREATE MATERIALIZED VIEW order_summary AS SELECT o.id, u.name, o.total FROM orders o JOIN users u ON ...`, then run `EXPLAIN ANALYZE` on the join query versus `SELECT * FROM order_summary` and compare the planning/execution times.

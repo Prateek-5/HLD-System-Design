@@ -110,6 +110,9 @@ A cluster is a group of machines working as if they were one. The user requests 
 - ❌ No mention of failure detection or consensus.
 
 ## L. Potential Gaps & Improvements
-- Raft / Paxos deserve their own file (consensus is foundational).
-- Gossip protocols (SWIM) — missing.
-- Quorum math (R + W > N) — belongs here or in replication.
+- **Raft / Paxos (consensus algorithms)** — protocols that let a cluster agree on one value/leader even when nodes crash; foundational for any "how do nodes stay consistent" question and deserve their own deep-dive file.
+- **Gossip protocols (e.g. SWIM — Scalable Weakly-consistent Infection-style process group Membership)** — nodes randomly exchange state with peers so membership and failures spread epidemically without a central coordinator; how big clusters track who's alive.
+- **Quorum math (R + W > N)** — requiring read replicas (R) plus write replicas (W) to exceed total replicas (N) guarantees overlap so reads see the latest write; the tuning knob behind consistency-vs-availability tradeoffs (belongs here or in replication). (→ see Interview Lens)
+- **Split-brain & fencing** — when a network partition makes two halves each think they're the leader; fencing tokens / quorum prevent both from writing and corrupting data — a classic clustering failure mode worth naming. (→ see Interview Lens)
+
+**🔧 How to close:** Spin up a 3-node Raft cluster locally and watch leader election: `docker run -d --name etcd1 quay.io/coreos/etcd etcd --name n1` (repeat for n2/n3 with `--initial-cluster`), then `etcdctl endpoint status --cluster -w table` to see the leader, kill the leader container with `docker stop`, and re-run the command to watch a new leader get elected within seconds.
