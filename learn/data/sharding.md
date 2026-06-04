@@ -108,11 +108,13 @@ When one key takes 80% of traffic (celebrity tweet, viral meme, Black Friday SKU
 
 ### 🧭 Guided Deep-Learning Layer
 
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
 #### 🔧 Gap 1 — Vitess Resharding
 - 🔹 **What it is**: Vitess (from YouTube) is a MySQL-sharding orchestrator. Its resharding workflow is the gold standard: dual-write, backfill historical data, cutover, validate, retire old shards.
 - 🔹 **Why it matters**: Actual resharding is where theory meets pain. Vitess is how Slack, GitHub, and YouTube did it without downtime.
 - 🔹 **Connection**: This file mentions rebalancing is painful but doesn't show *how*. Vitess is the canonical operational playbook.
-- 🔹 **When needed**: 🔴 **Important for senior interviews** designing at-scale SQL systems.
+- 🔹 **When needed**: 🔴 **Senior** — at-scale SQL infra tooling; senior-interview signaling.
 - 🔹 **Intuition**: Moving a house while everyone still lives there. You build the new house, gradually move furniture, then one day everyone sleeps in the new house — no one "moves out first".
 - 🔹 **If you go deeper**: Read Vitess's documentation on horizontal resharding. Understand split tablet, source/target keyspaces, and the migration phases.
 - 🔹 **Interview hook**: *"Your sharded MySQL is at 90% capacity on one shard. How do you reshard without downtime?"* → Vitess workflow: dual-write + backfill + cutover + validate.
@@ -123,7 +125,7 @@ When one key takes 80% of traffic (celebrity tweet, viral meme, Black Friday SKU
 - 🔹 **What it is**: The generic resharding pattern: for each key, write to both old AND new shard; backfill historical data; once confirmed in sync, cut over reads; delete old.
 - 🔹 **Why it matters**: Real systems need to move data while serving traffic. This pattern works for ANY sharded system, not just Vitess.
 - 🔹 **Connection**: This is the sequence of operations that makes consistent-hashing rebalancing practical.
-- 🔹 **When needed**: 🔴 **Important for senior interviews** on data migrations.
+- 🔹 **When needed**: 🟡 **Mid-level** — useful once basics are solid; the universal data-migration pattern.
 - 🔹 **Intuition**: 4-phase surgery: clone, sync, switch, remove. Every phase is verified before the next.
 - 🔹 **If you go deeper**: Study phases: (1) deploy dual-write code; (2) backfill historical data (batch); (3) reconcile (compare new vs old); (4) cut reads over; (5) retire old. Each needs rollback paths.
 - 🔹 **Interview hook**: *"Migrate 100M users from 4 shards to 16 shards with zero downtime."* → walk the 4 phases.
@@ -134,7 +136,7 @@ When one key takes 80% of traffic (celebrity tweet, viral meme, Black Friday SKU
 - 🔹 **What it is**: A service that maintains the mapping "which shard owns which keyspace" — consulted by clients/proxies to route queries.
 - 🔹 **Why it matters**: Without it, you hard-code shard assignments and can't rebalance. With it, you become cloud-native.
 - 🔹 **Connection**: The "lookup table" sharding strategy in this file implies a metadata service; this explains how to build one.
-- 🔹 **When needed**: 🔴 **Important for senior infra interviews**.
+- 🔹 **When needed**: 🔴 **Senior** — distributed metadata/topology infra; senior-interview signaling only.
 - 🔹 **Intuition**: The librarian's index card system — tells you which room (shard) the book lives in. Updating the index lets you move books without re-indexing the whole library.
 - 🔹 **If you go deeper**: Study ZooKeeper / etcd (consistent metadata stores), Vitess's VTGate topology service. Understand how clients cache routing info and handle stale routes (retry with fresh fetch).
 - 🔹 **Interview hook**: *"How do clients know which shard owns a given user_id?"* → metadata service (etcd / Zanzibar-style) cached at client with invalidation on reshard.

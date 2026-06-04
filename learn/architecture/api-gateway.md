@@ -83,11 +83,13 @@ Multi-service e-commerce:
 
 ### 🧭 Guided Deep-Learning Layer
 
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
 #### 🕸️ Gap 1 — Service Mesh Overlap with API Gateway
 - 🔹 **What it is**: Service mesh (Istio, Linkerd) handles east-west (service-to-service) traffic. API Gateway handles north-south (external-to-internal). Both do auth, retry, mTLS, observability — overlap at the boundary.
 - 🔹 **Why it matters**: In 2026 architectures, the two coexist. Engineers often confuse them. The gateway sees public clients; the mesh sees internal services.
 - 🔹 **Connection**: This file introduces API Gateway. Mesh is its internal counterpart — both are specialized reverse proxies at different positions.
-- 🔹 **When needed**: 🔴 **Important for senior interviews** on microservice architectures.
+- 🔹 **When needed**: 🟢 **Foundational** — the north-south vs east-west distinction is worth learning right after the basics; it comes up whenever microservices are mentioned.
 - 🔹 **Intuition**: Gateway = hotel front desk. Mesh = internal phone system between hotel departments. Both handle "routing calls" but at different boundaries.
 - 🔹 **If you go deeper**: Study how Istio's gateway (north-south) and Envoy sidecar (east-west) complement each other. Understand that both run Envoy under the hood, just configured differently.
 - 🔹 **Interview hook**: *"Where does the gateway end and the service mesh begin?"* → gateway terminates external TLS + handles external concerns; mesh handles internal reliability + security.
@@ -98,7 +100,7 @@ Multi-service e-commerce:
 - 🔹 **What it is**: GraphQL can collapse multiple backend calls into one client request, replacing the "BFF" aggregation pattern of traditional API Gateways.
 - 🔹 **Why it matters**: Modern mobile/web apps often prefer GraphQL over REST-with-BFF. Gateway's aggregation value decreases; its cross-cutting concerns stay.
 - 🔹 **Connection**: The "aggregation" bullet in this file (BFF pattern) is sometimes better served by GraphQL. Know when each wins.
-- 🔹 **When needed**: 🔴 **Important for frontend/mobile-facing senior interviews**.
+- 🔹 **When needed**: 🟡 **Mid-level** — useful once the BFF/aggregation basics are solid; common in frontend/mobile-facing design discussions.
 - 🔹 **Intuition**: BFF = custom API tailored to one client. GraphQL = self-service; client picks what it needs. Same goal, different mechanism.
 - 🔹 **If you go deeper**: Understand where GraphQL hurts — N+1 query problem, CDN caching, rate limiting per endpoint. Tools: Apollo Federation, GraphQL gateway.
 - 🔹 **Interview hook**: *"You have 5 services and 3 client types (web, iOS, Android). Design the aggregation layer."* → BFF per client vs one GraphQL gateway; discuss tradeoffs.

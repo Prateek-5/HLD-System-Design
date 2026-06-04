@@ -79,6 +79,8 @@ API gateway rate limit: 100 req/s per API key. Token bucket in Redis via Lua. If
 
 ### 🧭 Guided Deep-Learning Layer
 
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
 #### 🗣️ Gap 1 — Distributed Token Bucket via Gossip
 - 🔹 **What it is**: Each node maintains a local token bucket + gossips its consumption to peers; global limit is enforced approximately without central Redis dependency.
 - 🔹 **Why it matters**: Central Redis limiter is a SPOF and latency bottleneck at 1M+ QPS across regions. Gossip-based distributed limiting scales and tolerates partitions.
@@ -94,7 +96,7 @@ API gateway rate limit: 100 req/s per API key. Token bucket in Redis via Lua. If
 - 🔹 **What it is**: Different rate limits per user tier (free vs pro vs enterprise), endpoint priority (read vs write), or time-of-day.
 - 🔹 **Why it matters**: Real SaaS products monetize rate limits. Simplistic flat limits leave money on the table and annoy power users.
 - 🔹 **Connection**: This file treats rate limits as uniform. Real products multiply per-plan, per-endpoint, per-tenant.
-- 🔹 **When needed**: 🟡 **Useful for mid-level**, 🔴 **Important for SaaS product design interviews**.
+- 🔹 **When needed**: 🟡 **Mid-level** — useful once basics are solid; common in mid-level and SaaS product design interviews.
 - 🔹 **Intuition**: Airline seats — economy, business, first. Same airplane, different quotas on WiFi, drinks, legroom. Rate limits work the same way.
 - 🔹 **If you go deeper**: Study Stripe's tiered limit architecture — limits stored in user plan metadata, looked up at authn time, applied at gateway. Think about fair-share within a tenant's quota.
 - 🔹 **Interview hook**: *"Design rate limits for a SaaS with free/pro/enterprise tiers."* → tier-aware bucket capacity + per-endpoint priorities.

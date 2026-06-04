@@ -70,6 +70,8 @@ Shopping cart: each item add is idempotent → eventually consistent is OK. Chec
 - ❌ Believing ACID and BASE are a binary choice per-system.
 
 ## L. Potential Gaps & Improvements
-- Isolation-level anomalies (dirty read, non-repeatable, phantom) deserve deep dive.
-- Snapshot isolation vs serializable.
-- Linearizability (another level above ACID) — missing.
+- **Isolation-level anomalies** (dirty read, non-repeatable read, phantom read) — the specific bugs that appear when transactions overlap. Knowing them by name is how you justify a chosen isolation level in an interview.
+- **Snapshot isolation vs serializable** — two strong isolation levels: snapshot gives each transaction a consistent point-in-time view (fast, but allows write-skew); serializable behaves as if transactions ran one at a time (safest, more costly).
+- **Linearizability** — a *consistency model for distributed reads/writes* (every read sees the latest committed write, system-wide). It is a **separate axis from ACID**, not "a level above" it: ACID is about transaction guarantees on one database; linearizability is about ordering across replicas.
+
+**🔧 How to close:** open two `psql` sessions against the same Postgres table, `BEGIN` both, and try to observe a dirty read / non-repeatable read under `READ COMMITTED` vs `REPEATABLE READ`. Watching one session *not* see the other's uncommitted change makes isolation levels concrete.

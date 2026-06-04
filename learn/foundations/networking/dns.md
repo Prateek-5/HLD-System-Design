@@ -288,6 +288,8 @@ A real resolver (Unbound, Knot, Bind) looks exactly like this.
 
 ### 🧭 Guided Deep-Learning Layer
 
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
 #### 🔐 Gap 1 — DNSSEC
 - 🔹 **What it is**: Cryptographic signatures on DNS records so resolvers can verify answers weren't tampered with in flight.
 - 🔹 **Why it matters**: Without it, an on-path attacker can forge DNS replies (poisoning) → redirect users to malicious sites. Governments have done this.

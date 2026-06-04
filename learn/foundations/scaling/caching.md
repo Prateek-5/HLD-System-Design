@@ -297,11 +297,13 @@ This is a microcosm of a real Twitter-scale feed.
 
 ### 🧭 Guided Deep-Learning Layer
 
+> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
+
 #### 🔄 Gap 1 — Cache-aside vs Read-through
 - 🔹 **What they are**: Two read-path strategies. **Cache-aside**: app explicitly checks cache, on miss fetches from DB, populates cache. **Read-through**: cache library transparently fetches from source on miss.
 - 🔹 **Why it matters**: Cache-aside is the de-facto default (~80% of real deployments). Read-through hides complexity at the cost of less control.
 - 🔹 **Connection**: The "write-through / around / back" trio in this file are about writes; this gap is the missing read-side counterpart.
-- 🔹 **When needed**: 🔴 **Important for any interview** — you will be asked "what cache pattern would you use and why?"
+- 🔹 **When needed**: 🟢 **Foundational** — you will be asked "what cache pattern would you use and why?"
 - 🔹 **Intuition**: Cache-aside = you as the chef check the fridge, then the pantry. Read-through = you ask a butler who handles both; you never know where the food came from.
 - 🔹 **If you go deeper**: Understand the Caffeine / Guava `Loader` pattern (read-through) vs typical Redis usage (cache-aside). Read why most teams prefer cache-aside: visibility, control, no library lock-in.
 - 🔹 **Interview hook**: *"Which cache pattern for a read-heavy feed?"* → cache-aside with 5-min TTL + active invalidation on write. Justify: control + debuggability.
@@ -345,7 +347,7 @@ This is a microcosm of a real Twitter-scale feed.
 - 🔹 **What it is**: Another name for cache-aside. Data only reaches the cache on first read. Popular/important data stays; rarely-accessed data stays out.
 - 🔹 **Why it matters**: Minimizes cache size; self-tuning. The natural default for applications.
 - 🔹 **Connection**: Complements the "write-through populates on write" approach — lazy loading populates on read.
-- 🔹 **When needed**: 🟡 **Useful to know the terminology** — interviewers use "lazy loading" and "cache-aside" interchangeably.
+- 🔹 **When needed**: 🟢 **Foundational** — interviewers use "lazy loading" and "cache-aside" interchangeably.
 - 🔹 **Intuition**: You don't pre-fetch every book in the library; you fetch when asked and keep a copy if it might be asked again.
 - 🔹 **If you go deeper**: Combine with active invalidation on write — "lazy read, active write". This is basically the default pattern across modern apps.
 - 🔹 **Interview hook**: Usually comes up during *"describe your cache strategy"* — use the term confidently.
