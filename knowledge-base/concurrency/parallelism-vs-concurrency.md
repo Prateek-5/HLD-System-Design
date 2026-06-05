@@ -45,17 +45,17 @@ The same is true of programs. Concurrency is a structure ("write this as coopera
 **Era 1 — Single-CPU concurrency.**
 1960s-70s. Time-sharing operating systems (Multics, Unix). Multiple processes appear to run simultaneously by switching the CPU among them. Concurrent in structure; not parallel.
 
-**Era 2 — SMP and parallel execution.**
+**Era 2 — SMP (Symmetric Multiprocessing) and parallel execution.**
 1990s-2000s. Multi-CPU servers. Threads can truly run in parallel on separate CPUs. Lock-based synchronization becomes mainstream. Programs written for concurrency now run faster — when locks don't dominate.
 
 **Era 3 — Multi-core era.**
-~2005. Single-thread CPU performance plateaus; chips grow cores instead. Suddenly every desktop and phone has parallelism available. Languages and frameworks adapt: Java's `java.util.concurrent`, .NET's TPL, etc.
+~2005. Single-thread CPU performance plateaus; chips grow cores instead. Suddenly every desktop and phone has parallelism available. Languages and frameworks adapt: Java's `java.util.concurrent`, .NET's TPL (Task Parallel Library), etc.
 
 **Era 4 — Async runtimes.**
 2010s. Node.js, asyncio, Tokio, Goroutines. Concurrency without parallelism (within a process) becomes the model for I/O-bound workloads. Single-threaded performance with massive concurrency.
 
-**Era 5 — GPGPU and SIMD.**
-GPUs as compute devices (CUDA, 2007). Vector instructions in CPUs (AVX). Massive data-parallelism for specific workloads. Different model than multi-core threading.
+**Era 5 — GPGPU (General-Purpose computing on Graphics Processing Units) and SIMD.**
+GPUs (Graphics Processing Units) as compute devices (CUDA (Compute Unified Device Architecture), 2007). Vector instructions in CPUs (AVX (Advanced Vector Extensions)). Massive data-parallelism for specific workloads. Different model than multi-core threading.
 
 **Era 6 — Hybrid models.**
 Modern systems mix: multi-process (parallelism), multi-threaded within each (more parallelism), async I/O within each thread (concurrency). Goroutines + work-stealing schedulers. Rust's tokio + threads. Each layer earns its place.
@@ -73,7 +73,7 @@ A program structured concurrently *can* be executed in parallel if hardware allo
 If your program waits a lot (network, disk, user), concurrency lets you wait less by switching to other work. If your program computes a lot, parallelism lets you finish faster by computing on multiple cores.
 
 **3. The GIL or single-threaded runtime is a parallelism limit, not a concurrency limit.**
-Python (with GIL), Node.js (single event loop), Ruby (with GVL) all support concurrency but not (for pure Python/JS code) parallelism. CPU-bound work in these runtimes does not benefit from multiple cores within one process.
+Python (with GIL), Node.js (single event loop), Ruby (with GVL (Global VM Lock)) all support concurrency but not (for pure Python/JS code) parallelism. CPU-bound work in these runtimes does not benefit from multiple cores within one process.
 
 **4. Amdahl's Law caps parallel speedup.**
 If 10% of your work is sequential, no amount of parallelism gets you past a 10× speedup. Real workloads have more sequential portions than people estimate. Pure-parallel speedups are rare in practice.
@@ -135,13 +135,13 @@ Linear in N when s is small. The two laws aren't contradictory; they answer diff
 
 **Actors:** isolated processes with message-passing. Each actor is conceptually single-threaded; messages serialize via mailbox. (See [actor-model-and-message-passing.md](./actor-model-and-message-passing.md).)
 
-**Channels (CSP):** typed pipes between concurrent activities. Communication, not sharing.
+**Channels (CSP (Communicating Sequential Processes)):** typed pipes between concurrent activities. Communication, not sharing.
 
 Each provides concurrency. *Whether they provide parallelism depends on the runtime.*
 
 ### Parallelism primitives
 
-**Multi-process:** each process has its own memory. True parallelism. Coordination via IPC (pipes, shared memory, message passing). Used in Python (`multiprocessing`) and other GIL-limited languages.
+**Multi-process:** each process has its own memory. True parallelism. Coordination via IPC (Inter-Process Communication) (pipes, shared memory, message passing). Used in Python (`multiprocessing`) and other GIL-limited languages.
 
 **Multi-threaded:** threads share memory within a process. Parallelism on multi-core. Coordination via locks, atomics. The classic model.
 
@@ -151,7 +151,7 @@ Each provides concurrency. *Whether they provide parallelism depends on the runt
 
 **SIMD (Single Instruction, Multiple Data):** within one core, apply the same operation to multiple values simultaneously. AVX, NEON. Compilers auto-vectorize many loops.
 
-**GPGPU:** thousands of lightweight threads on a GPU. Massive data-parallelism for specific patterns (graphics, ML, simulation).
+**GPGPU:** thousands of lightweight threads on a GPU. Massive data-parallelism for specific patterns (graphics, ML (Machine Learning), simulation).
 
 **Distributed parallelism:** multiple machines. Map-reduce, Spark, distributed training. Highest scale; highest coordination cost.
 
@@ -188,7 +188,7 @@ This is a parallelism-specific bug. It doesn't appear in single-threaded or sing
 
 Non-Uniform Memory Access. Multi-socket systems where each socket has local memory; access to other sockets' memory is slower. A thread pinned to socket A accessing memory allocated on socket B pays a latency penalty.
 
-Production high-performance code is NUMA-aware: pin threads, allocate memory locally, minimize cross-socket coordination. Mostly a concern for HPC and low-latency systems; less for general-purpose servers.
+Production high-performance code is NUMA-aware: pin threads, allocate memory locally, minimize cross-socket coordination. Mostly a concern for HPC (High-Performance Computing) and low-latency systems; less for general-purpose servers.
 
 ---
 

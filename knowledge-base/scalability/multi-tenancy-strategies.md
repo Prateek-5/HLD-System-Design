@@ -18,7 +18,7 @@
 
 ## Topic Overview 🟢
 
-Multi-tenancy is the practice of serving multiple customers (tenants) from shared infrastructure. The "tenant" is a business unit (a company subscribing to a SaaS); each tenant has its own users, data, and configurations. The fundamental question: *how much do tenants share?*
+Multi-tenancy is the practice of serving multiple customers (tenants) from shared infrastructure. The "tenant" is a business unit (a company subscribing to a SaaS (Software as a Service)); each tenant has its own users, data, and configurations. The fundamental question: *how much do tenants share?*
 
 The spectrum:
 - **Pool model**: all tenants share one database, one application instance. Cheapest; weakest isolation.
@@ -28,7 +28,7 @@ The spectrum:
 
 Each is a different point in the cost-isolation-complexity space. The wrong choice produces operational pain that compounds. The right choice depends on customer size, compliance requirements, performance variance, and operational maturity.
 
-This is the topic where SaaS architecture meets sharding meets compliance. Multi-tenancy is the architecture under every B2B SaaS, every cloud provider, every shared service. Getting it right is one of the most consequential early decisions.
+This is the topic where SaaS architecture meets sharding meets compliance. Multi-tenancy is the architecture under every B2B (Business-to-Business) SaaS, every cloud provider, every shared service. Getting it right is one of the most consequential early decisions.
 
 ---
 
@@ -66,7 +66,7 @@ The choice depends on tenant needs (privacy, performance, compliance) and operat
 2020+. Most SaaS combines: pool for small tenants, silo for enterprise. Per-tenant capacity tuning.
 
 **Era 6 — Compliance-driven isolation.**
-GDPR, SOC2, HIPAA drive isolation requirements. Some workloads must be silo for compliance reasons.
+GDPR (General Data Protection Regulation), SOC2 (Service Organization Control 2), HIPAA (Health Insurance Portability and Accountability Act) drive isolation requirements. Some workloads must be silo for compliance reasons.
 
 The pattern: each generation refined the cost-isolation tradeoff. Modern SaaS uses hybrid models matching tenant size and requirements.
 
@@ -135,7 +135,7 @@ Pros: stronger isolation.
 Cons: connection-pool complexity; per-tenant backup.
 
 **Shared schema with row-level security.**
-Same tables; PostgreSQL RLS policies enforce `WHERE tenant_id = current_tenant()`.
+Same tables; PostgreSQL RLS (Row-Level Security) policies enforce `WHERE tenant_id = current_tenant()`.
 
 Pros: data leak prevention enforced by database; shared schema.
 Cons: query optimization can be tricky.
@@ -158,10 +158,10 @@ The number of cells is a design choice: 10 cells = each is 10% of customers; 100
 
 How does a request reach the right tenant's data?
 
-- **Subdomain**: `tenant1.example.com`, `tenant2.example.com`. DNS or LB routing.
+- **Subdomain**: `tenant1.example.com`, `tenant2.example.com`. DNS (Domain Name System) or LB (Load Balancer) routing.
 - **Path-based**: `/tenants/42/...`. App layer routes.
 - **Header-based**: `X-Tenant-ID: 42`. App layer routes.
-- **Token-based**: JWT contains tenant ID. App extracts.
+- **Token-based**: JWT (JSON Web Token) contains tenant ID. App extracts.
 
 Routing infrastructure: API gateway maps tenant → cell; LB routes; app reads context.
 
@@ -183,7 +183,7 @@ Without per-tenant limits, one tenant can consume all capacity (noisy neighbor).
 Implementation:
 - Token bucket per tenant.
 - Distributed (Redis) for multi-instance services.
-- Tiered: free tier 10 RPS, paid 100 RPS, enterprise 10K RPS.
+- Tiered: free tier 10 RPS (Requests Per Second), paid 100 RPS, enterprise 10K RPS.
 
 Critical for fair multi-tenant operation. The "noisy neighbor" problem is solved at this layer.
 
@@ -209,9 +209,9 @@ Online migration (no downtime) is complex; many systems have downtime windows fo
 ### Compliance and isolation
 
 GDPR: data residency. EU tenants' data must stay in EU.
-HIPAA: PHI requires careful handling.
+HIPAA: PHI (Protected Health Information) requires careful handling.
 SOC2: documented controls.
-PCI: credit card data tightly isolated.
+PCI (Payment Card Industry): credit card data tightly isolated.
 
 Compliance often dictates silo model for specific tenants or regions. Multi-tenancy strategy must accommodate.
 

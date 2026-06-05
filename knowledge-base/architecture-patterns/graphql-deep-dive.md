@@ -22,7 +22,7 @@ GraphQL is a query language and runtime for APIs. Where REST has many endpoints 
 
 The benefits: no over-fetching (don't load fields you don't need); no client-side under-fetching (the client gets related data in a single round-trip instead of making N+1 *client* requests); strong typing with introspection. Note the N+1 problem isn't eliminated — it moves server-side, where naive resolvers re-introduce it and must be batched with DataLoader (covered below).
 
-The trade-offs: server complexity (resolvers can fan out unboundedly); caching is harder (everything is POST to one URL); authorization is per-field (more surface area); query complexity must be bounded (clients can DoS the server).
+The trade-offs: server complexity (resolvers can fan out unboundedly); caching is harder (everything is POST to one URL); authorization is per-field (more surface area); query complexity must be bounded (clients can DoS (Denial of Service) the server).
 
 This is the topic where API design meets backend complexity. Used well at GitHub, Shopify, Netflix. Used badly: a maintenance burden. Understanding when GraphQL fits is as important as understanding how it works.
 
@@ -60,7 +60,7 @@ Apollo, Relay, urql. Schema federation (Apollo Federation 2018+). GraphQL Code G
 ~2019+. Posts like "Why GraphQL?", "Is GraphQL the future?", and "We migrated away from GraphQL." Realization: GraphQL has overhead that doesn't fit every use case.
 
 **Era 6 — Pragmatic placement.**
-Today. GraphQL is one tool. Used at edge for client-facing aggregation; less common for internal service-to-service (gRPC dominates there).
+Today. GraphQL is one tool. Used at edge for client-facing aggregation; less common for internal service-to-service (gRPC (Google Remote Procedure Call) dominates there).
 
 The pattern: GraphQL solved a specific problem; was over-applied; settled into a smaller niche where it genuinely fits.
 
@@ -224,7 +224,7 @@ Solutions:
 - **Apollo Server's cache**: response cache keyed on query + variables.
 - **Field-level caching**: cache individual resolvers.
 - **Persisted queries**: predictable query identifiers; can use HTTP caching.
-- **CDN integration**: with persisted queries + GET, can cache at edge.
+- **CDN (Content Delivery Network) integration**: with persisted queries + GET, can cache at edge.
 
 ### Federation
 
@@ -243,7 +243,7 @@ Costs: operational complexity; cross-service resolvers can be slow.
 
 ### Subscriptions
 
-Real-time updates via WebSocket or SSE:
+Real-time updates via WebSocket or SSE (Server-Sent Events):
 
 ```graphql
 subscription {
@@ -345,7 +345,7 @@ Or middleware patterns. Easy to get wrong; auth bugs in GraphQL are common.
 ### When it doesn't fit
 
 - **Internal service-to-service.** gRPC is faster, more strongly typed, simpler.
-- **Simple CRUD APIs.** REST is fine.
+- **Simple CRUD (Create, Read, Update, Delete) APIs.** REST is fine.
 - **High-performance edge.** GraphQL's overhead matters.
 - **Teams without GraphQL expertise.** Operational complexity demands it.
 
@@ -370,7 +370,7 @@ Public GraphQL API with no complexity limits. Attacker sends a deeply-nested que
 Page loads 50 items; each does 5 sub-queries; each of those does 3 more. Without DataLoader: 50 × 5 × 3 = 750 DB queries. With DataLoader: ~10. Performance difference is 100×.
 
 **Scenario 3 — The auth bypass.**
-New field added to User type without auth directive. Attacker queries it; gets PII. Discovered weeks later. Mitigation: default-deny auth; explicit allow.
+New field added to User type without auth directive. Attacker queries it; gets PII (Personally Identifiable Information). Discovered weeks later. Mitigation: default-deny auth; explicit allow.
 
 **Scenario 4 — The schema explosion.**
 Schema has 5000 types; deprecated fields never removed; nobody knows what's used. Deprecating is impossible because usage tracking is hard. Recovery: schema audit; ownership; persisted-query analysis.
@@ -404,7 +404,7 @@ Federated query across 5 services. One service slow. Whole query slow. No circui
 - **API Design**: one of three primary styles. (See [api-design-rest-vs-grpc.md](./api-design-rest-vs-grpc.md).)
 - **HTTP/2**: GraphQL over HTTP. (See [http-2-and-http-3.md](../networking/http-2-and-http-3.md).)
 - **Caching**: GraphQL caching is harder. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
-- **CQRS**: GraphQL fits well with CQRS read models. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
+- **CQRS (Command Query Responsibility Segregation)**: GraphQL fits well with CQRS read models. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
 - **Edge computing**: GraphQL at edge with persisted queries. (See [edge-computing-and-cdns.md](../scalability/edge-computing-and-cdns.md).)
 - **WebSockets**: subscriptions use them. (See [websockets-and-realtime-protocols.md](../networking/websockets-and-realtime-protocols.md).)
 

@@ -48,7 +48,7 @@ A circuit breaker, in electrical engineering, is a switch that opens when curren
 A monolith dies; you restart it. Failure is binary: up or down. Cascading failures are constrained to one process. Bad, but bounded.
 
 **Era 2 — Service-oriented architecture (SOA).**
-Distributed systems multiply. ESBs and SOAP. Each service call has independent failure modes. Suddenly *partial* failure is the norm: 99% of calls succeed, 1% fail, and you have to write code for both. Most teams don't.
+Distributed systems multiply. ESBs (Enterprise Service Buses) and SOAP (Simple Object Access Protocol). Each service call has independent failure modes. Suddenly *partial* failure is the norm: 99% of calls succeed, 1% fail, and you have to write code for both. Most teams don't.
 
 **Era 3 — The microservices explosion (2010s).**
 Hundreds of services, dynamic routing, container orchestrators. Failure modes become combinatorial. Netflix open-sources Hystrix (2012), making circuit breakers mainstream. The Reactive Manifesto formalizes the principles: responsiveness, resilience, elasticity, message-driven.
@@ -59,7 +59,7 @@ Linkerd, Istio, Envoy push timeouts, retries, circuit breaking, and observabilit
 **Era 5 — Chaos engineering.**
 Netflix's Chaos Monkey (2011), then Gremlin, then everyone. The realization: you cannot build resilient systems without continuously *testing* the failure paths. Most "resilience features" don't actually work the first time you need them; you discover this during outages unless you discover it during drills.
 
-**Era 6 — SRE practices and error budgets.**
+**Era 6 — SRE (Site Reliability Engineering) practices and error budgets.**
 Google's SRE book (2016) codified the operational discipline. The realization: 100% reliability is the wrong goal. You target a number (99.9%, 99.99%) and *budget* failures against feature velocity. The practice of designing for and accepting partial failure becomes industry-standard.
 
 The pattern: each generation rediscovered that **systems must explicitly handle the failure of their dependencies, or those dependencies become single points of failure for the entire system**. The technology evolved; the lesson is constant.
@@ -105,7 +105,7 @@ Compartmentalization techniques:
 
 - **Per-dependency thread/connection pools.** Calls to Service A use Pool A; calls to Service B use Pool B. A's slowness can't exhaust the pool used by B.
 - **Per-tenant queues.** A noisy customer can fill their own queue without impacting others.
-- **Per-region or per-cell isolation.** A regional database issue doesn't affect other regions. Cellular architectures (AWS, Slack) take this to its logical extreme.
+- **Per-region or per-cell isolation.** A regional database issue doesn't affect other regions. Cellular architectures (AWS (Amazon Web Services), Slack) take this to its logical extreme.
 - **Async vs sync separation.** Background work and request-path work use entirely different infrastructure.
 
 The discipline: a *shared* resource is a *shared* failure mode. Identify what's shared; decide whether the sharing is acceptable; if not, isolate.
@@ -132,7 +132,7 @@ Every external call needs a timeout. Without exception. The timeout determines:
 - How much of the fleet's capacity can be tied up by one slow dependency.
 
 Setting timeouts:
-- **Lower bound:** the dependency's normal p99 latency.
+- **Lower bound:** the dependency's normal p99 (99th percentile) latency.
 - **Upper bound:** "how long am I willing to hold a connection?" — driven by your concurrency limit and arrival rate.
 - **Typical:** 2–5× the p99 latency. If p99 is 50ms, timeout 100–250ms.
 
@@ -186,12 +186,12 @@ A sprinkler activates only on the affected zone, not the entire building. Water 
 
 What 3am outages look like:
 
-- **The "everything's slow" alert.** Multiple unrelated services degraded simultaneously. Almost always a shared dependency (a database, a DNS resolver, an auth service). The fix is to identify the shared component, not to chase the symptoms.
+- **The "everything's slow" alert.** Multiple unrelated services degraded simultaneously. Almost always a shared dependency (a database, a DNS (Domain Name System) resolver, an auth service). The fix is to identify the shared component, not to chase the symptoms.
 - **The retry storm postmortem.** A 30-second blip in a downstream service caused a 4-hour outage because retries amplified the load tenfold and the system couldn't drain the queue even after the original problem resolved.
 - **The deploy that ate itself.** A new version with slightly higher per-request CPU rolled out. Each instance now hit CPU saturation under normal load. Auto-scaler added more instances; new instances were also slow; load balancer's retries amplified failure. Rollback fixed it; the cascading dynamics had nothing to do with code correctness, only with the new performance profile.
 - **The slow query of doom.** A new feature ran an unindexed query on a large table. Per-request latency 30s instead of 30ms. Connection pool saturated within seconds. Service appeared down. *The query itself* would have been fine if there had been per-endpoint concurrency limits.
-- **The circuit-breaker that didn't open.** Hystrix circuit breaker configured with `maxFailures: 100` on a service handling 1000 RPS. By the time the breaker opened, the upstream had already collapsed. Configuration must match the failure dynamics.
-- **The thundering recovery.** Cache cluster restarts. All instances retry simultaneously when the cluster comes back. Cluster crashes again under the retry storm. Without jitter, recovery itself becomes a DoS.
+- **The circuit-breaker that didn't open.** Hystrix circuit breaker configured with `maxFailures: 100` on a service handling 1000 RPS (Requests Per Second). By the time the breaker opened, the upstream had already collapsed. Configuration must match the failure dynamics.
+- **The thundering recovery.** Cache cluster restarts. All instances retry simultaneously when the cluster comes back. Cluster crashes again under the retry storm. Without jitter, recovery itself becomes a DoS (Denial of Service).
 - **The DNS-induced cascade.** A flaky internal DNS resolver. Lookups slow from 5ms to 5s. Every service call now takes 5s to start. Pools fill. Multi-team outage from a single DNS issue.
 
 ---
@@ -239,9 +239,9 @@ Circuit breaker on Service A → Service B. B has a transient 0.5% error rate (a
 - **Backpressure:** circuit breakers are backpressure with hysteresis. Same goal — don't send work into a saturated consumer. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Distributed consistency:** during a partition, the choice between A and C is the choice between "stay available with possibly-stale data" and "fail fast with consistency." Cascading failures are what happens when you fail to make this choice explicitly. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Caching:** stale-while-revalidate is graceful degradation in cache form. Stampedes are cascade triggers in cache form. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
-- **MVCC:** vacuum lag is a slow-cascade in databases — small problem grows until it explodes. Same dynamics, slower clock.
+- **MVCC (Multi-Version Concurrency Control):** vacuum lag is a slow-cascade in databases — small problem grows until it explodes. Same dynamics, slower clock.
 - **Event loop:** a blocked event loop is a single-process cascade — one slow operation starves all concurrent work.
-- **TCP:** TCP's window mechanism *is* a per-connection circuit breaker — the receiver tells the sender to stop when it can't keep up. The internet is built on this principle.
+- **TCP (Transmission Control Protocol):** TCP's window mechanism *is* a per-connection circuit breaker — the receiver tells the sender to stop when it can't keep up. The internet is built on this principle.
 
 The unifying observation: **resilience is not the absence of failure but the isolation of failure**. Every defensive pattern — circuit breakers, bulkheads, timeouts, load shedding — is an attempt to prevent local damage from becoming global damage.
 
@@ -249,9 +249,9 @@ The unifying observation: **resilience is not the absence of failure but the iso
 
 ## Real Production Scenarios 🟡
 
-- **The 2017 AWS S3 outage:** an operator typo took down a small set of capacity, which triggered a system-wide rebuild that took hours. Fundamentally a bulkheading and capacity-planning issue. AWS's response was to redesign with smaller cells.
+- **The 2017 AWS S3 (Simple Storage Service) outage:** an operator typo took down a small set of capacity, which triggered a system-wide rebuild that took hours. Fundamentally a bulkheading and capacity-planning issue. AWS's response was to redesign with smaller cells.
 - **GitHub's October 2018 incident:** a network partition flipped a database leader; replication conflicts; 24 hours of degraded performance. A textbook case of how multi-region active/active replication fails under partition.
-- **The 2021 Facebook outage:** a BGP misconfiguration disconnected Facebook's data centers from the internet *and* internal tools (which depended on the same DNS). Six hours of full outage. The lesson: don't bind your recovery tools to the system that's broken.
+- **The 2021 Facebook outage:** a BGP (Border Gateway Protocol) misconfiguration disconnected Facebook's data centers from the internet *and* internal tools (which depended on the same DNS). Six hours of full outage. The lesson: don't bind your recovery tools to the system that's broken.
 - **Netflix's chaos engineering papers:** documented cases of services that "should have been resilient" but weren't, discovered only by deliberately failing things in production.
 - **Cloudflare's 2019 regex outage:** catastrophic regex backtracking on the request path. No CPU-time backpressure. Workers stuck. Postmortem became a textbook on per-request resource limits.
 - **Slack's 2021 outage:** complex cascade involving DNS, AWS Transit Gateway, and a deploy. A masterclass in how seemingly-isolated infrastructure components are actually deeply coupled.
@@ -301,7 +301,7 @@ A starts seeing more timeouts. Threads on A wait. A's CPU is idle (waiting); A's
 A's load balancer health checks call A's /health endpoint.
 A is busy serving requests; threads block on B; thread pool exhausted.
 /health takes 5s (queued behind other work); fails.
-LB marks A instances as unhealthy.
+LB (Load Balancer) marks A instances as unhealthy.
 LB removes them from rotation.
 Remaining A instances see traffic share grow.
 Each becomes more saturated.
@@ -311,7 +311,7 @@ Cascading.
 ### Phase 4 — Retry amplification (T+3min to T+5min)
 
 ```
-Clients hitting A see errors; client SDKs retry (3x).
+Clients hitting A see errors; client SDKs (Software Development Kits) retry (3x).
 Retries hit other A instances.
 Each A instance's load multiplied by 4×.
 B's load multiplied accordingly.

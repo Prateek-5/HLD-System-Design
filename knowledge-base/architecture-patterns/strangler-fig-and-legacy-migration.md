@@ -143,7 +143,7 @@ Application writes the same data to both old and new stores. Critical: dual writ
 
 **Change Data Capture (CDC):**
 
-The new system subscribes to changes in the old system's data (via WAL streaming, Debezium, etc.). The new system stays in sync with the old without dual writes. Migration completes when the new system can serve reads correctly.
+The new system subscribes to changes in the old system's data (via WAL (Write-Ahead Log) streaming, Debezium, etc.). The new system stays in sync with the old without dual writes. Migration completes when the new system can serve reads correctly.
 
 ### The long-tail of migration effort
 
@@ -269,7 +269,7 @@ New system migrated 95% of features. Last 5% is "we don't think anyone uses thes
 - **API design**: the façade is an API; designing it well matters. (See [api-design-rest-vs-grpc.md](./api-design-rest-vs-grpc.md).)
 - **Database internals**: schema migrations during strangler use expand-contract. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
 - **Observability**: comparing old vs new requires excellent metrics. (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)
-- **CQRS**: sometimes the migration target uses CQRS where the legacy didn't. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
+- **CQRS (Command Query Responsibility Segregation)**: sometimes the migration target uses CQRS where the legacy didn't. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
 
 The unifying observation: **legacy migration is engineering's hardest problem, not because of the code but because of organizational dynamics. The strangler fig works because it aligns engineering pace with the reality that the legacy system isn't going to wait for you.**
 
@@ -280,8 +280,8 @@ The unifying observation: **legacy migration is engineering's hardest problem, n
 - **Shopify's monolith preservation**: extensive public engineering on extracting bounded contexts from a Rails monolith over a decade.
 - **Stripe's API migrations**: documented patterns for evolving APIs with thousands of customers.
 - **Netflix's monolith decomposition**: famous public talks on the multi-year journey.
-- **GitHub's online schema migrations**: GitHub runs MySQL at scale and built/open-sourced `gh-ost` for online, low-lock schema changes — a documented case study of safe, incremental database migration.
-- **Bank legacy modernizations**: many banks running 40-year-old COBOL systems alongside modern microservices, with strangler-fig migration strategies measured in decades.
+- **GitHub's online schema migrations**: GitHub runs MySQL (SQL = Structured Query Language) at scale and built/open-sourced `gh-ost` for online, low-lock schema changes — a documented case study of safe, incremental database migration.
+- **Bank legacy modernizations**: many banks running 40-year-old COBOL (Common Business-Oriented Language) systems alongside modern microservices, with strangler-fig migration strategies measured in decades.
 - **The Joel Spolsky essay**: "Things You Should Never Do, Part I" remains required reading.
 
 ---

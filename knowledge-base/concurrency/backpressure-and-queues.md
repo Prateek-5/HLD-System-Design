@@ -18,7 +18,7 @@
 
 ## Topic Overview 🟢
 
-Every system that processes work at a different rate than it receives it has a queue. Sometimes the queue is named — Kafka, RabbitMQ, SQS, Redis lists. Sometimes it's hidden — a TCP receive buffer, a Node.js stream's internal buffer, a thread pool's work queue, a database connection pool's wait list. The named queues get the conference talks. The hidden queues take down production at 3am.
+Every system that processes work at a different rate than it receives it has a queue. Sometimes the queue is named — Kafka, RabbitMQ, SQS (Simple Queue Service), Redis lists. Sometimes it's hidden — a TCP (Transmission Control Protocol) receive buffer, a Node.js stream's internal buffer, a thread pool's work queue, a database connection pool's wait list. The named queues get the conference talks. The hidden queues take down production at 3am.
 
 Backpressure is the answer to a question that almost every system gets wrong on the first try: **"What should we do when work arrives faster than we can process it?"** The naive answer is "buffer it." The naive answer fails the moment the buffer fills, the moment memory pressure starts paging, the moment latency goes from milliseconds to minutes because every request now waits behind ten thousand others.
 
@@ -53,7 +53,7 @@ Early servers accepted whatever came in, queued it for thread pools to process, 
 TCP itself solved this problem at the network layer in 1981. The receiver advertises a window: "I can take this many more bytes." The sender stops when the window is full. The Internet works because *flow control was built in from the start*. Application-layer protocols above TCP often forgot to do the same — and re-learned the lesson, painfully, decades later.
 
 **Era 3 — Bounded queues and rejection.**
-"Bulkheads" emerged from naval architecture as a metaphor: compartmentalize the ship so a leak in one room doesn't sink the boat. Erlang/OTP made this idiomatic. Hystrix (Netflix, 2012) made it mainstream. Bounded thread pools, bounded queues, fail-fast on saturation.
+"Bulkheads" emerged from naval architecture as a metaphor: compartmentalize the ship so a leak in one room doesn't sink the boat. Erlang/OTP (Open Telecom Platform) made this idiomatic. Hystrix (Netflix, 2012) made it mainstream. Bounded thread pools, bounded queues, fail-fast on saturation.
 
 **Era 4 — Reactive streams and explicit backpressure.**
 The Reactive Streams specification (2015) — Akka, RxJava, Project Reactor — formalized backpressure as a *protocol*: subscribers tell publishers how much they can take. Node.js streams (`pipe`, `pipeline`) bake the same idea into JS.
@@ -87,9 +87,9 @@ This is the central, terrifying result of queueing theory: **you cannot run a se
 Every system has them:
 
 - **TCP receive buffer.** The kernel buffers incoming bytes until the application calls `read()`. If the application is slow, the buffer fills, TCP's flow control kicks in, the sender slows down. This is *automatic* backpressure at the network layer.
-- **Application-level write buffers** (Node streams, Java NIO). When you `write()` to a slow socket, bytes pile up in user-space buffers before TCP. Without checking the `drain` event or `write` return value, you've accidentally built an unbounded buffer in your process.
+- **Application-level write buffers** (Node streams, Java NIO (New I/O)). When you `write()` to a slow socket, bytes pile up in user-space buffers before TCP. Without checking the `drain` event or `write` return value, you've accidentally built an unbounded buffer in your process.
 - **Database connection pool waiters.** A pool with 20 connections, a workload needing 25, 5 requests waiting. Unbounded waiter queue = your service holds connections it can never get, requests time out, retries pile on, *retry storms*.
-- **Thread pool work queues.** Default `Executors.newFixedThreadPool` in Java uses an unbounded `LinkedBlockingQueue`. The pool never rejects. It just consumes memory until OOM.
+- **Thread pool work queues.** Default `Executors.newFixedThreadPool` in Java uses an unbounded `LinkedBlockingQueue`. The pool never rejects. It just consumes memory until OOM (Out Of Memory).
 - **Logging.** An async logger with an in-memory buffer can lose data, block the application, or both. Backpressure or sampling is mandatory at high volume.
 
 ### Backpressure mechanisms
@@ -152,7 +152,7 @@ This is the *correct* way to handle large data flows in Node. The wrong way: `fo
 
 Modern systems borrow from TCP congestion control:
 
-1. Measure the *base RTT* — the latency under no contention.
+1. Measure the *base RTT* (Round-Trip Time) — the latency under no contention.
 2. Track the *current RTT* under load.
 3. The ratio (current/base) reveals queueing within the system.
 4. Adjust concurrency limit up if the ratio is small, down if large.
@@ -171,7 +171,7 @@ Heavily congested highways install ramp meters — traffic lights at the on-ramp
 Without the meter, the on-ramp queue moves onto the highway, and throughput collapses for everyone. With the meter, the queue stays at the entry — visible, manageable, fixable.
 
 **The hospital triage analogy.**
-An ER overwhelmed by patients doesn't process them in arrival order. A triage nurse classifies severity. The most urgent get seen immediately; minor injuries wait. Sometimes minor injuries are *turned away* and sent to urgent care. That's load shedding with priority. Real systems should triage too — health checks shouldn't queue behind expensive analytical queries.
+An ER (Emergency Room) overwhelmed by patients doesn't process them in arrival order. A triage nurse classifies severity. The most urgent get seen immediately; minor injuries wait. Sometimes minor injuries are *turned away* and sent to urgent care. That's load shedding with priority. Real systems should triage too — health checks shouldn't queue behind expensive analytical queries.
 
 ---
 
@@ -235,7 +235,7 @@ A team builds adaptive concurrency limiting based on response time. The downstre
 - **CPU pipelines:** out-of-order execution and pipeline stalls in CPUs are queue management at the silicon level.
 - **Database connection pools:** waiter queues, timeouts, max concurrency — all queue management.
 - **Cache stampedes:** thundering herds on cache misses are *uncontrolled queue formation* on a backend that wasn't sized for the burst (see [caching-hierarchy.md](../caching/caching-hierarchy.md)).
-- **MVCC:** vacuum is essentially a background consumer of "dead version" work. If it falls behind, the system bloats — same lag-explosion failure mode as Kafka.
+- **MVCC (Multi-Version Concurrency Control):** vacuum is essentially a background consumer of "dead version" work. If it falls behind, the system bloats — same lag-explosion failure mode as Kafka.
 - **OS schedulers:** run queues, wait queues, I/O queues — the entire OS is a hierarchy of queues with various scheduling policies.
 
 The unifying observation: **every system that processes work asynchronously is a network of queues, and queues without explicit backpressure inevitably fail under sustained overload.** This is not a bug; it's a mathematical property of producer-consumer systems.
@@ -244,7 +244,7 @@ The unifying observation: **every system that processes work asynchronously is a
 
 ## Real Production Scenarios 🟡
 
-- **AWS Lambda's concurrency limits and SQS dead-letter queues:** entire chapters of AWS docs are about backpressure between Lambda and event sources. Throttling, DLQs, and reserved concurrency are all expressions of this.
+- **AWS Lambda's concurrency limits and SQS dead-letter queues:** entire chapters of AWS docs are about backpressure between Lambda and event sources. Throttling, DLQs (Dead-Letter Queues), and reserved concurrency are all expressions of this.
 - **GitHub's webhook delivery:** documented engineering posts on processing webhooks at scale, including handling slow customer endpoints without letting them stall the system. Per-customer queues and circuit breakers per endpoint.
 - **Slack's job queue at scale:** publicly described moves from RabbitMQ to Kafka and the lag-monitoring discipline that came with it.
 - **Netflix's Concurrency Limits library:** open-sourced adaptive concurrency control, born from real outages where fixed thread pools failed under varying downstream conditions.
@@ -372,7 +372,7 @@ Multiple layers of backpressure:
 ```python
 # Connection pool with explicit timeout and rejection
 db_pool = create_pool(
-    dsn=DSN,
+    dsn=DSN,  # DSN (Data Source Name)
     min_size=10,
     max_size=50,           # hard cap
     queue_timeout=5.0,     # waiting for a connection times out at 5s
@@ -449,7 +449,7 @@ Each arrow has a bound. Each bound has a behavior at the limit (reject, retry, f
 - **Stripe's outbox / Kafka usage**: patterns for reliable event emission with backpressure.
 - **Netflix's adaptive concurrency limits library**: continues to be referenced for service-level backpressure.
 - **Linkerd's retry budgets**: in-cluster backpressure pattern.
-- **The "load shedding" practices at Google SRE**: continuing reference material.
+- **The "load shedding" practices at Google SRE (Site Reliability Engineering)**: continuing reference material.
 
 ---
 

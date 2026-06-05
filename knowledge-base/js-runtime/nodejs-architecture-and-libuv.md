@@ -38,7 +38,7 @@ When a client asks for something that requires *waiting* (a translation by an ex
 
 The backroom is multi-threaded. They have a pool of workers (the libuv thread pool). The receptionist is single-threaded — only one client gets the receptionist's attention at any given moment.
 
-This is exactly Node. V8 is the receptionist. libuv is the backroom. The event loop is the receptionist's discipline of "take a client, possibly hand off to backroom, look at the tray, take the next client." Everything Node does — HTTP servers, databases, file I/O, DNS, crypto — fits this pattern.
+This is exactly Node. V8 is the receptionist. libuv is the backroom. The event loop is the receptionist's discipline of "take a client, possibly hand off to backroom, look at the tray, take the next client." Everything Node does — HTTP servers, databases, file I/O (Input/Output), DNS (Domain Name System), crypto — fits this pattern.
 
 ---
 
@@ -54,7 +54,7 @@ Google's V8 makes JavaScript fast enough to be a serious server language. Just-i
 Ryan Dahl combines V8 with libev (event loop), libeio (a thread pool for async file I/O — the ancestor of today's thread pool), and c-ares (async DNS). Demonstrates async HTTP serving with single-threaded JavaScript outperforming threaded servers. The talk goes viral.
 
 **Era 4 — libev → libuv (2011).**
-Original libev was Unix-only. libuv was created to abstract async I/O across all major platforms — Linux's epoll, macOS's kqueue, Windows's IOCP. Node's portability becomes a first-class property.
+Original libev was Unix-only. libuv was created to abstract async I/O across all major platforms — Linux's epoll, macOS's kqueue, Windows's IOCP (Input/Output Completion Ports). Node's portability becomes a first-class property.
 
 **Era 5 — npm and the ecosystem.**
 2010s. The npm registry grows to millions of packages. Node becomes the default for new web backends, CLI tools, build tooling. Pain points (callback hell, error handling) drive language additions: Promises (ES2015), async/await (ES2017).
@@ -106,7 +106,7 @@ libuv is a C library providing:
 - **Event loop**: phase-based, single-threaded.
 - **Cross-platform abstraction**: epoll (Linux), kqueue (macOS), IOCP (Windows), event ports (Solaris).
 - **Asynchronous file I/O** via thread pool.
-- **TCP, UDP, named pipes** with full async support.
+- **TCP (Transmission Control Protocol), UDP (User Datagram Protocol), named pipes** with full async support.
 - **Timers, signals, child processes**.
 - **DNS resolution** (synchronous via `getaddrinfo`, async via `c-ares`).
 - **Thread pool**: default 4 threads; configurable.
@@ -199,7 +199,7 @@ For genuinely CPU-bound work, `worker_threads` (added in Node 10) provides:
 - Communication via message passing.
 - Shared memory possible via `SharedArrayBuffer`.
 
-Use cases: image processing, ML inference, complex regex, encryption beyond what crypto.pbkdf2 covers. The IPC cost is real (~ms per message); reserve workers for tasks that take ≥10ms.
+Use cases: image processing, ML (Machine Learning) inference, complex regex, encryption beyond what crypto.pbkdf2 covers. The IPC (Inter-Process Communication) cost is real (~ms per message); reserve workers for tasks that take ≥10ms.
 
 Each worker is a full V8 instance. Memory cost is significant (~50MB+ per worker). Use a pool, not one-per-task.
 
@@ -231,7 +231,7 @@ Node's V8 has a default old-space heap limit (`--max-old-space-size`):
 - Not a flat 2 GB: the historical fixed default was ~1.5 GB. Modern Node (since ~v12) instead derives the limit from available physical memory (roughly half of RAM, up to a cap, raised on large-memory machines).
 - Configurable up to many GB.
 
-GC pauses scale with heap size. A 4 GB heap with frequent old-gen collections can pause 50-200ms. For latency-sensitive services, smaller heaps with multiple processes often beat one giant heap.
+GC (Garbage Collection) pauses scale with heap size. A 4 GB heap with frequent old-gen collections can pause 50-200ms. For latency-sensitive services, smaller heaps with multiple processes often beat one giant heap.
 
 (See [v8-internals-and-hidden-classes.md](./v8-internals-and-hidden-classes.md) for V8 GC detail.)
 
@@ -273,7 +273,7 @@ A route handler computes statistics over 100K records using a tight `for` loop. 
 After upgrade to Node 15+, an unhandled promise rejection terminates the process. Production was relying on the older permissive behavior. Crashes in production from existing latent bugs. Fix: add `.catch` to every promise chain; or set `--unhandled-rejections=warn` (not recommended; permanent fix is `.catch`).
 
 **Scenario 4 — The memory leak from intervals.**
-`setInterval` callbacks keep references to large objects. Intervals never cleared. Memory grows steadily. OOM at 24-hour mark. Mitigation: clear intervals in cleanup paths; use weak references where appropriate.
+`setInterval` callbacks keep references to large objects. Intervals never cleared. Memory grows steadily. OOM (Out Of Memory) at 24-hour mark. Mitigation: clear intervals in cleanup paths; use weak references where appropriate.
 
 **Scenario 5 — The cold-start surprise.**
 Lambda function uses Node. First invocation: 800ms (cold start: container init, Node boot, deps loaded). Subsequent: 5ms. p99 latency for cold starts ruined. Mitigation: provisioned concurrency; smaller bundle; faster init.
@@ -282,7 +282,7 @@ Lambda function uses Node. First invocation: 800ms (cold start: container init, 
 
 ## Performance Perspective 🟡
 
-- **V8 JIT**: hot code runs at near-native speeds.
+- **V8 JIT (Just-In-Time compilation)**: hot code runs at near-native speeds.
 - **Async I/O**: tens of thousands of concurrent connections per process.
 - **Single-threaded execution**: CPU work caps at one core's worth.
 - **Thread pool**: bounded; tune for workload.
@@ -296,7 +296,7 @@ Lambda function uses Node. First invocation: 800ms (cold start: container init, 
 - **Vertical**: one Node process uses one CPU core for JS. Scale-up doesn't help unless using cluster/workers.
 - **Horizontal**: cluster mode (multi-process per machine) or container orchestration (multi-container).
 - **Stateful services**: Node handles tens of thousands of WebSocket connections per process, more than thread-per-connection servers.
-- **Microservices fit**: Node's strengths — fast startup (relative to JVM), I/O-heavy workloads, JSON-friendly — align with microservices needs.
+- **Microservices fit**: Node's strengths — fast startup (relative to JVM (Java Virtual Machine)), I/O-heavy workloads, JSON-friendly — align with microservices needs.
 - **Edge computing**: Cloudflare Workers, Vercel Edge use V8 isolates (not full Node) for sub-ms cold starts.
 
 ---
@@ -307,7 +307,7 @@ Lambda function uses Node. First invocation: 800ms (cold start: container init, 
 - **V8 internals**: V8 powers Node's JS execution; hidden classes, IC, GC apply directly. (See [v8-internals-and-hidden-classes.md](./v8-internals-and-hidden-classes.md).)
 - **Concurrency**: Node provides concurrency without parallelism by default; worker_threads add parallelism. (See [parallelism-vs-concurrency.md](../concurrency/parallelism-vs-concurrency.md).)
 - **Backpressure**: Node streams have built-in backpressure via `pipe`/`pipeline`. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
-- **Observability**: event loop lag is a Node-specific SLI. (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)
+- **Observability**: event loop lag is a Node-specific SLI (Service Level Indicator). (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)
 - **Microservices**: Node's small overhead and fast iteration favor microservice architectures. (See [microservices-vs-monolith.md](../architecture-patterns/microservices-vs-monolith.md).)
 
 The unifying observation: **Node is a runtime architecture, not a language. Understanding the V8 + libuv split is what separates "I write Node" from "I operate Node services."**
@@ -335,7 +335,7 @@ The unifying observation: **Node is a runtime architecture, not a language. Unde
 - **`process.nextTick` runs before microtasks**, and recursive `nextTick` can starve I/O entirely — service appears hung with no errors. Prefer `setImmediate` for "next iteration" semantics.
 - **Scale across cores** with cluster mode (N separate processes, not threads) or, preferably, multiple deployed containers behind a load balancer.
 - **Monitor event loop lag** in production (`perf_hooks.monitorEventLoopDelay`); lag > 100ms is a serious tail-latency problem. Profile with `--prof` or clinic.js, and size heap explicitly with `--max-old-space-size` rather than tuning one giant process.
-- **Other production traps** beyond the failure scenarios above: a regex with catastrophic backtracking (ReDoS) can burn tens of seconds of pure CPU on a single request and freeze the whole process — an attacker-triggerable DoS, so guard untrusted input with timeouts or a safe regex engine; large objects captured in long-lived closures or never-cleared `setInterval` callbacks leak memory; a big synchronous JSON parse during a hot request spikes p99 (stream-parse or move to a worker); an unhandled promise rejection crashes modern Node by default (always `.catch`).
+- **Other production traps** beyond the failure scenarios above: a regex with catastrophic backtracking (ReDoS (Regular expression Denial of Service)) can burn tens of seconds of pure CPU on a single request and freeze the whole process — an attacker-triggerable DoS (Denial of Service), so guard untrusted input with timeouts or a safe regex engine; large objects captured in long-lived closures or never-cleared `setInterval` callbacks leak memory; a big synchronous JSON parse during a hot request spikes p99 (stream-parse or move to a worker); an unhandled promise rejection crashes modern Node by default (always `.catch`).
 - **The core bet:** Node traded per-process CPU parallelism for I/O concurrency, and won for a vast set of workloads. The senior skill is knowing where the line sits between "I/O-bound (great fit)" and "CPU-bound (escape Node)" — and, when something's slow, asking whether V8 is working hard (CPU blocking), libuv is saturated (pool starvation), or the kernel is slow (I/O).
 
 ## Interview angle

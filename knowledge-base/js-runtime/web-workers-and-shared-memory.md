@@ -18,9 +18,9 @@
 
 ## Topic Overview 🟢
 
-JavaScript's single-threaded model is a feature, not a bug. The simplicity — no race conditions, no locks, no shared mutable state across threads — is what made it the most-deployed programming language in history. But "single-threaded" is increasingly a constraint, not a property. CPU-heavy work blocks the UI; ML inference can't run on the main thread; large data processing crawls.
+JavaScript's single-threaded model is a feature, not a bug. The simplicity — no race conditions, no locks, no shared mutable state across threads — is what made it the most-deployed programming language in history. But "single-threaded" is increasingly a constraint, not a property. CPU-heavy work blocks the UI (User Interface); ML (Machine Learning) inference can't run on the main thread; large data processing crawls.
 
-The answer was Web Workers (browser, 2009) and Worker Threads (Node, 2018). Each is a separate JavaScript execution context — its own V8 isolate, its own event loop, its own memory. Communication is via message passing (`postMessage`). The single-threaded property is preserved *within each worker*; parallelism is across workers.
+The answer was Web Workers (browser, 2009) and Worker Threads (Node, 2018). Each is a separate JavaScript execution context — its own V8 (Google's JavaScript engine) isolate, its own event loop, its own memory. Communication is via message passing (`postMessage`). The single-threaded property is preserved *within each worker*; parallelism is across workers.
 
 For genuinely shared state, SharedArrayBuffer (2017+, with security restrictions) provides shared memory between workers. With Atomics for safe synchronization, JavaScript can do what C does — but with sharply restricted scopes and explicit opt-in.
 
@@ -52,13 +52,13 @@ That's Web Workers, Worker Threads, and shared memory. JavaScript's reluctant pa
 1990s-2000s. JavaScript ran on one thread; long-running scripts froze the browser. Acceptable when JS was used lightly.
 
 **Era 2 — Web Workers (2009).**
-WHATWG specifies Web Workers. Browsers implement. Each worker is a separate execution context; communicates via postMessage. Slow adoption initially.
+WHATWG (Web Hypertext Application Technology Working Group) specifies Web Workers. Browsers implement. Each worker is a separate execution context; communicates via postMessage. Slow adoption initially.
 
 **Era 3 — Service Workers (2014).**
-A specialized worker for offline-first PWAs. Different from regular workers but shares the model.
+A specialized worker for offline-first PWAs (Progressive Web Apps). Different from regular workers but shares the model.
 
 **Era 4 — SharedArrayBuffer (2017).**
-Spectre attacks (2018) caused browsers to disable SharedArrayBuffer temporarily. Required cross-origin isolation headers (COOP, COEP) to re-enable. Practical use complicated by these requirements.
+Spectre attacks (2018) caused browsers to disable SharedArrayBuffer temporarily. Required cross-origin isolation headers (COOP (Cross-Origin-Opener-Policy), COEP (Cross-Origin-Embedder-Policy)) to re-enable. Practical use complicated by these requirements.
 
 **Era 5 — Worker Threads in Node (2018).**
 Node 10+ ships worker_threads. Same model as Web Workers but in Node. Server-side parallelism within a single Node process.
@@ -93,7 +93,7 @@ self.onmessage = (e) => {
 
 Properties:
 - Worker file is a separate JS file (or Blob URL).
-- No DOM access in the worker.
+- No DOM (Document Object Model) access in the worker.
 - Communication only via message passing.
 - Worker can have its own subworkers.
 
@@ -174,7 +174,7 @@ Atomics.add(view, 0, 1);   // atomic increment
 Atomics.load(view, 0);      // atomic read
 Atomics.store(view, 0, 42); // atomic write
 
-Atomics.compareExchange(view, 0, expected, replacement);  // CAS
+Atomics.compareExchange(view, 0, expected, replacement);  // CAS (Compare-And-Swap)
 
 Atomics.wait(view, 0, value, timeout);   // futex-like wait
 Atomics.notify(view, 0, count);          // wake up waiters
@@ -211,7 +211,7 @@ TensorFlow.js can run models in workers (or with WebAssembly + workers + SharedA
 Heavy crypto work shouldn't block UI; offload to worker.
 
 **Large data parsing.**
-Parsing huge JSON, CSV, XML files. Worker parses; main thread receives parsed results.
+Parsing huge JSON, CSV (Comma-Separated Values), XML (Extensible Markup Language) files. Worker parses; main thread receives parsed results.
 
 **Streaming / pipelines.**
 Worker handles a stage of processing; pipeline of workers via MessageChannels.
@@ -267,7 +267,7 @@ Production patterns are more elaborate (error handling, worker termination, etc.
 
 The combination enabling near-native parallel computation in the browser:
 
-- WASM module compiled with threading support.
+- WASM (WebAssembly) module compiled with threading support.
 - Multiple workers each running the same module.
 - Workers share memory via SharedArrayBuffer.
 - Atomics provide synchronization.
@@ -323,7 +323,7 @@ Engineer thinks "we have a worker"; uses it for one task; main thread still has 
 
 ## Scaling Perspective 🟡
 
-- **Browser**: typically 4-16 workers practical; one per CPU core.
+- **Browser**: typically 4-16 workers practical; one per CPU (Central Processing Unit) core.
 - **Node**: similar; tune to CPU count.
 - **At scale**: workers + clustering (Node) or workers + multiple tabs (browser, rare).
 
@@ -345,7 +345,7 @@ The unifying observation: **Web Workers and Worker Threads are JavaScript's cont
 
 - **Figma's collaborative editor**: extensive worker use for rendering, collaboration sync, etc. Public engineering posts.
 - **Google Docs**: heavy use of workers for spreadsheet calculations.
-- **TensorFlow.js**: WebGL backend + workers for ML inference.
+- **TensorFlow.js**: WebGL (Web Graphics Library) backend + workers for ML inference.
 - **Photoshop on the web (Adobe)**: heavy WebAssembly + workers + SharedArrayBuffer.
 - **Node.js worker_threads in production**: ML inference, image processing, crypto offload.
 

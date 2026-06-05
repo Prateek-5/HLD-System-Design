@@ -41,13 +41,13 @@ The entire performance story of V8 is "the JIT learns from runtime behavior, and
 ## Historical Evolution 🟡
 
 **Era 1 — Pure interpreters.**
-Early JavaScript engines (Mozilla's SpiderMonkey 1.0, IE's JScript) interpreted the AST node-by-node. Slow, but simple. JavaScript on the web was a toy.
+Early JavaScript engines (Mozilla's SpiderMonkey 1.0, IE's JScript) interpreted the AST (Abstract Syntax Tree) node-by-node. Slow, but simple. JavaScript on the web was a toy.
 
 **Era 2 — V8's launch (2008).**
 Lars Bak and team at Google ship V8 with Chrome. Innovation: skip the AST, compile JS directly to machine code on first execution. Add hidden classes (an old idea from Self in the 1980s). Make property access fast. Suddenly JS is 10× faster than competitors.
 
 **Era 3 — The compiler arms race.**
-SpiderMonkey adds JägerMonkey, then IonMonkey. JavaScriptCore (Apple) adds DFG and FTL. V8 adds Crankshaft (2010), then TurboFan (2017). Each generation: more aggressive speculation, more inlining, more SIMD-style optimizations. The gap between optimized JS and C narrows from 10× to 2× for hot code.
+SpiderMonkey adds JägerMonkey, then IonMonkey. JavaScriptCore (Apple) adds DFG (Data Flow Graph) and FTL (Faster Than Light). V8 adds Crankshaft (2010), then TurboFan (2017). Each generation: more aggressive speculation, more inlining, more SIMD (Single Instruction, Multiple Data)-style optimizations. The gap between optimized JS and C narrows from 10× to 2× for hot code.
 
 **Era 4 — Ignition + TurboFan (2017).**
 V8's modern architecture: Ignition (a fast bytecode interpreter that's also where type feedback is collected) and TurboFan (the optimizing compiler). Code starts in the interpreter; hot functions tier up to TurboFan. This pipeline is still the V8 you're running today.
@@ -58,7 +58,7 @@ A non-optimizing baseline compiler that sits between Ignition and TurboFan. Igni
 **Era 6 — Maglev (2023).**
 Another tier between Sparkplug and TurboFan. The pipeline is now Ignition → Sparkplug → Maglev → TurboFan, each successive tier costing more to compile but generating better code. V8's latency vs throughput tradeoff is now solved by *tiering*.
 
-The pattern across eras: **V8 spends compute to make later compute faster, and the architecture is increasingly about choosing which tier of compilation makes sense for which code**. JavaScript is no longer "interpreted" in any meaningful sense — it's a tiered JIT with type speculation.
+The pattern across eras: **V8 spends compute to make later compute faster, and the architecture is increasingly about choosing which tier of compilation makes sense for which code**. JavaScript is no longer "interpreted" in any meaningful sense — it's a tiered JIT (Just-In-Time) with type speculation.
 
 ---
 
@@ -77,7 +77,7 @@ At every property access site, V8 caches the hidden class it saw last time. Same
 TurboFan generates code assuming "this argument is always an integer," "this object always has property X." If those assumptions break, the generated code is wrong. V8 must detect this and *deoptimize* — fall back to a less-specialized version. Deoptimization is expensive; repeated deoptimization is performance-destroying.
 
 **5. Memory is generational and segmented.**
-Most allocations die young. V8's GC reflects this: a small "young generation" collected frequently, a larger "old generation" collected rarely. The GC's design assumes typical object lifetimes; pathological allocation patterns defeat it.
+Most allocations die young. V8's GC (Garbage Collector) reflects this: a small "young generation" collected frequently, a larger "old generation" collected rarely. The GC's design assumes typical object lifetimes; pathological allocation patterns defeat it.
 
 ---
 
@@ -168,7 +168,7 @@ You can see deopts directly: run Node with `--trace-deopt` or `--trace-opt`. The
 ### Garbage collection — generational
 
 V8's heap is divided:
-- **Young generation (new space)**, ~1–8 MB. Most allocations land here. Collected frequently with a fast copying collector (Scavenge). Surviving objects are promoted to old space.
+- **Young generation (new space)**, ~1–8 MB (Megabytes). Most allocations land here. Collected frequently with a fast copying collector (Scavenge). Surviving objects are promoted to old space.
 - **Old generation (old space)**, gigabytes. Collected with a mark-sweep-compact, mostly concurrent and incremental, in modern V8 (Orinoco).
 
 Why generational works: **the weak generational hypothesis**. Most objects die young. Closures created in a request handler, intermediate strings, temporary arrays — all dead by the end of the function. Collecting the young generation costs almost nothing because most of it is garbage by the time you look.
@@ -186,7 +186,7 @@ V8's GC is *mostly* incremental and concurrent — it does work in small slices 
 - **Memory leaks** force more frequent old-gen collection.
 - **Large object allocations** can trigger full collections.
 
-For latency-sensitive servers, GC pauses are *the* tail-latency villain. You can have a service with p50 of 5ms and p99 of 200ms purely because of GC. Mitigations:
+For latency-sensitive servers, GC pauses are *the* tail-latency villain. You can have a service with p50 (50th percentile) of 5ms and p99 (99th percentile) of 200ms purely because of GC. Mitigations:
 - Reduce allocations in hot paths (object pooling, buffer reuse).
 - Avoid creating closures in tight loops.
 - Avoid large temporary objects.
@@ -311,10 +311,10 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ## Cross-Domain Connections 🟡
 
-- **CPU caches.** Hidden classes are L1/L2-cache-friendly because they're small and frequently accessed. Inline caches are *literally* caches, with similar hit/miss dynamics.
+- **CPU caches.** Hidden classes are L1/L2 (Level 1/Level 2)-cache-friendly because they're small and frequently accessed. Inline caches are *literally* caches, with similar hit/miss dynamics.
 - **Database query plans.** V8's IC states (mono → poly → mega) mirror database query planners' decisions about cached vs replanned execution. Same theory: speculate based on observed types, fall back when speculation fails.
 - **Branch prediction.** TurboFan's speculative optimizations are software-level branch prediction. The hardware does the same thing on every conditional jump.
-- **Garbage collection vs MVCC.** Generational GC and MVCC vacuum solve the same problem (reclaim dead versions/objects) at different layers. Both have "long-lived references prevent reclamation" failure modes.
+- **Garbage collection vs MVCC.** Generational GC and MVCC (Multi-Version Concurrency Control) vacuum solve the same problem (reclaim dead versions/objects) at different layers. Both have "long-lived references prevent reclamation" failure modes.
 - **Caching.** V8's optimization tiers are a cache hierarchy for code: Ignition is the source of truth; TurboFan is the L1 cache.
 - **Event loop.** A function that triggers heavy GC pauses *blocks the event loop* for the pause duration. V8 internals are upstream of every Node performance concern.
 
@@ -322,7 +322,7 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ## Real Production Scenarios 🔴
 
-- **Bun's V8-vs-JavaScriptCore choice.** Bun chose JSC in part because of startup time differences. The tradeoff: JSC's tiered system has different characteristics than V8's, particularly for short-lived processes.
+- **Bun's V8-vs-JavaScriptCore choice.** Bun chose JSC (JavaScriptCore) in part because of startup time differences. The tradeoff: JSC's tiered system has different characteristics than V8's, particularly for short-lived processes.
 - **Node.js worker threads' adoption.** Driven partly by V8 heap-size limits — multiple worker threads scale better than one giant heap.
 - **Cloudflare Workers' V8 isolate model.** Each Worker runs in a V8 isolate (a sandboxed instance) for sub-millisecond cold starts. Demonstrates V8's flexibility as an embeddable runtime.
 - **The Lodash 4 → modern era.** Why Lodash isn't always faster than native: native methods are JIT-friendly; Lodash's generic helpers can be polymorphic. Replacing Lodash with native often produces measurable wins in hot code.

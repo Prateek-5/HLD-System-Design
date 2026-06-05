@@ -42,13 +42,13 @@ That's Kubernetes. You declare desired state; controllers reconcile reality towa
 2003+. Google's internal cluster manager. Documented in 2015 paper. Scheduled millions of jobs across hundreds of thousands of machines.
 
 **Era 2 — Kubernetes 1.0 (2015).**
-Open-source successor to Borg. CNCF stewardship. Slow initial adoption.
+Open-source successor to Borg. CNCF (Cloud Native Computing Foundation) stewardship. Slow initial adoption.
 
 **Era 3 — Mainstream adoption.**
-2017+. Kubernetes wins the orchestration wars. Docker Swarm, Mesos fade. Cloud providers offer managed K8s (EKS, GKE, AKS).
+2017+. Kubernetes wins the orchestration wars. Docker Swarm, Mesos fade. Cloud providers offer managed K8s (EKS — Elastic Kubernetes Service, GKE — Google Kubernetes Engine, AKS — Azure Kubernetes Service).
 
 **Era 4 — Operator pattern.**
-~2018. Custom controllers extend Kubernetes for stateful workloads (databases, etc.). CRDs ubiquitous.
+~2018. Custom controllers extend Kubernetes for stateful workloads (databases, etc.). CRDs (Custom Resource Definitions) ubiquitous.
 
 **Era 5 — Service mesh integration.**
 ~2019. Istio, Linkerd, others. Networking-heavy features push down into infrastructure.
@@ -67,8 +67,8 @@ The pattern: Kubernetes won by combining Borg's design with open-source communit
 ### Architecture overview
 
 Control plane:
-- **etcd**: distributed KV store; cluster's source of truth.
-- **kube-apiserver**: REST API; the only thing that writes to etcd.
+- **etcd**: distributed KV (Key-Value) store; cluster's source of truth.
+- **kube-apiserver**: REST (Representational State Transfer) API; the only thing that writes to etcd.
 - **kube-scheduler**: assigns pods to nodes.
 - **kube-controller-manager**: runs core controllers.
 - **cloud-controller-manager**: cloud-specific integration.
@@ -76,19 +76,20 @@ Control plane:
 Worker nodes:
 - **kubelet**: runs pods on the node; reports status.
 - **kube-proxy**: implements service networking.
-- **Container runtime**: containerd, CRI-O.
+- **Container runtime**: containerd, CRI-O (Container Runtime Interface for OCI).
 
-CNI plugins: pod networking. CSI plugins: storage.
+CNI (Container Network Interface) plugins: pod networking. CSI (Container Storage Interface) plugins: storage.
 
 ### etcd
 
 A consensus-based KV store (Raft). Stores all cluster state.
 
+
 Properties:
 - 3-, 5-, or 7-node clusters typical.
 - Strong consistency.
 - Write throughput is workload- and fsync-bound; under real K8s object churn it is often far lower than headline benchmark numbers, so treat it as latency-sensitive rather than high-throughput. Reads cached.
-- Latency-sensitive: SSD storage required.
+- Latency-sensitive: SSD (Solid-State Drive) storage required.
 
 When etcd is unhealthy, the cluster is effectively unusable. Operators monitor etcd carefully.
 
@@ -154,7 +155,7 @@ Runs on each node. Watches for pods scheduled to itself; runs them.
 
 Responsibilities:
 - Pull container images.
-- Start containers via CRI.
+- Start containers via CRI (Container Runtime Interface).
 - Health probes (liveness, readiness, startup).
 - Report status.
 - Handle volume mounts.
@@ -173,20 +174,20 @@ Most pods are single-container. Multi-container patterns: sidecar (logging, prox
 
 ### Services and networking
 
-Services give pods stable virtual IPs:
+Services give pods stable VIPs (Virtual IPs):
 - ClusterIP: internal only.
 - NodePort: exposed on each node's port.
-- LoadBalancer: cloud LB.
+- LoadBalancer: cloud LB (Load Balancer).
 - Headless: no virtual IP; DNS only.
 
-Service IPs are routed by `kube-proxy` (iptables, IPVS, or eBPF) on each node.
+Service IPs are routed by `kube-proxy` (iptables, IPVS — IP Virtual Server, or eBPF — extended Berkeley Packet Filter) on each node.
 
-DNS: each service has a DNS name (`my-service.my-namespace.svc.cluster.local`). CoreDNS resolves.
+DNS (Domain Name System): each service has a DNS name (`my-service.my-namespace.svc.cluster.local`). CoreDNS resolves.
 
 ### Storage
 
 CSI (Container Storage Interface) abstracts storage.
-- PVs (PersistentVolumes): backed by storage provisioners (cloud disk, NFS, etc.).
+- PVs (PersistentVolumes): backed by storage provisioners (cloud disk, NFS — Network File System, etc.).
 - PVCs (PersistentVolumeClaims): pod's request for a PV.
 - StorageClasses: templates for dynamic provisioning.
 
@@ -194,7 +195,7 @@ Stateful workloads use StatefulSets + PVCs.
 
 ### Ingress
 
-L7 routing into the cluster. Ingress objects describe routing rules; ingress controllers implement them (nginx, Traefik, Envoy, cloud-managed).
+L7 (Layer 7, application layer) routing into the cluster. Ingress objects describe routing rules; ingress controllers implement them (nginx, Traefik, Envoy, cloud-managed).
 
 Modern alternative: Gateway API (more flexible).
 
@@ -206,8 +207,8 @@ Default: open. With network policies: deny by default; explicit allow rules.
 
 ### Authentication and authorization
 
-- **Authentication**: who is the request from? (X.509, tokens, OIDC.)
-- **Authorization**: what can they do? (RBAC roles and bindings.)
+- **Authentication**: who is the request from? (X.509, tokens, OIDC — OpenID Connect.)
+- **Authorization**: what can they do? (RBAC — Role-Based Access Control — roles and bindings.)
 - **Admission control**: should this request be allowed? (Validating/mutating webhooks.)
 
 Multi-layer security; production clusters use all three.
@@ -223,7 +224,7 @@ metadata:
 spec: ...
 ```
 
-Combined with custom controllers (Operators), CRDs allow Kubernetes to manage anything: databases, message queues, ML pipelines.
+Combined with custom controllers (Operators), CRDs allow Kubernetes to manage anything: databases, message queues, ML (Machine Learning) pipelines.
 
 ### Operators
 
@@ -256,9 +257,9 @@ Industry standard for sharing K8s configurations. Some teams replace with Kustom
 
 **Network policies.** Complex to maintain; hard to debug.
 
-**Resource sizing.** Pods OOMing because requests/limits set wrong.
+**Resource sizing.** Pods OOMing (Out Of Memory) because requests/limits set wrong.
 
-**Cost.** Idle nodes; oversized pods. FinOps for K8s is a discipline.
+**Cost.** Idle nodes; oversized pods. FinOps (Financial Operations) for K8s is a discipline.
 
 ---
 
@@ -268,7 +269,7 @@ Industry standard for sharing K8s configurations. Some teams replace with Kustom
 The conductor doesn't play instruments; they coordinate. Kubernetes doesn't run containers directly; it orchestrates kubelets that do. The conductor reads the score (declarative config); the musicians follow.
 
 **The air traffic control tower.**
-ATC doesn't fly planes; they direct. K8s doesn't run apps; it directs nodes. The flight plan is the deployment spec; the planes are pods; the airspace is the cluster.
+ATC (Air Traffic Control) doesn't fly planes; they direct. K8s doesn't run apps; it directs nodes. The flight plan is the deployment spec; the planes are pods; the airspace is the cluster.
 
 ---
 
@@ -280,7 +281,7 @@ What goes wrong:
 - **The API server thundering herd.** Watch reconnections after outage cause API server overload. Mitigation: rate limiting; staggered reconnects.
 - **The scheduler overload.** Mass pod creation; scheduler can't keep up. Pods stuck Pending. Mitigation: scheduler tuning; horizontal API server scaling.
 - **The bad config.** Deployment with wrong selector; existing pods orphaned. Fix: careful selectors; validation.
-- **The cluster IP exhaustion.** Default pod CIDR too small; new pods fail. Mitigation: larger CIDR; multiple subnets.
+- **The cluster IP exhaustion.** Default pod CIDR (Classless Inter-Domain Routing) too small; new pods fail. Mitigation: larger CIDR; multiple subnets.
 - **The PV reclaim policy.** PVCs deleted; storage retained or removed unexpectedly. Mitigation: explicit reclaim policies.
 - **The OOMKilled cycle.** Pod limits too low; OOMKilled; restarted; fails again. Fix: tune limits.
 
@@ -290,7 +291,7 @@ The senior K8s operator's habits:
 - **Resource requests/limits** carefully.
 - **RBAC** disciplined.
 - **GitOps** for config.
-- **Pod disruption budgets** for HA.
+- **Pod disruption budgets** for HA (High Availability).
 
 ---
 

@@ -10,7 +10,7 @@
 >
 > **Analogy:** a dimmer switch instead of a light switch. Rather than flipping a new feature fully ON for everyone at once, you slowly turn the dial up — 1% of users, then 10%, then everyone — and if the room looks wrong, you dim it straight back to zero in a second.
 >
-> **Assumes you already know:** what "availability" and rollback mean ([`learn/foundations/scaling/availability.md`](../../learn/foundations/scaling/availability.md)), and the kill-switch idea behind circuit breakers ([`learn/reliability/circuit-breaker.md`](../../learn/reliability/circuit-breaker.md)). This is a KB-only ops topic — there is no learning-path file for feature flags themselves.
+> **Assumes you already know:** what "availability" and rollback mean ([`learn/foundations/scaling/availability.md`](../../learn/foundations/scaling/availability.md)), and the kill-switch idea behind circuit breakers ([`learn/reliability/circuit-breaker.md`](../../learn/reliability/circuit-breaker.md)). This is a KB-only (Knowledge Base) ops topic — there is no learning-path file for feature flags themselves.
 >
 > **Level:** this file is 🟡 overall — the core idea is simple, but the lifecycle discipline, targeting math, and failure modes are senior-level. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
 
@@ -45,7 +45,7 @@ The catch: you now have two versions of the hotel coexisting. Plumbing must work
 ## Historical Evolution 🟢
 
 **Era 1 — Big-bang releases.**
-1990s, early 2000s. Quarterly or yearly releases. Long QA cycles. Deploy = release. Failures meant full rollback. Teams shipped infrequently because shipping was scary.
+1990s, early 2000s. Quarterly or yearly releases. Long QA (Quality Assurance) cycles. Deploy = release. Failures meant full rollback. Teams shipped infrequently because shipping was scary.
 
 **Era 2 — Continuous integration and frequent deploys.**
 Late 2000s. Companies like Flickr (2009 famous "10+ deploys per day" talk) demonstrated continuous deployment. But each deploy still meant "this code is now live for everyone."
@@ -57,10 +57,10 @@ Late 2000s. Companies like Flickr (2009 famous "10+ deploys per day" talk) demon
 ~2018. James Governor (RedMonk) coined "progressive delivery." Frameworks (LaunchDarkly, Split.io, Optimizely) and practices (canary, blue-green, A/B) crystallized into a coherent discipline.
 
 **Era 5 — Observability integration.**
-2020+. Feature flags integrated with observability stacks: per-flag metrics, automatic anomaly detection, automatic rollback on SLO violation. The flag becomes a deployment unit with its own monitoring.
+2020+. Feature flags integrated with observability stacks: per-flag metrics, automatic anomaly detection, automatic rollback on SLO (Service Level Objective) violation. The flag becomes a deployment unit with its own monitoring.
 
 **Era 6 — Platform maturity.**
-Modern platforms (LaunchDarkly, ConfigCat, Flipt, Unleash) handle large flag inventories, governance, audit logs, integration with CI/CD. Self-service for engineering teams; central oversight for ops.
+Modern platforms (LaunchDarkly, ConfigCat, Flipt, Unleash) handle large flag inventories, governance, audit logs, integration with CI/CD (Continuous Integration/Continuous Delivery). Self-service for engineering teams; central oversight for ops.
 
 The pattern: each generation reduced the unit of risk. From "the whole release" to "the whole deploy" to "this specific feature for this specific cohort." The technical capability and the cultural practice co-evolved.
 
@@ -126,7 +126,7 @@ Service queries flag service per request (or batch). Network cost; freshest data
 **Centralized API.**
 Application calls flag service for every decision. Highest network cost; centralized logic; single point of failure.
 
-Most modern systems are push-based: SDK in the application caches flag rules and updates them in real time via streaming.
+Most modern systems are push-based: SDK (Software Development Kit) in the application caches flag rules and updates them in real time via streaming.
 
 ### Canary releases
 
@@ -140,7 +140,7 @@ A specific progressive-delivery pattern:
 
 Different from feature flags, but complementary. Canary tests the *deploy* (entire codebase change). Feature flags test individual *features*.
 
-Tools: Argo Rollouts, Flagger, AWS App Mesh canary deployments.
+Tools: Argo Rollouts, Flagger, AWS (Amazon Web Services) App Mesh canary deployments.
 
 ### Blue-green deployments
 
@@ -196,7 +196,7 @@ Every flag has a cost:
 - Risk of using a stale flag accidentally.
 
 The discipline:
-- **Set TTL on release flags** at creation: "this flag will be removed by date X."
+- **Set TTL (Time To Live) on release flags** at creation: "this flag will be removed by date X."
 - **Track active flags**: dashboard of all flags, age, last-toggled, owner.
 - **Periodic audits**: review for stale flags; assign cleanup.
 - **Cleanup as you go**: when a feature is fully rolled out, remove the flag and the dead branch.
@@ -239,7 +239,7 @@ What goes wrong:
 - **The targeting inconsistency.** A user is bucketed into the new feature on web; the bucketed-out on mobile. Same user; different experience. Confusion. Lesson: hash on a *globally* stable ID, not session-specific.
 - **The metric blindness.** New feature ships behind a flag. No metrics differentiated by variant. Team can't tell if it's hurting; rolls out fully; only then notices the regression. Lesson: per-variant metrics from day one.
 - **The flag that controls infrastructure.** Flag set wrong; entire service broken. Lesson: critical flags need extra protections (multiple approvers, gradual rollout of flag changes).
-- **The flag-as-code-comment.** Flag named "WIP_NEW_THING" with no description. Six months later, nobody knows what it does. Toggle? At your peril. Lesson: rich metadata; ownership; documentation.
+- **The flag-as-code-comment.** Flag named "WIP_NEW_THING" (WIP = Work In Progress) with no description. Six months later, nobody knows what it does. Toggle? At your peril. Lesson: rich metadata; ownership; documentation.
 
 ---
 

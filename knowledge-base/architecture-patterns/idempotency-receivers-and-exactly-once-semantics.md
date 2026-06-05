@@ -12,7 +12,7 @@
 >
 > **Assumes you already know:** message queues and at-least-once delivery (build it in [`message-queues`](../../learn/architecture/message-queues.md) and [`event-driven-architecture`](../../learn/architecture/event-driven-architecture.md)), and ideally [`distributed-transactions`](../../learn/data/distributed-transactions.md) for the outbox/saga sections.
 >
-> **Level:** this file is 🟡 overall, leaning 🔴 in the deep sections (Kafka EOS, CRDTs, outbox). Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+> **Level:** this file is 🟡 overall, leaning 🔴 in the deep sections (Kafka EOS (Exactly-Once Semantics), CRDTs (Conflict-free Replicated Data Types), outbox). Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
 
 ---
 
@@ -59,7 +59,7 @@ Custom code in receivers to detect duplicates. Stripe's idempotency-key API (~20
 Kafka EOS combines transactional producers + idempotent consumers + transactional consumer offsets. Within Kafka, effectively-once semantics. Across Kafka boundaries, still requires idempotent receivers.
 
 **Era 5 — End-to-end patterns.**
-Modern: idempotency keys propagate from request through saga steps; outbox patterns; CDC with idempotent consumers. Effectively-once at the application architecture level.
+Modern: idempotency keys propagate from request through saga steps; outbox patterns; CDC (Change Data Capture) with idempotent consumers. Effectively-once at the application architecture level.
 
 **Era 6 — Industry-standard patterns.**
 2020+. Stripe's idempotency-key documentation has become a model. AWS SDKs default to retries with idempotency hints. Industry has converged on a small set of patterns that work.
@@ -79,7 +79,7 @@ If A sends a message to B over an unreliable network and asks "did B receive it?
 - A re-sends; B may receive twice or once.
 - B acks; A may not receive the ack; A re-sends; same problem.
 
-There's no protocol that achieves exactly-once delivery in finite time over a network with possible failures. (This is the **Two Generals Problem**: with an unreliable channel, no finite exchange of messages lets both sides become certain the other received the last one. FLP is a distinct impossibility result, about consensus among processes in an asynchronous system with even one crash failure.)
+There's no protocol that achieves exactly-once delivery in finite time over a network with possible failures. (This is the **Two Generals Problem**: with an unreliable channel, no finite exchange of messages lets both sides become certain the other received the last one. FLP (Fischer-Lynch-Paterson) is a distinct impossibility result, about consensus among processes in an asynchronous system with even one crash failure.)
 
 The escape: shift from "exactly-once delivery" to "exactly-once effect." Allow at-least-once delivery; make the receiver detect duplicates. Now the application sees exactly-once semantics regardless of how many duplicates the network produced.
 
@@ -119,7 +119,7 @@ Properties:
 - Same key + same payload → same response, processed once.
 - Same key + *different* payload → typically an error (key reuse with different content is a client bug).
 - Same key, second request before first finishes → wait or return "in progress" status.
-- After TTL expires, key is forgotten; new request with same key creates new operation.
+- After TTL (Time To Live) expires, key is forgotten; new request with same key creates new operation.
 
 Stripe's pattern, widely imitated.
 
@@ -145,7 +145,7 @@ Consumer tracks: highest seen seq from A.
 Duplicate (seq < highest): drop.
 ```
 
-Used in TCP (sequence numbers ensure in-order, no-duplicate delivery within a connection). Also in transactional protocols.
+Used in TCP (Transmission Control Protocol) (sequence numbers ensure in-order, no-duplicate delivery within a connection). Also in transactional protocols.
 
 Limitations:
 - Per-source state on the consumer.
@@ -234,7 +234,7 @@ For at-least-once, idempotency is sufficient. For out-of-order delivery, commuta
 
 ### Common pitfalls
 
-**The non-unique key.** Idempotency key generated client-side without sufficient entropy. Two genuinely different operations get the same key. Second is treated as duplicate of first. Silent data loss. Mitigation: UUIDs.
+**The non-unique key.** Idempotency key generated client-side without sufficient entropy. Two genuinely different operations get the same key. Second is treated as duplicate of first. Silent data loss. Mitigation: UUIDs (Universally Unique Identifiers).
 
 **The mutable payload.** Same idempotency key + different payload — what to do? Typically: error. The client is misusing the protocol. Don't silently process the new payload.
 
@@ -263,7 +263,7 @@ What goes wrong:
 - **The double charge.** No idempotency keys. Network glitch; client retries; payment processed twice. Customer support; reputation damage. Fix: mandatory idempotency keys for charges.
 - **The duplicate email.** Email sender retries on transient failure. No dedup. Customer gets two emails. Annoying; sometimes confusing. Fix: dedup before sending; idempotent send tokens.
 - **The redundant order.** Order API doesn't dedup. Customer double-clicks; two orders created. Fix: client-side disable button; server-side idempotency.
-- **The outbox pattern that wasn't.** Service writes to DB and Kafka separately. DB succeeds; Kafka fails. Inconsistent state. Fix: outbox pattern.
+- **The outbox pattern that wasn't.** Service writes to DB (Database) and Kafka separately. DB succeeds; Kafka fails. Inconsistent state. Fix: outbox pattern.
 - **The message replay disaster.** Consumer reprocesses messages from a checkpoint; not idempotent; effects applied twice. Fix: idempotent processing.
 - **The "exactly once" misclaim.** Vendor claims exactly-once delivery. Customer relies on this. Edge case (network blip during commit) produces duplicates. Lawsuit. Lesson: be precise about semantics.
 
@@ -318,7 +318,7 @@ TTL set to 5 minutes. Customer retries after 10 minutes (slow connectivity). Key
 
 - **Timeouts/retries**: idempotency makes retries safe. (See [timeouts-retries-and-idempotency.md](../system-failures/timeouts-retries-and-idempotency.md).)
 - **Sagas**: each saga step is idempotent. (See [saga-pattern-and-distributed-transactions.md](./saga-pattern-and-distributed-transactions.md).)
-- **CQRS / event sourcing**: events with unique IDs are naturally idempotent. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
+- **CQRS (Command Query Responsibility Segregation) / event sourcing**: events with unique IDs are naturally idempotent. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
 - **API design**: idempotency keys are a standard API contract element. (See [api-design-rest-vs-grpc.md](./api-design-rest-vs-grpc.md).)
 - **Cascading failures**: idempotency makes retry-based recovery safe. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
 

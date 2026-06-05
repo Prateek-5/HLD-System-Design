@@ -20,7 +20,7 @@
 
 Incident response and postmortems are the operational disciplines that turn outages from disasters into education. The first half — incident response — is the structured, time-pressured work of mitigating customer impact when something is broken. The second half — postmortems — is the reflective, time-deferred work of understanding *why* it broke and what should change.
 
-Most engineering organizations do both badly. Incident response is ad-hoc — whoever's awake handles it, with no roles, no comms structure, no clear command. Postmortems are blame-fests, missing critical detail, or skipped entirely because "we already know what happened." The mature practices are well-documented (Google SRE, AWS, Facebook's PEACE framework) but require organizational commitment that not every company makes.
+Most engineering organizations do both badly. Incident response is ad-hoc — whoever's awake handles it, with no roles, no comms structure, no clear command. Postmortems are blame-fests, missing critical detail, or skipped entirely because "we already know what happened." The mature practices are well-documented (Google SRE (Site Reliability Engineering), AWS (Amazon Web Services), Facebook's PEACE framework) but require organizational commitment that not every company makes.
 
 This is the topic where reliability transitions from a technical concern to an organizational one. You can't engineer your way to reliability without the disciplines that handle the unreliability when it inevitably appears. And the postmortem culture — blameless, thorough, follow-up-driven — is what determines whether your system gets more reliable over time or repeats the same incidents in slightly different costumes.
 
@@ -36,7 +36,7 @@ Imagine your kitchen catches fire.
 
 **Bad postmortem.** "I told you not to leave the stove on!" "Well, you should have noticed sooner!" Family argues. No fire safety changes. Same fire happens six months later when someone leaves the toaster on.
 
-**Good postmortem.** Sit down a week later. Look at the timeline. Why was the stove on unattended? Because the dog needed urgent attention. Why was the smoke detector silent? Battery was dead. Action items: install GFI-cutoff stove timers, check all smoke detector batteries quarterly, train kids on extinguisher use. No blame; structural improvements.
+**Good postmortem.** Sit down a week later. Look at the timeline. Why was the stove on unattended? Because the dog needed urgent attention. Why was the smoke detector silent? Battery was dead. Action items: install GFI (Ground Fault Interrupter)-cutoff stove timers, check all smoke detector batteries quarterly, train kids on extinguisher use. No blame; structural improvements.
 
 That's the entire framework. Speed and clarity during the incident; calm and structure afterward. The teams that do both right have fewer fires, smaller fires, and faster response when fires do happen.
 
@@ -54,7 +54,7 @@ Late 1990s, 2000s. Operations teams formalize "incident calls" — bridge calls 
 2010s. Etsy's John Allspaw popularizes "Blameless PostMortems and a Just Culture" (2012). The realization: blame produces silence and lies; blamelessness produces honest analysis and durable improvements.
 
 **Era 4 — Incident command structures.**
-~2015 onward. Models from emergency response (FEMA's Incident Command System) imported to software. Explicit roles: Incident Commander, Comms Lead, Operations Lead. Becomes standard at large tech orgs.
+~2015 onward. Models from emergency response (FEMA's (Federal Emergency Management Agency) Incident Command System) imported to software. Explicit roles: Incident Commander, Comms Lead, Operations Lead. Becomes standard at large tech orgs.
 
 **Era 5 — The Google SRE codification.**
 SRE Book (2016) and SRE Workbook (2018). Google's practices documented in detail: error budgets, postmortem templates, role definitions, action item tracking. Wide industry adoption.
@@ -74,7 +74,7 @@ The pattern: incident response evolved from heroic to structured to tool-support
 
 Most organizations classify incidents:
 
-- **Sev-1 / P0**: critical customer impact; major feature down; revenue impacting. All hands.
+- **Sev-1 (Severity 1) / P0 (Priority 0)**: critical customer impact; major feature down; revenue impacting. All hands.
 - **Sev-2 / P1**: significant customer impact; some users affected; degraded experience. Active response.
 - **Sev-3 / P2**: minor impact; workaround exists; not customer-visible at scale. Scheduled response.
 - **Sev-4 / P3**: internal-only; minor issue; can wait. Track but no urgency.
@@ -106,7 +106,7 @@ Comms structure:
 
 The cadence: every 15-30 minutes during active response. Shorter intervals when things are changing; longer when stable.
 
-The discipline: **structured updates**. "Status: investigating. Last known: payment service degraded since 14:23 UTC. Working theory: database overload. Next step: scaling DB. ETA on resolution: 30 min." Bad updates are vague ("we're looking into it"); good updates are concrete.
+The discipline: **structured updates**. "Status: investigating. Last known: payment service degraded since 14:23 UTC (Coordinated Universal Time). Working theory: database overload. Next step: scaling DB. ETA on resolution: 30 min." Bad updates are vague ("we're looking into it"); good updates are concrete.
 
 ### Mitigation before understanding
 
@@ -125,12 +125,12 @@ Rolling back is almost always the right immediate move when the deploy correlati
 A simple but powerful technique:
 
 > **Symptom**: customers couldn't check out for 12 minutes.
-> Why? Payment service returning 500.
+> Why? Payment service returning 500 (HTTP Internal Server Error).
 > Why? Database connection pool exhausted.
 > Why? A new query took 30s instead of 30ms.
 > Why? Missing index on a new table.
 > Why? Schema migration didn't run the index creation step.
-> Why? Migration was split into two PRs; the second was deployed first.
+> Why? Migration was split into two PRs (Pull Requests); the second was deployed first.
 
 Six "whys" deep, the root cause is a deployment process gap, not "a missing index." Action items target the process, not just the symptom.
 
@@ -158,7 +158,7 @@ The most important — and most often-fumbled — part:
 - **Specific**: "Improve monitoring" is not an action item. "Add alert for connection pool > 80% utilization" is.
 - **Owned**: a single person responsible.
 - **Dated**: when will it be done?
-- **Tracked**: in a system (JIRA, Linear, etc.) with the postmortem as parent.
+- **Tracked**: in a system (JIRA (issue-tracking tool by Atlassian), Linear, etc.) with the postmortem as parent.
 - **Reviewed**: monthly check on completion.
 
 Postmortems with un-completed action items 6 months later are common — and a sign of organizational dysfunction. The action items must matter, must be tractable, must be followed up.
@@ -200,7 +200,7 @@ A patient arrives critical. The ER team has a structured response: triage assess
 This is exactly incident command + postmortem. The ER didn't invent these practices for software; software borrowed them from medicine, which had borrowed them from emergency response, which had borrowed them from the military. The pattern is older than computing.
 
 **The aviation safety system.**
-Every aircraft accident is investigated. Pilots, mechanics, controllers — all interviewed. The result is a public NTSB report with system recommendations. Pilots are *protected* from blame for honest reports of near-misses; the data feeds back into safer operations.
+Every aircraft accident is investigated. Pilots, mechanics, controllers — all interviewed. The result is a public NTSB (National Transportation Safety Board) report with system recommendations. Pilots are *protected* from blame for honest reports of near-misses; the data feeds back into safer operations.
 
 The aviation industry's safety record (now astonishing) is a result of decades of this discipline. Software's reliability culture aspires to it. The principles transfer directly.
 
@@ -284,7 +284,7 @@ The unifying observation: **postmortems are the feedback loop that improves all 
 ## Real Production Scenarios 🟡
 
 - **Google's SRE postmortem culture**: extensively documented in the SRE book. Templated, blameless, action-item-tracked. Reference for the industry.
-- **AWS public postmortems**: the S3 outage of 2017, the DynamoDB outage of 2015, others. Public, detailed, instructional.
+- **AWS public postmortems**: the S3 (Simple Storage Service) outage of 2017, the DynamoDB outage of 2015, others. Public, detailed, instructional.
 - **GitLab's "we lost data" postmortem (2017)**: an extraordinarily transparent public postmortem of a multi-hour data-loss incident. Required reading.
 - **Etsy's "Just Culture" article (Allspaw)**: foundational text on blameless postmortems.
 - **Cloudflare's transparent postmortems**: regular, detailed, customer-facing. Builds trust.

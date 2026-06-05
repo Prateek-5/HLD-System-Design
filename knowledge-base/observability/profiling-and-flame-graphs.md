@@ -48,7 +48,7 @@ Once you can read a flame graph, you can diagnose performance in seconds. Before
 1980s onward. gprof for C; instrumentation-heavy. Slowed programs significantly during profiling.
 
 **Era 2 — Sampling profilers.**
-~2000s. perf (Linux), Visual Studio profiler, Java JFR. Sampling rather than instrumentation; lower overhead.
+~2000s. perf (Linux), Visual Studio profiler, Java JFR (Java Flight Recorder). Sampling rather than instrumentation; lower overhead.
 
 **Era 3 — DTrace and dynamic tracing.**
 2005. Sun's DTrace; system-wide tracing without recompilation. Influenced modern tracing tools.
@@ -88,7 +88,7 @@ Output: histogram of (stack trace) → (count). Or, processed into a flame graph
 
 Both matter. A program with 10% CPU usage but 90% wall-clock time could be entirely off-CPU. CPU profile alone misses this.
 
-Tools: `perf`, eBPF profilers, Java Flight Recorder, etc.
+Tools: `perf`, eBPF (extended Berkeley Packet Filter) profilers, Java Flight Recorder, etc.
 
 ### Flame graphs
 
@@ -113,7 +113,7 @@ Different from CPU profiling:
 - **Allocation profiling**: which call sites allocate the most memory.
 - **Heap profiling**: what's in the heap right now; who allocated it.
 
-Tools: Chrome DevTools heap snapshots; Java VisualVM; Node `--inspect`; Go's pprof.
+Tools: Chrome DevTools heap snapshots; Java VisualVM; Node `--inspect`; Go's pprof (profiling for programs).
 
 Common findings:
 - A specific function allocates millions of objects per second; reducing allocations there yields huge wins.
@@ -127,7 +127,7 @@ For multi-threaded code:
 - Sample which threads are blocked on locks.
 - Identify hot locks.
 
-Tools: Linux's `perf lock`, Java JMC, custom instrumentation.
+Tools: Linux's `perf lock`, Java JMC (Java Mission Control), custom instrumentation.
 
 Output: which locks are most contended. Refactor those.
 
@@ -146,13 +146,13 @@ Tools: Pyroscope (open source), Google Cloud Profiler, Datadog Continuous Profil
 
 **Linux/system**: `perf` is the standard. Captures CPU profile across all processes.
 
-**Java**: JFR (Java Flight Recorder), JMC, async-profiler. Excellent integration with the JVM.
+**Java**: JFR (Java Flight Recorder), JMC, async-profiler. Excellent integration with the JVM (Java Virtual Machine).
 
 **Go**: built-in pprof. `import _ "net/http/pprof"`; profile via HTTP endpoint.
 
 **Python**: cProfile (built-in), py-spy (sampling, no code changes), Pyroscope.
 
-**Node**: `--prof` for V8 tick logs; clinic.js; OpenTelemetry-based profilers.
+**Node**: `--prof` for V8 (Google's JavaScript engine) tick logs; clinic.js; OpenTelemetry-based profilers.
 
 **Rust**: perf works; flamegraph crate; tokio-console for async.
 
@@ -184,7 +184,7 @@ This is the power. Decisions about where to focus become obvious.
 
 ### Performance regressions
 
-A deploy slows something down. CI-integrated profiling catches this:
+A deploy slows something down. CI (Continuous Integration)-integrated profiling catches this:
 - Reference profile: from production.
 - New profile: from canary.
 - Differential: highlights what changed.
@@ -196,7 +196,7 @@ Some teams gate deployments on profile differentials. Conservative; effective.
 ## Real Engineering Analogies 🟢
 
 **The factory time-and-motion study.**
-Industrial engineers observe a factory floor; record what each worker does in 5-second intervals. Aggregate: where does production time go? Cutting takes 30%, assembly 50%, QC 20%. Optimizations in cutting affect 30%; optimizations in QC affect 20%. Decisions follow data.
+Industrial engineers observe a factory floor; record what each worker does in 5-second intervals. Aggregate: where does production time go? Cutting takes 30%, assembly 50%, QC (Quality Control) 20%. Optimizations in cutting affect 30%; optimizations in QC affect 20%. Decisions follow data.
 
 This is exactly profiling, in a physical factory. Sampling, aggregation, identifying bottlenecks.
 
@@ -216,7 +216,7 @@ What goes wrong:
 - **The unrealistic profile.** Profile under load that doesn't match production. Bottlenecks shown aren't the real ones. Production differs.
 - **The long-running profiler.** Heavy instrumentation profiler in production. Slows the system. Profile distorts reality.
 - **The flame graph misread.** Engineer focuses on the tallest bar (deepest stack), not the widest (most time). Misdirected effort.
-- **The allocation trap.** CPU profile shows GC time as a flat constant. Real issue is allocation rate. Need allocation profiling, not CPU profile, to see it.
+- **The allocation trap.** CPU profile shows GC (Garbage Collection) time as a flat constant. Real issue is allocation rate. Need allocation profiling, not CPU profile, to see it.
 - **The off-CPU blind spot.** Service appears idle (CPU low) but slow. CPU profile shows little because everyone's blocked. Off-CPU profile reveals the lock or I/O wait.
 
 ---
@@ -224,13 +224,13 @@ What goes wrong:
 ## Failure Scenarios 🟡
 
 **Scenario 1 — The wasted week.**
-Engineer optimizes "obvious" slow path: a database query. After a week, latency unchanged. Profile reveals: 60% of time was in JSON serialization; the DB query was 5%. Lesson: profile first.
+Engineer optimizes "obvious" slow path: a database query. After a week, latency unchanged. Profile reveals: 60% of time was in JSON serialization; the DB (database) query was 5%. Lesson: profile first.
 
 **Scenario 2 — The hidden contention.**
 CPU profile shows even distribution. Service is slow. Off-CPU profile reveals threads blocked on a single mutex. Optimization: shard the mutex.
 
 **Scenario 3 — The allocation rate.**
-CPU profile shows 20% in GC. Investigation: allocation rate is 1GB/sec. Reducing allocations cuts GC pressure 90%. Latency p99 improves dramatically.
+CPU profile shows 20% in GC. Investigation: allocation rate is 1GB/sec. Reducing allocations cuts GC pressure 90%. Latency p99 (99th percentile) improves dramatically.
 
 **Scenario 4 — The deploy regression.**
 New deploy: latency p99 doubled. Differential profile: a new function shows up wide. Investigation: introduced a hot-path inefficiency. Fix; deploy.
@@ -264,7 +264,7 @@ Profile under "max throughput" tests. Optimizations target that. Production has 
 - **V8 internals**: profiling Node code reveals V8-specific issues. (See [v8-internals-and-hidden-classes.md](../js-runtime/v8-internals-and-hidden-classes.md).)
 - **Locks**: lock contention profiles reveal hot mutexes. (See [locks-mutexes-and-lock-free.md](../concurrency/locks-mutexes-and-lock-free.md).)
 - **Cardinality**: profiling cost depends on data volume. (See [cardinality-and-the-economics-of-monitoring.md](./cardinality-and-the-economics-of-monitoring.md).)
-- **SLOs**: regression detection ties to SLO compliance. (See [slos-error-budgets-and-alerting.md](./slos-error-budgets-and-alerting.md).)
+- **SLOs**: regression detection ties to SLO (Service Level Objective) compliance. (See [slos-error-budgets-and-alerting.md](./slos-error-budgets-and-alerting.md).)
 
 The unifying observation: **profiling closes the gap between intuition and reality. Every other observability tool tells you *what* happened; profiles tell you *where* the time went. Engineers who profile routinely outperform those who guess.**
 

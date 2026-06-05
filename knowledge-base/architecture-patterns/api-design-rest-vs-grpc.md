@@ -42,14 +42,14 @@ Each style optimizes different things. REST optimizes for *shared vocabulary* (r
 
 ## 🟡 Historical Evolution
 
-**Era 1 — RPC and the network-as-local fantasy.**
-1980s-90s. CORBA, DCOM, Sun RPC. The dream: remote calls look like local calls. The reality: they failed differently. Thick clients, opaque error modes, version pain. Mostly abandoned for inter-org APIs by 2005.
+**Era 1 — RPC (Remote Procedure Call) and the network-as-local fantasy.**
+1980s-90s. CORBA (Common Object Request Broker Architecture), DCOM (Distributed Component Object Model), Sun RPC. The dream: remote calls look like local calls. The reality: they failed differently. Thick clients, opaque error modes, version pain. Mostly abandoned for inter-org APIs by 2005.
 
-**Era 2 — SOAP / WSDL.**
-Late 90s, 2000s. XML over HTTP with formal schemas. Heavy, verbose, hard to debug. Survived in enterprise integration. Largely displaced by REST in web APIs.
+**Era 2 — SOAP (Simple Object Access Protocol) / WSDL (Web Services Description Language).**
+Late 90s, 2000s. XML (Extensible Markup Language) over HTTP with formal schemas. Heavy, verbose, hard to debug. Survived in enterprise integration. Largely displaced by REST in web APIs.
 
 **Era 3 — REST's rise.**
-Roy Fielding's dissertation (2000) framed REST as an architectural style. The principles — stateless, cacheable, layered, uniform interface — matched HTTP's strengths. By 2010, REST + JSON was the default for web APIs. Twitter, Stripe, GitHub, AWS — all REST.
+Roy Fielding's dissertation (2000) framed REST as an architectural style. The principles — stateless, cacheable, layered, uniform interface — matched HTTP's strengths. By 2010, REST + JSON was the default for web APIs. Twitter, Stripe, GitHub, AWS (Amazon Web Services) — all REST.
 
 **Era 4 — gRPC and the internal API renaissance.**
 Google's internal Stubby system, generalized as gRPC (2015). HTTP/2-based, protobuf-encoded, code-generated clients. Performance and type safety made it the default choice for new microservice architectures. Adoption strongest where REST's overhead bothered teams: low-latency services, polyglot environments.
@@ -79,7 +79,7 @@ REST (Representational State Transfer) principles:
 
 Strengths:
 - **Universal tooling**. curl, Postman, browsers, every language.
-- **HTTP semantics**: caching, status codes, ranges, ETags.
+- **HTTP semantics**: caching, status codes, ranges, ETags (Entity Tags).
 - **Easy to debug**: text-based, human-readable.
 - **No code generation** required.
 
@@ -146,7 +146,7 @@ Weaknesses:
 The schema can evolve safely if you follow rules:
 - **Never reuse field tag numbers.** A removed field's tag is reserved forever (use `reserved`).
 - **Add new fields with new tags.** Readers ignore unknown fields; absent fields take their default.
-- **Most field type changes are breaking — but some are wire-compatible.** Within the varint family (int32/int64/uint32/uint64/bool/enum) values share an encoding and can be interchanged (with the usual truncation/sign caveats), and string ↔ bytes is safe when the bytes are valid UTF-8. Changing between incompatible wire types (e.g. int32 ↔ string) corrupts data silently — add a new field instead.
+- **Most field type changes are breaking — but some are wire-compatible.** Within the varint family (int32/int64/uint32/uint64/bool/enum) values share an encoding and can be interchanged (with the usual truncation/sign caveats), and string ↔ bytes is safe when the bytes are valid UTF-8 (8-bit Unicode Transformation Format). Changing between incompatible wire types (e.g. int32 ↔ string) corrupts data silently — add a new field instead.
 - **proto3 has no `required`.** All fields are optional; design for fields being absent rather than relying on required-ness.
 
 These rules are battle-tested at Google scale. Followed religiously, they let services evolve indefinitely without breaking clients.
@@ -270,12 +270,12 @@ gRPC is the chef's table — you and the chef use a shared vocabulary; you say "
 
 GraphQL is the buffet — you pick exactly what you want, in any combination. Costs more to operate (you have to keep everything ready); empowers the diner.
 
-Real businesses run all three: a public menu, a chef's table for VIPs, a buffet for events. The "right" model depends on who's eating.
+Real businesses run all three: a public menu, a chef's table for VIPs (Very Important Persons), a buffet for events. The "right" model depends on who's eating.
 
 **The driving directions analogy.**
 REST: turn-by-turn directions, with named landmarks. You know where you are, where you're going, and the streets between.
 
-gRPC: GPS coordinates and a teleporter. Direct, fast, no scenery.
+gRPC: GPS (Global Positioning System) coordinates and a teleporter. Direct, fast, no scenery.
 
 GraphQL: a custom helicopter route to your exact destination. Fastest for your specific trip; expensive infrastructure.
 
@@ -292,11 +292,11 @@ What goes wrong in API design:
 - **The protobuf field tag reuse.** A removed field's tag is reused for a new field. Old clients deserialize garbage. Lesson: tags are forever; use `reserved` to enforce this.
 - **The version proliferation.** v1, v2, v3, v4... five versions of every endpoint, all maintained. Eventually impossible. Aggressively migrate clients off old versions; communicate deprecation timelines.
 - **The auth confusion in GraphQL.** A query joins data from sources with different auth requirements. Some fields are accessible; others aren't. The query partial-fails in surprising ways. Mitigation: field-level authorization, careful resolver design.
-- **The latency cliff.** REST endpoint at p99=200ms. New "convenience endpoint" aggregates 5 internal calls. p99=900ms (the slowest of 5 + overhead). Surprised teams.
+- **The latency cliff.** REST endpoint at p99 (99th percentile latency)=200ms. New "convenience endpoint" aggregates 5 internal calls. p99=900ms (the slowest of 5 + overhead). Surprised teams.
 - **The cache poisoning via vary headers.** Caching layer keys responses on URL only. Different `Accept-Language` headers produce different content; cache returns wrong language to wrong users. Always include relevant `Vary` headers or use cache keys that account for them.
 
 The senior API designer's habits:
-- **Document the contract** as a first-class artifact (OpenAPI for REST, .proto for gRPC, schema for GraphQL).
+- **Document the contract** as a first-class artifact (OpenAPI — formerly Swagger, an API description specification — for REST, .proto for gRPC, schema for GraphQL).
 - **Version explicitly** from day one, even for internal APIs.
 - **Always paginate** with cursors.
 - **Always idempotency-key** for state changes.
@@ -316,7 +316,7 @@ A team renames `customerId` to `customer_id` "for consistency." Frontend deploys
 A debugging client constructs a 10-level-deep query. Server resolvers fan out to thousands of database calls. Database CPU 100%. Other queries fail. Mitigation: depth limits at the GraphQL gateway; persisted queries (only allow pre-registered queries in production).
 
 **Scenario 3 — The retry storm via misuse.**
-Client treats 500 errors as retryable. A bug returns 500 for permanent failures (e.g., "user not found"). Client retries indefinitely. Effective DoS. Lesson: 5xx is retryable; 4xx is not. Don't return 500 for client errors.
+Client treats 500 errors as retryable. A bug returns 500 for permanent failures (e.g., "user not found"). Client retries indefinitely. Effective DoS (Denial of Service). Lesson: 5xx is retryable; 4xx is not. Don't return 500 for client errors.
 
 **Scenario 4 — The protobuf compatibility break.**
 A field is changed from `int32` to `string`. Old clients now see corrupted data (silently, no error). Discovered weeks later when reports look wrong. Lesson: type changes are breaking; add a new field with a new tag.
@@ -329,10 +329,10 @@ Offset-based pagination over a list that changes. Client fetches pages 1, 2, 3. 
 ## 🟡 Performance Perspective
 
 - **gRPC's serialization/transport overhead is lower** than REST/JSON-over-HTTP/1.1 (binary vs text, HTTP/2 multiplexing vs HTTP/1.1). The encode/decode and wire-size advantage can be large per call, but end-to-end request latency is usually dominated by network round-trips and downstream work, not the protocol — don't expect a uniform "5-10× faster" on real requests.
-- **JSON parsing is non-trivial CPU cost** at high QPS.
+- **JSON parsing is non-trivial CPU cost** at high QPS (Queries Per Second).
 - **HTTP/2 multiplexing** means many parallel requests on one connection — both REST-over-HTTP/2 and gRPC benefit.
 - **GraphQL adds a hop** (client → GraphQL gateway → backends) that costs latency.
-- **TLS handshake** is a latency cost; connection pooling mitigates.
+- **TLS (Transport Layer Security) handshake** is a latency cost; connection pooling mitigates.
 - **Compression** (gzip, brotli) trades CPU for network. Often net win.
 
 ---
@@ -342,7 +342,7 @@ Offset-based pagination over a list that changes. Client fetches pages 1, 2, 3. 
 - **Stateless APIs scale horizontally** by load balancing.
 - **GraphQL federation** (Apollo Federation) splits a unified schema across multiple services. Powerful and operationally complex.
 - **Rate limiting** at the API gateway protects backends.
-- **Caching at the edge** (CDN) for cacheable REST responses.
+- **Caching at the edge** (CDN — Content Delivery Network) for cacheable REST responses.
 - **API gateway as bottleneck**: every API call hits it. Sized accordingly.
 - **At very large scale**: REST/gRPC/GraphQL all cap out at network throughput per service; horizontal scale is the answer.
 
@@ -355,7 +355,7 @@ Offset-based pagination over a list that changes. Client fetches pages 1, 2, 3. 
 - **Backpressure**: API gateway is where rate limiting and concurrency limits are enforced. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Observability**: traces propagate across API boundaries via headers (`traceparent`). (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)
 - **Sagas**: APIs are often the entry points for sagas; idempotency keys flow from the API to the saga steps. (See [saga-pattern-and-distributed-transactions.md](./saga-pattern-and-distributed-transactions.md).)
-- **CQRS**: GraphQL fits well with CQRS read models — flexible queries on denormalized data. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
+- **CQRS (Command Query Responsibility Segregation)**: GraphQL fits well with CQRS read models — flexible queries on denormalized data. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
 
 The unifying observation: **APIs are where the rest of distributed systems theory becomes user-visible.** Latency, idempotency, error handling, retries — they all manifest in the API contract.
 

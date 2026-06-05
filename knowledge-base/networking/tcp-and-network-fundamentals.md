@@ -1,6 +1,6 @@
 # TCP & Network Fundamentals
 
-> *"Every distributed system you've ever built sits on top of TCP. The decisions made by Vint Cerf and Bob Kahn in 1974 about how to make unreliable IP packets feel like reliable streams shape every API latency, every connection limit, every cascading failure you've ever debugged. The fact that most engineers don't think about TCP is a testament to how well it works — until the day it's the bottleneck."*
+> *"Every distributed system you've ever built sits on top of TCP. The decisions made by Vint Cerf and Bob Kahn in 1974 about how to make unreliable IP (Internet Protocol) packets feel like reliable streams shape every API latency, every connection limit, every cascading failure you've ever debugged. The fact that most engineers don't think about TCP is a testament to how well it works — until the day it's the bottleneck."*
 
 ## 🎯 Start Here — Intuition
 
@@ -16,9 +16,9 @@
 
 ## Topic Overview 🟢
 
-TCP (Transmission Control Protocol) is the layer that turns the internet's lossy, reordering, packet-dropping reality into the smooth byte streams your application code reads from. HTTP, gRPC, databases, message queues — almost every connection your service makes is TCP underneath. The protocol is half a century old; its core ideas have aged remarkably well; its quirks shape modern system design in ways most engineers don't notice until something breaks.
+TCP (Transmission Control Protocol) is the layer that turns the internet's lossy, reordering, packet-dropping reality into the smooth byte streams your application code reads from. HTTP, gRPC (gRPC Remote Procedure Call), databases, message queues — almost every connection your service makes is TCP underneath. The protocol is half a century old; its core ideas have aged remarkably well; its quirks shape modern system design in ways most engineers don't notice until something breaks.
 
-The fundamentals: handshakes (the SYN/SYN-ACK/ACK three-way), congestion control (slow start, AIMD, modern algorithms like BBR), flow control (sliding windows), retransmission (timeouts, fast retransmit), connection state machines (TIME_WAIT, CLOSE_WAIT). Each is a piece of engineering shaped by the network's reality.
+The fundamentals: handshakes (the SYN (Synchronize)/SYN-ACK (Synchronize-Acknowledge)/ACK (Acknowledge) three-way), congestion control (slow start, AIMD (Additive Increase Multiplicative Decrease), modern algorithms like BBR (Bottleneck Bandwidth and Round-trip propagation time)), flow control (sliding windows), retransmission (timeouts, fast retransmit), connection state machines (TIME_WAIT, CLOSE_WAIT). Each is a piece of engineering shaped by the network's reality.
 
 This is the topic where the abstraction leaks. When your service is slow under load, when your connection pool exhausts, when your application sees mysterious resets — the answers live in TCP. Understanding the layer below your application is what separates "the network is unreliable" hand-waving from "the SYN backlog filled because Accept() can't keep up" diagnosis.
 
@@ -45,23 +45,23 @@ That's TCP. The network is the postal system; postcards are packets; TCP turns t
 
 ## Historical Evolution 🟡
 
-**Era 1 — ARPANET protocols.**
-1970s. NCP and others. Cerf and Kahn publish TCP/IP design (1974). Implementation deployed on ARPANET.
+**Era 1 — ARPANET (Advanced Research Projects Agency Network) protocols.**
+1970s. NCP (Network Control Protocol) and others. Cerf and Kahn publish TCP/IP design (1974). Implementation deployed on ARPANET.
 
 **Era 2 — TCP/IP standardization.**
-1981-1983. RFC 793 (TCP), RFC 791 (IP). Internet adopts TCP/IP.
+1981-1983. RFC (Request for Comments) 793 (TCP), RFC 791 (IP). Internet adopts TCP/IP.
 
 **Era 3 — Congestion collapse and recovery.**
 1986. Internet experiences "congestion collapse" — too much retransmission saturates links. Van Jacobson's congestion control (1988) fixes it. Slow start, AIMD established.
 
 **Era 4 — TCP improvements.**
-1990s-2000s. SACK, ECN, window scaling, timestamps. Each fixes a specific shortcoming.
+1990s-2000s. SACK (Selective Acknowledgment), ECN (Explicit Congestion Notification), window scaling, timestamps. Each fixes a specific shortcoming.
 
 **Era 5 — Modern congestion control.**
-2010s. CUBIC (default in Linux), BBR (Google, 2016). New algorithms tuned for modern networks (high-bandwidth, high-latency).
+2010s. CUBIC (named for its cubic congestion-window growth function) (default in Linux), BBR (Google, 2016). New algorithms tuned for modern networks (high-bandwidth, high-latency).
 
 **Era 6 — Beyond TCP.**
-QUIC (2012-2021) replaces TCP for HTTP/3. UDP-based, but with TCP-like reliability features. Google's bet that the OS-kernel TCP stack is too slow to evolve.
+QUIC (Quick UDP Internet Connections) (2012-2021) replaces TCP for HTTP/3. UDP (User Datagram Protocol)-based, but with TCP-like reliability features. Google's bet that the OS-kernel TCP stack is too slow to evolve.
 
 The pattern: TCP is a half-century-old protocol still used unchanged for most traffic. Its quirks shape modern system design.
 
@@ -87,7 +87,7 @@ Client                Server
 
 After this, both sides know each other's sequence numbers; data can flow.
 
-Cost: 1 RTT before any data. For a Singapore-to-US connection (200ms RTT), that's 200ms before the first byte.
+Cost: 1 RTT (Round-Trip Time) before any data. For a Singapore-to-US connection (200ms RTT), that's 200ms before the first byte.
 
 TCP Fast Open (RFC 7413) lets data flow with the SYN under specific conditions. Reduces overhead for re-connections.
 
@@ -111,12 +111,12 @@ Two mechanisms:
 
 Modern stacks use both. Fast retransmit is much faster than timeout for single losses.
 
-### Congestion control — Tahoe, Reno, CUBIC, BBR
+### Congestion control — Tahoe (TCP Tahoe), Reno (TCP Reno), CUBIC, BBR
 
 The challenge: send as fast as possible without congesting the network. Loss = signal of congestion.
 
 **Slow start.**
-Historically started with cwnd=1 segment; modern stacks use an initial window of ~10 segments (IW10, RFC 6928). Double per RTT until first loss. Exponential ramp.
+Historically started with cwnd (congestion window)=1 segment; modern stacks use an initial window of ~10 segments (IW10 (Initial Window of 10 segments), RFC 6928). Double per RTT until first loss. Exponential ramp.
 
 **Congestion avoidance (AIMD).**
 After slow start, increase cwnd by 1 per RTT (additive). On loss, halve (multiplicative). The sawtooth pattern.
@@ -140,7 +140,7 @@ Effective window = min(receive window, congestion window). Whichever is smaller 
 
 ### Window scaling
 
-Original TCP receive window: 16 bits = 64KB max. On a 100ms RTT 1Gbps link: ideal window is 12.5MB. 64KB caps throughput at ~640KB/s.
+Original TCP receive window: 16 bits = 64KB (kilobytes) max. On a 100ms RTT 1Gbps (gigabit per second) link: ideal window is 12.5MB. 64KB caps throughput at ~640KB/s.
 
 Window scaling option (RFC 1323): multiply receive window by 2^N. Modern systems use scaling factor 7 or higher.
 
@@ -166,17 +166,17 @@ TCP connections have states:
 - **CLOSE_WAIT**: passive close pending.
 - **TIME_WAIT**: post-close wait period.
 
-**TIME_WAIT** is a famous source of operational pain. After active close, the connection sits in TIME_WAIT for 2 × MSL (typically 60-120 seconds). This prevents stale packets from interfering with new connections on the same port pair.
+**TIME_WAIT** is a famous source of operational pain. After active close, the connection sits in TIME_WAIT for 2 × MSL (Maximum Segment Lifetime) (typically 60-120 seconds). This prevents stale packets from interfering with new connections on the same port pair.
 
 A server with high connection churn accumulates many TIME_WAIT entries. If port range exhausts, new connections fail. Mitigations: connection reuse, larger ephemeral port range, `SO_REUSEADDR`/`SO_REUSEPORT`.
 
 ### Connection establishment cost at scale
 
-TLS adds 1-2 RTTs. So:
+TLS (Transport Layer Security) adds 1-2 RTTs. So:
 - TCP: 1 RTT.
 - TCP + TLS 1.2: 2-3 RTTs.
 - TCP + TLS 1.3: 1-2 RTTs.
-- TLS 1.3 with 0-RTT: 0 RTTs (with replay risk).
+- TLS 1.3 with 0-RTT (Zero Round-Trip Time): 0 RTTs (with replay risk).
 
 For services hitting many backends per request, each new connection is expensive. Connection pooling is mandatory.
 
@@ -188,7 +188,7 @@ If a packet exceeds MTU, IP fragmentation breaks it into smaller pieces. Reassem
 
 TCP's **Path MTU Discovery** finds the smallest MTU on the path; sends packets that fit. Modern TCP avoids fragmentation.
 
-Network changes (VPNs, tunnels) reduce MTU. PMTUD failures cause connections that establish but can't send data — a classic "blackhole" failure.
+Network changes (VPNs (Virtual Private Networks), tunnels) reduce MTU. PMTUD (Path MTU Discovery) failures cause connections that establish but can't send data — a classic "blackhole" failure.
 
 ### Connection limits
 
@@ -201,7 +201,7 @@ A high-traffic server tunes all of these. Linux's `net.core.somaxconn`, `net.ipv
 
 ### TCP keepalives
 
-After establishment, long-idle connections may be silently dropped by NATs, firewalls. Keepalives detect:
+After establishment, long-idle connections may be silently dropped by NATs (Network Address Translators), firewalls. Keepalives detect:
 - After idle period, send a keepalive probe.
 - If no response after retries, declare connection dead.
 
@@ -247,7 +247,7 @@ What goes wrong:
 - **The accept queue overflow.** Connections accepted faster than `accept()` calls. Backlog fills; SYNs dropped; connections fail. Fix: increase `somaxconn`, `tcp_max_syn_backlog`; faster accept loop.
 - **The slow-start surprise.** Connections idle 5 minutes; first request after is slow due to restart. Mitigation: disable slow start after idle; use HTTP/2 multiplexing.
 - **The connection pool too small.** App opens new TCP connections per request; each is 1 RTT + TLS. Fix: connection pooling.
-- **The CDN connection breakage.** TCP connections through CDN are persistent; certificates rotate; connections must reconnect; cascading reconnect storm. Mitigation: gradual rollout.
+- **The CDN (Content Delivery Network) connection breakage.** TCP connections through CDN are persistent; certificates rotate; connections must reconnect; cascading reconnect storm. Mitigation: gradual rollout.
 
 ---
 
@@ -283,7 +283,7 @@ Service used CUBIC; mobile users had poor performance. Switching to BBR: 5× thr
 
 ## Scaling Perspective 🟡
 
-- **Per-process connections**: tens of thousands easy; millions with tuning (epoll/kqueue/IOCP).
+- **Per-process connections**: tens of thousands easy; millions with tuning (epoll (event poll)/kqueue (kernel queue)/IOCP (Input/Output Completion Ports)).
 - **Per-host**: limited by ports, file descriptors, memory.
 - **Across hosts**: load balancers distribute connections.
 - **At hyperscale**: custom TCP stacks (Google's BBR, Facebook's TCP), or skipping TCP (QUIC).
@@ -309,7 +309,7 @@ The unifying observation: **TCP is the layer between every application and the n
 - **Cloudflare's TCP tuning**: extensive public posts on kernel parameters.
 - **Linux's TCP defaults**: discussed at length in kernel mailing lists.
 - **The "TCP for high-performance servers" tradition**: Engelschall, Matthew Dillon, others.
-- **AWS's enhanced networking**: documents that bypass parts of the kernel TCP stack.
+- **AWS's (Amazon Web Services) enhanced networking**: documents that bypass parts of the kernel TCP stack.
 
 ---
 
@@ -321,9 +321,9 @@ The unifying observation: **TCP is the layer between every application and the n
 - **Slow start ramps exponentially** (modern IW10 initial window, doubling per RTT until loss); **AIMD** then adds 1/RTT and halves on loss (the sawtooth). **CUBIC** is the Linux default; **BBR** ignores loss as a signal and models bandwidth/RTT, outperforming CUBIC by up to ~5x on lossy mobile/wireless links — often a kernel-tuning win with no code change.
 - **Nagle + delayed ACK** can stack into 40-200ms latency on small writes; disable with `TCP_NODELAY` for latency-sensitive paths.
 - **TIME_WAIT** accumulates under high connection churn (2 × MSL, ~60-120s) and can exhaust ephemeral ports. Mitigate with connection reuse, larger port range, `SO_REUSEADDR`/`SO_REUSEPORT`.
-- **Window scaling** (RFC 1323) is required for high bandwidth-delay-product links; without it a single connection is BDP-capped (64KB window → ~640KB/s on a 100ms link).
+- **Window scaling** (RFC 1323) is required for high bandwidth-delay-product links; without it a single connection is BDP (Bandwidth-Delay Product)-capped (64KB window → ~640KB/s on a 100ms link).
 - **Slow start after idle** re-ramps cwnd from the initial window, making the first request after an idle period slow; disable with `net.ipv4.tcp_slow_start_after_idle = 0`.
-- **MTU/PMTUD failures cause blackholes**: connections establish on small SYNs but silently drop large data packets (common after VPNs/tunnels). Fix with MTU clamping and unblocked ICMP.
+- **MTU/PMTUD failures cause blackholes**: connections establish on small SYNs but silently drop large data packets (common after VPNs/tunnels). Fix with MTU clamping and unblocked ICMP (Internet Control Message Protocol).
 - **Default kernel params are low for production.** Tune `net.core.somaxconn`, `net.ipv4.tcp_max_syn_backlog`, and `ulimit -n`; a slow `accept()` loop overflows the backlog and drops SYNs.
 - **Connection state machines explain "weird network bugs."** TIME_WAIT, CLOSE_WAIT, FIN_WAIT states are diagnostic gold; monitor connection-state counts.
 - **Use HTTP/2 or HTTP/3** to reduce per-connection overhead; HTTP/3 (QUIC over UDP) avoids TCP's head-of-line blocking, where one lost packet stalls all later data.

@@ -8,7 +8,7 @@
 
 > **In one line:** how PostgreSQL actually stores your data, keeps it safe through crashes, lets many people read and write at once without stepping on each other, and figures out the fastest way to answer each query.
 >
-> **Analogy:** a giant, decades-old library. Every reader gets their own librarian (a process), every edit to a book leaves the old copy on the shelf until a janitor clears it out (MVCC + vacuum), and a master logbook records every change before it happens so nothing is ever lost in a fire (the WAL).
+> **Analogy:** a giant, decades-old library. Every reader gets their own librarian (a process), every edit to a book leaves the old copy on the shelf until a janitor clears it out (MVCC (Multi-Version Concurrency Control) + vacuum), and a master logbook records every change before it happens so nothing is ever lost in a fire (the WAL (Write-Ahead Log)).
 >
 > **New to this?** Build the basics first in [`learn/data/sql-databases.md`](../../learn/data/sql-databases.md) — *then* come back for the depth.
 >
@@ -52,9 +52,9 @@ Open-source community fork. Switched to SQL. Steady evolution.
 WAL-based recovery; full SQL compliance; replication; performance improvements.
 
 **Era 4 — Streaming replication (9.0, 2010).**
-Built-in physical replication. Game-changer for HA.
+Built-in physical replication. Game-changer for HA (High Availability).
 
-**Era 5 — Logical replication, JIT, parallel query (10.x-12.x).**
+**Era 5 — Logical replication, JIT (Just-In-Time), parallel query (10.x-12.x).**
 Modern features: JIT compilation, declarative partitioning, logical replication, parallel queries.
 
 **Era 6 — Modern Postgres (14+).**
@@ -105,7 +105,7 @@ Impact: 10-100× connection scalability.
 (See [MVCC & Isolation Levels](./mvcc-and-isolation-levels.md) for general concepts.)
 
 Each tuple has:
-- `xmin`: txid that created it.
+- `xmin`: txid (transaction ID) that created it.
 - `xmax`: txid that deleted/superseded it (0 if alive).
 - `cmin`/`cmax`: command IDs within transaction.
 - `ctid`: physical (page, offset).
@@ -190,10 +190,10 @@ Now the planner knows country and state are correlated; doesn't multiply indepen
 Postgres index types:
 - **B-tree** (default): general-purpose.
 - **Hash**: equality only; usually not useful.
-- **GIN**: arrays, JSONB, full-text.
-- **GiST**: geometric, custom types, range types.
-- **SP-GiST**: space-partitioned GiST.
-- **BRIN**: block range; for sequentially-correlated columns.
+- **GIN (Generalized Inverted Index)**: arrays, JSONB (JSON Binary), full-text.
+- **GiST (Generalized Search Tree)**: geometric, custom types, range types.
+- **SP-GiST (Space-Partitioned GiST)**: space-partitioned GiST.
+- **BRIN (Block Range Index)**: block range; for sequentially-correlated columns.
 - **BLOOM**: extension; bloom filter for multi-column equality.
 
 Indexes are themselves MVCC-aware. They contain pointers to tuples; the executor checks tuple visibility.
@@ -258,7 +258,7 @@ Replication:
 Manual or via tools:
 - **Patroni**: HA via etcd or Consul.
 - **pg_auto_failover**: native HA tool.
-- **Cloud-managed**: RDS, Aurora, Cloud SQL handle failover.
+- **Cloud-managed**: RDS (Relational Database Service), Aurora, Cloud SQL handle failover.
 
 Considerations:
 - Async replication: data loss equal to lag.
@@ -271,11 +271,11 @@ Replicates logical changes; possible across versions; possible to subset tables.
 
 Use cases:
 - Major version upgrades (replicate to new version; cut over).
-- ETL to data warehouse.
+- ETL (Extract, Transform, Load) to data warehouse.
 - Multi-region with selective replication.
 
 Limitations:
-- DDL not replicated (must run on both sides).
+- DDL (Data Definition Language) not replicated (must run on both sides).
 - Sequences need special handling.
 - Logical replication slots can fill disk if subscriber is down.
 
@@ -376,7 +376,7 @@ Sync replication to one replica. Replica's network blips. Primary blocks all com
 - **Indexing**: Postgres has rich index types. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
 - **Query Optimization**: Postgres planner. (See [query-optimization-and-execution-plans.md](./query-optimization-and-execution-plans.md).)
 - **Replication**: streaming and logical. (See [replication-strategies.md](./replication-strategies.md).)
-- **DR**: PITR via WAL. (See [disaster-recovery-and-rto-rpo.md](../system-failures/disaster-recovery-and-rto-rpo.md).)
+- **DR (Disaster Recovery)**: PITR (Point-In-Time Recovery) via WAL. (See [disaster-recovery-and-rto-rpo.md](../system-failures/disaster-recovery-and-rto-rpo.md).)
 
 The unifying observation: **Postgres is a coherent system. The pieces — process model, MVCC, WAL, planner, replication — fit together; understanding one informs the others.**
 

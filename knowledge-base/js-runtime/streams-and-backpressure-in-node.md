@@ -22,9 +22,9 @@ A stream is data over time. Reading a 10GB file shouldn't load 10GB into memory;
 
 Node.js's stream API is one of the oldest pieces of the standard library, and one of the most consistently misused. Engineers who don't understand streams write code that works in development and falls over in production. Engineers who do can serve thousands of concurrent file downloads with a tiny memory footprint, transform multi-gigabyte data sets without touching disk, and pipe network sources to network sinks with automatic flow control.
 
-The killer feature is *backpressure*: when the consumer is slower than the producer, streams automatically slow the producer. Done right, this is invisible. Done wrong, you've recreated unbounded buffering with all its OOM consequences.
+The killer feature is *backpressure*: when the consumer is slower than the producer, streams automatically slow the producer. Done right, this is invisible. Done wrong, you've recreated unbounded buffering with all its OOM (Out Of Memory) consequences.
 
-This is the topic that turns "I work with files in Node" into "I architect data pipelines in Node." The skill is the same primitive used for HTTP, file I/O, sockets, transformations, parsers — the backbone of any non-trivial Node application.
+This is the topic that turns "I work with files in Node" into "I architect data pipelines in Node." The skill is the same primitive used for HTTP, file I/O (Input/Output), sockets, transformations, parsers — the backbone of any non-trivial Node application.
 
 ---
 
@@ -89,7 +89,7 @@ const writable = fs.createWriteStream('output.csv');
 
 Examples: file writes, HTTP responses (server-side), requests (client-side body), child process stdin.
 
-**Duplex.** Both readable and writable, separate channels (e.g., a TCP socket — you write to send, read to receive).
+**Duplex.** Both readable and writable, separate channels (e.g., a TCP (Transmission Control Protocol) socket — you write to send, read to receive).
 
 **Transform.** Duplex where reads are derived from writes (compression, encryption, parsing).
 
@@ -98,7 +98,7 @@ Examples: file writes, HTTP responses (server-side), requests (client-side body)
 **Binary mode (default):** chunks are `Buffer` or `Uint8Array`.
 **Object mode:** chunks are arbitrary JavaScript values.
 
-Object-mode streams power message-passing pipelines. CSV parsers in object mode emit row objects. Serializers consume row objects. Composability is the point.
+Object-mode streams power message-passing pipelines. CSV (Comma-Separated Values) parsers in object mode emit row objects. Serializers consume row objects. Composability is the point.
 
 ### Reading: pause vs flow
 
@@ -389,8 +389,8 @@ Code used `pipe()` (not `pipeline`); error in middle stream; source kept reading
 
 - **Vertical**: a single Node process can handle many concurrent streams.
 - **Memory bounded by highWaterMark × concurrent streams.** Predictable.
-- **Network streaming**: HTTP/2 multiplexing complements; many concurrent streams over one connection.
-- **At hyperscale**: streaming pipelines for ETL, data processing.
+- **Network streaming**: HTTP/2 (Hypertext Transfer Protocol version 2) multiplexing complements; many concurrent streams over one connection.
+- **At hyperscale**: streaming pipelines for ETL (Extract, Transform, Load), data processing.
 
 ---
 
@@ -409,7 +409,7 @@ The unifying observation: **streams are how Node handles data that doesn't fit i
 ## Real Production Scenarios 🟡
 
 - **Node's HTTP server**: every request and response is a stream. Backpressure is built in if you use `pipeline`.
-- **Cloud storage SDKs (AWS S3, Google Cloud)**: stream-based upload/download.
+- **Cloud storage SDKs (Software Development Kits) (AWS S3 (Amazon Web Services Simple Storage Service), Google Cloud)**: stream-based upload/download.
 - **Media servers (Plex, Jellyfin)**: stream transcoded video.
 - **Build tools (Webpack, Rollup)**: process source files as streams.
 - **CSV processing libraries (csv-parse)**: heavy stream usage; documented patterns.

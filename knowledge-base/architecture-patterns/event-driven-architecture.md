@@ -22,7 +22,7 @@ The pattern decouples producers from consumers. The order service doesn't know w
 
 The cost is operational complexity. Eventual consistency is the norm. Debugging "why did this happen?" requires distributed tracing across many services. Schema evolution is harder. Order-of-events matters but is hard to enforce. Many teams adopt EDA expecting simplicity and find a different kind of complexity.
 
-This is the topic where Kafka, queues, sagas, CQRS, and event sourcing meet. Done well, EDA is the substrate for resilient, scalable distributed systems. Done badly, it's a mass of moving parts nobody understands.
+This is the topic where Kafka, queues, sagas, CQRS (Command Query Responsibility Segregation), and event sourcing meet. Done well, EDA is the substrate for resilient, scalable distributed systems. Done badly, it's a mass of moving parts nobody understands.
 
 ---
 
@@ -43,13 +43,13 @@ That's event-driven architecture. The flow is the same; the coupling is differen
 ## Historical Evolution 🟢
 
 **Era 1 — Pub/sub on message brokers.**
-1990s, 2000s. JMS, MQ, RabbitMQ. Publisher-subscriber decoupling. Used in enterprise; less in web.
+1990s, 2000s. JMS (Java Message Service), MQ (Message Queue), RabbitMQ. Publisher-subscriber decoupling. Used in enterprise; less in web.
 
-**Era 2 — SOA and message buses.**
+**Era 2 — SOA (Service-Oriented Architecture) and message buses.**
 2000s. Enterprise Service Bus pattern. Heavy, often centralized. Mixed track record.
 
 **Era 3 — Microservices + simple queues.**
-~2014. Microservices boom; many used simple queues (RabbitMQ, SQS) for async work.
+~2014. Microservices boom; many used simple queues (RabbitMQ, SQS (Simple Queue Service)) for async work.
 
 **Era 4 — Kafka and event streaming.**
 ~2015. Kafka's adoption transformed thinking. Events as durable, replayable streams. Confluent, enterprise adoption.
@@ -171,7 +171,7 @@ Events from one producer to one partition arrive in order. Across partitions: no
 Implications:
 - **Per-key ordering**: hash by key (e.g., user_id) so all events for one user are in the same partition.
 - **Cross-key ordering**: not maintained; designs must not assume.
-- **Causal ordering**: track explicitly with sequence numbers or HLCs.
+- **Causal ordering**: track explicitly with sequence numbers or HLCs (Hybrid Logical Clocks).
 
 A common bug: assuming global order. Real systems rarely have it.
 
@@ -199,7 +199,7 @@ Operational metric: **consumer lag**. Lag is the canonical signal for "consumer 
 - **Broker down**: catastrophic; producers and consumers blocked.
 - **Consumer down**: lag grows; if down too long, retention may purge unconsumed events.
 - **Slow consumer**: lag grows; same as down at limit.
-- **Bad event**: poison pill; consumer fails repeatedly. Mitigation: dead-letter queue.
+- **Bad event**: poison pill; consumer fails repeatedly. Mitigation: dead-letter queue (DLQ).
 
 Each failure has different mitigations. Production-ready EDA has thoughtful answers for all.
 
@@ -265,7 +265,7 @@ Producer ships malformed events. Consumer fails on each. Retries; no progress. L
 Producer adds a required field. Old consumers can't parse. Errors flood logs. Mitigation: schema registry with backward compatibility checks; field made optional with default.
 
 **Scenario 3 — The dual-write inconsistency.**
-Service writes order to DB; emits event to Kafka separately; DB succeeds; Kafka fails. Order in DB but no event published. Other services don't know. Mitigation: outbox pattern.
+Service writes order to DB (Database); emits event to Kafka separately; DB succeeds; Kafka fails. Order in DB but no event published. Other services don't know. Mitigation: outbox pattern.
 
 **Scenario 4 — The replay disaster.**
 Engineer "replays" Kafka topic to rebuild a state. Consumer is non-idempotent. Side effects (emails sent again, payments re-processed). Mitigation: idempotent consumers; or test replays in staging only.

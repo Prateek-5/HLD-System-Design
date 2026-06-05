@@ -16,9 +16,9 @@
 
 ## 🟢 Topic Overview
 
-Time-series data is data indexed by time: server metrics, IoT sensor readings, financial ticks, user events, application logs (sometimes). The defining characteristics: high write rate (often millions of points/sec); append-only (data isn't updated, only added); queries are time-range based ("last hour," "last day"); aggregation is the dominant query pattern (averages, percentiles, downsampling).
+Time-series data is data indexed by time: server metrics, IoT (Internet of Things) sensor readings, financial ticks, user events, application logs (sometimes). The defining characteristics: high write rate (often millions of points/sec); append-only (data isn't updated, only added); queries are time-range based ("last hour," "last day"); aggregation is the dominant query pattern (averages, percentiles, downsampling).
 
-**Time-series databases** (TSDBs) — InfluxDB, TimescaleDB, ClickHouse, Prometheus, Druid, M3 — are storage engines designed for this shape. They use techniques general-purpose databases can't easily replicate: aggressive compression, columnar layout, time-based partitioning, downsampling, retention policies.
+**Time-series databases** (TSDBs — Time-Series Databases) — InfluxDB, TimescaleDB, ClickHouse, Prometheus, Druid, M3 — are storage engines designed for this shape. They use techniques general-purpose databases can't easily replicate: aggressive compression, columnar layout, time-based partitioning, downsampling, retention policies.
 
 This is the topic that explains why Prometheus exists alongside Postgres; why Datadog's storage isn't just MySQL; why financial systems use specialized stores. The data shape demands specialized engineering. Understanding the TSDB design space shapes choices for monitoring, IoT, observability, and analytics.
 
@@ -47,15 +47,15 @@ That's a TSDB. Same data; storage shaped for the access pattern. The benefit com
 2000s. MySQL/Postgres for time-series. Worked at modest scale.
 
 **Era 3 — Specialized TSDBs emerge.**
-~2010. OpenTSDB (Yahoo, on HBase). Graphite. Specialized for monitoring.
+~2010. OpenTSDB (Yahoo, on HBase (Hadoop Database)). Graphite. Specialized for monitoring.
 
 **Era 4 — Modern TSDBs.**
 2013+. InfluxDB (2013), Prometheus (2012), TimescaleDB (2017), ClickHouse for time-series (2016). Each with different design choices.
 
 **Era 5 — Cloud TSDBs.**
-2018+. Managed services: AWS Timestream, Azure Data Explorer, Google Cloud Monitoring backend.
+2018+. Managed services: AWS (Amazon Web Services) Timestream, Azure Data Explorer, Google Cloud Monitoring backend.
 
-**Era 6 — Convergence with OLAP.**
+**Era 6 — Convergence with OLAP (Online Analytical Processing).**
 Today. ClickHouse and similar columnar OLAP databases serve time-series excellently. The line blurs.
 
 The pattern: time-series became its own category, then converged with columnar OLAP. The fundamentals are stable.
@@ -124,7 +124,7 @@ Consecutive identical values: `[10, 10, 10]` → `(10, 3)`.
 **Dictionary encoding.**
 For low-cardinality columns (like labels).
 
-Combined: 1-3 bytes per data point typical. RDBMS with timestamp + value columns: 16+ bytes.
+Combined: 1-3 bytes per data point typical. RDBMS (Relational Database Management System) with timestamp + value columns: 16+ bytes.
 
 Facebook's Gorilla paper (2015): compressed time-series to 1.37 bytes per point on average.
 
@@ -175,7 +175,7 @@ Writes are typically:
 - When buffer fills, flush as a chunk (sorted, compressed).
 - Eventually merge chunks (compaction).
 
-Sound familiar? It's LSM-tree-like, optimized for time-series. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
+Sound familiar? It's LSM (Log-Structured Merge)-tree-like, optimized for time-series. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
 
 ### Query path
 
@@ -194,14 +194,14 @@ The path is optimized for time-range + labels + aggregation. Generic queries (fi
 **Prometheus.**
 - Pull-based: scrapes targets.
 - Local TSDB; push to long-term storage (Thanos, Cortex, Mimir).
-- PromQL query language.
+- PromQL (Prometheus Query Language) query language.
 - 30 days retention typical.
 
 **InfluxDB.**
 - Push-based: clients send.
 - Embedded TSDB.
 - Flux query language (or InfluxQL).
-- Cloud and OSS variants.
+- Cloud and OSS (Open-Source Software) variants.
 
 **TimescaleDB.**
 - Postgres extension.
@@ -236,7 +236,7 @@ Like LSM trees, TSDBs compact small chunks into bigger ones.
 Compaction:
 - Reduces file count.
 - Improves compression (more data per chunk).
-- Costs I/O.
+- Costs I/O (Input/Output).
 
 Tuning compaction is real work in production TSDBs.
 
@@ -256,7 +256,7 @@ Records ground motion continuously. Aggregates for daily reports. Drills into sp
 
 What goes wrong:
 
-- **The cardinality bomb.** Engineer adds `user_id` label. Cardinality grows from thousands to millions. TSDB OOMs. (See [cardinality-and-the-economics-of-monitoring.md](../observability/cardinality-and-the-economics-of-monitoring.md).)
+- **The cardinality bomb.** Engineer adds `user_id` label. Cardinality grows from thousands to millions. TSDB OOMs (runs Out Of Memory). (See [cardinality-and-the-economics-of-monitoring.md](../observability/cardinality-and-the-economics-of-monitoring.md).)
 - **The hot tag.** A "hot" label value (a popular customer) gets disproportionate writes; that shard is overwhelmed. Mitigation: bucket the hot tag.
 - **The retention surprise.** Default retention 30 days; team needs 1 year for compliance. Storage explodes. Fix: tier; downsampling.
 - **The write-path saturation.** Spike in metrics emission; ingestion can't keep up; data lost. Mitigation: capacity planning; scale ingest.
@@ -312,7 +312,7 @@ Cardinality even except for one customer with 80% of metrics. That shard hot. Mi
 
 ## 🟡 Cross-Domain Connections
 
-- **OLTP vs OLAP**: time-series is closer to OLAP. (See [oltp-vs-olap-and-columnar-storage.md](./oltp-vs-olap-and-columnar-storage.md).)
+- **OLTP (Online Transaction Processing) vs OLAP**: time-series is closer to OLAP. (See [oltp-vs-olap-and-columnar-storage.md](./oltp-vs-olap-and-columnar-storage.md).)
 - **Cardinality**: the critical economics. (See [cardinality-and-the-economics-of-monitoring.md](../observability/cardinality-and-the-economics-of-monitoring.md).)
 - **Indexing**: inverted indexes on labels. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
 - **Sharding**: time-series sharded by series or tenant. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
@@ -335,7 +335,7 @@ The unifying observation: **time-series databases are storage and query engines 
 
 - **Time is the primary index.** Most queries filter by time range; storage is partitioned by time, enabling partition pruning and cheap retention drops.
 - **Append-only writes.** Time-series isn't updated, only added — simplifying storage, replication, and compression.
-- **Compression is dramatic.** Delta / delta-of-delta encoding, bit packing, RLE, and dictionary encoding give 10-100× compression (Gorilla: 1.37 bytes/point vs 16+ for RDBMS).
+- **Compression is dramatic.** Delta / delta-of-delta encoding, bit packing, RLE (Run-Length Encoding), and dictionary encoding give 10-100× compression (Gorilla: 1.37 bytes/point vs 16+ for RDBMS).
 - **Cardinality drives cost and is the #1 operational issue.** Each unique label combination is a separate series; high-cardinality labels (user_id, request_id, full URL) blow it up and OOM the TSDB.
 - **Downsampling is standard practice.** Pre-aggregate old data at coarser resolution; storage shrinks and old-data queries stay fast.
 - **Retention policies** drop old data via aging-out partitions — cheap, bounded by chunk granularity.

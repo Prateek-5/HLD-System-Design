@@ -24,7 +24,7 @@ Each is useful alone. Together, they form an architectural style that addresses 
 
 The catch — and it's a serious one — is operational complexity. Event Sourcing in particular trades a familiar problem (mutable state, well-understood) for an unfamiliar one (immutable event logs, schema evolution of events, replay performance, projections that lag, read models out of sync). Most teams that adopt event sourcing because of a blog post regret it. Teams that adopt it for the *right* reasons — financial systems, audit-heavy domains, collaborative editing, business processes with complex state evolution — sometimes can't imagine going back.
 
-This is the topic where MVCC's "log of versions" idea, distributed systems' "consistency models," and software architecture's "separation of concerns" converge. It's also the topic where "good idea badly applied" is most expensive.
+This is the topic where MVCC (Multi-Version Concurrency Control)'s "log of versions" idea, distributed systems' "consistency models," and software architecture's "separation of concerns" converge. It's also the topic where "good idea badly applied" is most expensive.
 
 ---
 
@@ -53,14 +53,14 @@ That's the entire idea. The interesting parts are everything that happens when y
 **Era 1 — Banking and finance, forever.**
 Double-entry bookkeeping is event sourcing in disguise. You don't erase a debit; you record a corresponding credit. The ledger *is* the audit log. This pattern is centuries old.
 
-**Era 2 — CRUD becomes the default.**
-Relational databases and OO design produced a generation of "current state in a table" applications. Easy to start, easy to query, easy to lose history. Most enterprise software still works this way.
+**Era 2 — CRUD (Create, Read, Update, Delete) becomes the default.**
+Relational databases and OO (Object-Oriented) design produced a generation of "current state in a table" applications. Easy to start, easy to query, easy to lose history. Most enterprise software still works this way.
 
-**Era 3 — DDD and Greg Young (mid-2000s).**
+**Era 3 — DDD (Domain-Driven Design) and Greg Young (mid-2000s).**
 Greg Young popularizes CQRS and event sourcing in the Domain-Driven Design community. The arguments: complex domains have complex state transitions; CRUD forces shoe-horning these into "update X, set Y." Events are the natural language of domain experts.
 
 **Era 4 — Microservices and event-driven architecture.**
-The pattern of services communicating via events — Kafka, EventBridge, NATS — makes "events as a first-class citizen" mainstream. Many teams now use events for inter-service communication without doing event sourcing within a service. The terminology blurs.
+The pattern of services communicating via events — Kafka, EventBridge, NATS (Neural Autonomic Transport System) — makes "events as a first-class citizen" mainstream. Many teams now use events for inter-service communication without doing event sourcing within a service. The terminology blurs.
 
 **Era 5 — Specialized event stores.**
 EventStoreDB, Axon Server, Marten (Postgres-backed). Tools designed specifically for event-sourced systems with optimistic concurrency, projections, and replays as first-class operations. Adoption remains niche but committed.
@@ -82,7 +82,7 @@ You can have CQRS without event sourcing. Many teams do.
 
 - **Write model**: a normalized relational database optimized for transactional integrity.
 - **Read model**: a separate database (Elasticsearch, a denormalized SQL view, Redis cache, materialized views) optimized for query patterns.
-- **Synchronization**: Change Data Capture (CDC) like Debezium, or application-level dual writes, or batch ETL.
+- **Synchronization**: Change Data Capture (CDC) like Debezium, or application-level dual writes, or batch ETL (Extract, Transform, Load).
 
 Benefits without event sourcing:
 - Read scaling independent of write scaling.
@@ -182,12 +182,12 @@ The discipline: **never change the meaning of an event**. Add new event types fo
 
 This is the part where teams struggle. The "events forever" property is the source of both event sourcing's power and its operational difficulty.
 
-### GDPR and the immutable log
+### GDPR (General Data Protection Regulation) and the immutable log
 
 What about deletion? "Right to be forgotten" requires deleting personal data. But events are immutable.
 
 Patterns:
-- **Crypto-shredding**: encrypt PII in events with per-user keys. Delete the key on a delete request. The event remains, but the PII is unrecoverable.
+- **Crypto-shredding**: encrypt PII (Personally Identifiable Information) in events with per-user keys. Delete the key on a delete request. The event remains, but the PII is unrecoverable.
 - **Compaction with safe metadata**: replace deleted user's identifiers with anonymous tokens, retain the *shape* of the events for accounting.
 - **Tombstone events**: explicit `UserAnonymized` events that projections honor.
 
@@ -304,7 +304,7 @@ Early decision: emit events for every "atomic" state change at the field level. 
 - **Caching**: read models are caches. Projection lag is cache staleness. Same patterns, same anti-patterns. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **Backpressure**: projection workers are consumers of an event stream; they need backpressure handling like any stream consumer. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Functional programming**: `state = fold(events, initial)` is a pure function. Event sourcing is what happens when you take immutability seriously at the architecture level.
-- **Filesystems**: log-structured filesystems (F2FS, ZFS) are filesystem-level event sourcing. Same insight — append is fast, in-place mutation is slow, derive current state on read.
+- **Filesystems**: log-structured filesystems (F2FS (Flash-Friendly File System), ZFS (Zettabyte File System)) are filesystem-level event sourcing. Same insight — append is fast, in-place mutation is slow, derive current state on read.
 
 The deep insight: **event sourcing is the architectural expression of "state is dangerous; history is data"**. The pattern recurs at every layer where mutability becomes operationally expensive.
 

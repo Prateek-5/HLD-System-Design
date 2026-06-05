@@ -18,7 +18,7 @@
 
 ## 🟢 Topic Overview
 
-TLS (Transport Layer Security) is the cryptographic protocol that secures most internet traffic. It does three things: **encrypts** (so eavesdroppers can't read); **authenticates** (so the client knows the server is who it claims); **integrity-checks** (so tampering is detected). TLS evolved from SSL (Netscape, 1995) through TLS 1.0, 1.1, 1.2, 1.3 (2018) — each generation faster and more secure.
+TLS (Transport Layer Security) is the cryptographic protocol that secures most internet traffic. It does three things: **encrypts** (so eavesdroppers can't read); **authenticates** (so the client knows the server is who it claims); **integrity-checks** (so tampering is detected). TLS evolved from SSL (Secure Sockets Layer) (Netscape, 1995) through TLS 1.0, 1.1, 1.2, 1.3 (2018) — each generation faster and more secure.
 
 **Mutual TLS (mTLS)** extends TLS to authenticate both ends — the server presents a certificate, and so does the client. This is the foundation of zero-trust networking inside service meshes; instead of trusting "this is on our network," you trust "this connection presented a valid client cert."
 
@@ -95,8 +95,8 @@ TLS 1.2 was 2 round trips.
 
 | Feature | TLS 1.2 | TLS 1.3 |
 |---|---|---|
-| Handshake RTTs | 2 | 1 |
-| 0-RTT | No | Yes (with replay risk) |
+| Handshake RTTs (Round-Trip Times) | 2 | 1 |
+| 0-RTT (Zero Round-Trip Time) | No | Yes (with replay risk) |
 | Forward secrecy | Optional | Mandatory |
 | Cipher suites | Many; some weak | Few; all strong |
 | Renegotiation | Yes | No |
@@ -107,7 +107,7 @@ TLS 1.3 is faster, simpler, more secure. There's no good reason to use TLS 1.2 f
 
 X.509 certificates contain:
 - Subject (the entity).
-- Issuer (the CA that signed).
+- Issuer (the CA (Certificate Authority) that signed).
 - Public key.
 - Signature.
 - Validity dates.
@@ -123,7 +123,7 @@ A cipher suite specifies:
 - Key exchange (how shared secret is established).
 - Authentication (signature algorithm).
 - Symmetric encryption (for data).
-- MAC (for integrity).
+- MAC (Message Authentication Code) (for integrity).
 
 TLS 1.3 standardizes a small set of secure suites:
 - TLS_AES_256_GCM_SHA384
@@ -136,7 +136,7 @@ TLS 1.2 had hundreds of suites, including weak ones; configuration complexity.
 
 Each session uses ephemeral keys. If a long-term key is compromised later, past sessions can't be decrypted (because their session keys are gone).
 
-TLS 1.3 mandates ephemeral key exchange (ECDHE primarily). TLS 1.2 made it optional; many deployments lacked it.
+TLS 1.3 mandates ephemeral key exchange (ECDHE (Elliptic Curve Diffie-Hellman Ephemeral) primarily). TLS 1.2 made it optional; many deployments lacked it.
 
 ### 0-RTT
 
@@ -173,7 +173,7 @@ Validity:
 
 Revocation:
 - CRL (Certificate Revocation List): list of revoked certs.
-- OCSP: online status check.
+- OCSP (Online Certificate Status Protocol): online status check.
 - OCSP stapling: server provides status proof.
 
 Rotation: generate new cert before expiry; deploy; old expires.
@@ -199,7 +199,7 @@ TLS handshake adds latency:
 - 2 RTTs in TLS 1.2.
 - 0 RTTs with TLS 1.3 0-RTT.
 
-Symmetric crypto is fast (~GB/s on modern CPUs with AES-NI).
+Symmetric crypto is fast (~GB/s on modern CPUs with AES-NI (Advanced Encryption Standard New Instructions)).
 
 Connection reuse amortizes handshake. Connection pooling is critical at scale.
 
@@ -227,13 +227,13 @@ Common issues are visible in handshake output.
 
 ### Certificate transparency
 
-All publicly-trusted certs are logged in CT logs. Anyone can audit. Browsers require CT proof.
+All publicly-trusted certs are logged in CT (Certificate Transparency) logs. Anyone can audit. Browsers require CT proof.
 
 Mitigates rogue CAs issuing unauthorized certs.
 
 ### TLS at the edge
 
-CDNs handle TLS termination at the edge:
+CDNs (Content Delivery Networks) handle TLS termination at the edge:
 - Browser → CDN edge: TLS to CDN's cert.
 - CDN edge → origin: TLS to origin's cert (or HTTP if not configured).
 
@@ -244,7 +244,7 @@ Properties:
 
 ### TLS in HTTP/3
 
-TLS 1.3 is integrated into QUIC (HTTP/3). The handshake is part of the connection establishment; can't be separated.
+TLS 1.3 is integrated into QUIC (Quick UDP Internet Connections) (HTTP/3). The handshake is part of the connection establishment; can't be separated.
 
 Slightly different from HTTP/2 over TLS, but conceptually similar.
 
@@ -264,7 +264,7 @@ A notary signs a document; recipients trust the notary's signature. Cert = docum
 
 What goes wrong:
 
-- **The expired certificate.** Cert expires; service down. Discovered the moment customers can't connect. Mitigation: automatic renewal (Let's Encrypt, AWS ACM).
+- **The expired certificate.** Cert expires; service down. Discovered the moment customers can't connect. Mitigation: automatic renewal (Let's Encrypt, AWS ACM (AWS Certificate Manager)).
 - **The trust-chain config error.** Server doesn't send intermediate certs; some clients fail validation. Especially older clients without bundled CAs.
 - **The mTLS misconfiguration.** Service mesh setup wrong; some services can't communicate; some can; subtle.
 - **The hostname mismatch.** Service moved domains; cert not updated.
@@ -283,7 +283,7 @@ Cert expires at midnight; alerts triggered too late; service down for hours. Rec
 Service mesh enables mTLS strict mode; some legacy services lack certs; communication breaks. Recovery: phased rollout; permissive mode first.
 
 **Scenario 3 — The handshake CPU spike.**
-DDoS-style flood of TLS handshakes; CPU saturated; legitimate traffic suffers. Mitigation: TLS termination at edge; rate limiting.
+DDoS (Distributed Denial of Service)-style flood of TLS handshakes; CPU saturated; legitimate traffic suffers. Mitigation: TLS termination at edge; rate limiting.
 
 **Scenario 4 — The trust-chain trip.**
 Customer using older Java doesn't have new root CA. Production calls fail. Fix: include intermediates; or update Java.
@@ -317,7 +317,7 @@ Application enabled 0-RTT for an idempotent endpoint, but the endpoint had hidde
 - **HTTP**: TLS underlies HTTPS. (See [http-2-and-http-3.md](./http-2-and-http-3.md).)
 - **Edge / CDN**: TLS termination at edge. (See [edge-computing-and-cdns.md](../scalability/edge-computing-and-cdns.md).)
 - **Microservices**: mTLS in service mesh. (See [microservices-vs-monolith.md](../architecture-patterns/microservices-vs-monolith.md).)
-- **Security IR**: cert breach response. (See [security-incident-response.md](../system-failures/security-incident-response.md).)
+- **Security IR (Incident Response)**: cert breach response. (See [security-incident-response.md](../system-failures/security-incident-response.md).)
 
 The unifying observation: **TLS is the cryptographic foundation under most secure communication. Its evolution (1.2 → 1.3) and extension (mTLS) make it modern; its operational care (cert management, version policy) is non-negotiable production discipline.**
 

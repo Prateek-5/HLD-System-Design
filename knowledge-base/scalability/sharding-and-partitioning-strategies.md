@@ -58,13 +58,13 @@ The application layer learned to compute "which database does this user live on?
 YouTube's MySQL operations evolved into Vitess (open-sourced 2012). The pattern: a routing layer above multiple MySQL instances, hiding sharding from the application. Cross-shard queries became possible (with caveats). The application could pretend it was talking to one database.
 
 **Era 4 — Native distributed databases.**
-Google's Bigtable (2006) and the wave of NoSQL: Cassandra, DynamoDB, MongoDB. Sharding built into the system, not bolted on. Tradeoffs explicit: no cross-shard transactions, no joins, but linear scaling.
+Google's Bigtable (2006) and the wave of NoSQL (Not Only SQL): Cassandra, DynamoDB, MongoDB. Sharding built into the system, not bolted on. Tradeoffs explicit: no cross-shard transactions, no joins, but linear scaling.
 
 **Era 5 — NewSQL.**
 CockroachDB (2014), Spanner, YugabyteDB. Distributed SQL with cross-shard transactions, automatic rebalancing, geographic replication. The promise: SQL ergonomics with NoSQL scale. The cost: latency on cross-shard operations, operational complexity, and price.
 
 **Era 6 — The pragmatic era.**
-Most production architectures today combine: a primary OLTP database (sharded or not), specialized stores for specific workloads (Elasticsearch for search, ClickHouse for analytics, Redis for caching), and a clear story for which data lives where. The "one database to rule them all" ambition has faded; specialization wins.
+Most production architectures today combine: a primary OLTP (Online Transaction Processing) database (sharded or not), specialized stores for specific workloads (Elasticsearch for search, ClickHouse for analytics, Redis for caching), and a clear story for which data lives where. The "one database to rule them all" ambition has faded; specialization wins.
 
 The pattern: each generation pushed sharding from application code, into middleware, into the database itself, into infrastructure that's invisible. Each step reduced application complexity at the cost of operational complexity at a deeper layer.
 
@@ -128,9 +128,9 @@ The partition key must:
 4. **Be stable.** Changing partition key for a row means moving it.
 
 Common patterns:
-- **By user/tenant ID.** Each user's data is local. Per-user queries fast. Cross-user analytics scatter. Default for SaaS.
+- **By user/tenant ID.** Each user's data is local. Per-user queries fast. Cross-user analytics scatter. Default for SaaS (Software-as-a-Service).
 - **By time.** Recent data on the "hot" partition; old data archived. Natural for logs, metrics, events. Hot-write problem unless combined with another key.
-- **By geographic region.** Data near users. Compliance-friendly (GDPR). Cross-region queries expensive.
+- **By geographic region.** Data near users. Compliance-friendly (GDPR (General Data Protection Regulation)). Cross-region queries expensive.
 - **By hash of a unique ID.** Maximum distribution. Cross-key queries scatter.
 
 The decision is downstream of the *most frequent and most performance-sensitive queries*. Build the read pattern first; choose the partition key to make it fast.
@@ -152,8 +152,8 @@ There is no automatic answer. Hot-key handling is engineering work specific to t
 The expensive operations:
 
 - **Cross-shard joins**: scatter the primary query, gather, join in memory. Fine for small result sets; brutal for large ones.
-- **Cross-shard transactions**: 2PC (or distributed consensus) across shards. Latency multiplied; conflicts amplified. Avoid unless essential.
-- **Global aggregations**: count distinct users across all shards. Approximated with HyperLogLog; exact answers are expensive.
+- **Cross-shard transactions**: 2PC (Two-Phase Commit) (or distributed consensus) across shards. Latency multiplied; conflicts amplified. Avoid unless essential.
+- **Global aggregations**: count distinct users across all shards. Approximated with HyperLogLog (HLL); exact answers are expensive.
 - **Cross-shard ordering**: top-K queries across all shards. Fan-out to each shard, gather, reduce. Always slower than single-shard equivalent.
 
 The discipline: **design the schema so that hot queries don't cross shards.** Denormalize if necessary. Replicate small reference data to every shard. Keep cross-shard work in batch jobs, not request paths.
@@ -210,7 +210,7 @@ This is consistent hashing with regional hierarchy. Adding a region (a node) doe
 
 What goes wrong with sharding in production:
 
-- **The unanticipated hot tenant.** A B2B SaaS with one million tenants, sharded by tenant ID. One enterprise customer signs on. They generate 50% of total load. Their partition is overwhelmed. Recovery: split their data across multiple "sub-shards"; treat them as a special case.
+- **The unanticipated hot tenant.** A B2B (Business-to-Business) SaaS with one million tenants, sharded by tenant ID. One enterprise customer signs on. They generate 50% of total load. Their partition is overwhelmed. Recovery: split their data across multiple "sub-shards"; treat them as a special case.
 - **The cross-shard join you didn't expect.** A new feature requires joining users with their orders. Users sharded by user ID; orders sharded by order ID. The join now scatters to all shards. Latency goes from 50ms to 5s. Fix: re-shard orders by user ID, denormalize user data into orders, or precompute the join offline.
 - **The partition key that made sense at the time.** Sharding by `customer_email` seemed unique. Then the company supported "guest checkout" with NULL emails. Now all NULL-email orders pile into one partition. Schema migration needed.
 - **The rebalance that took down the cluster.** Doubling capacity from 8 to 16 nodes. Default rebalancing throttle was too high. Network saturated. Application timed out. Customers saw errors during a 4-hour migration. Fix: lower rebalance rate, longer migration, less impact.
@@ -223,10 +223,10 @@ What goes wrong with sharding in production:
 ## Failure Scenarios 🔴
 
 **Scenario 1 — The celebrity account.**
-A social platform shards user data by user ID. A new celebrity user accumulates 50M followers. Their feed reads dominate one shard. p99 latency on that shard is 10× others. Mitigation: replicate the celebrity's writes to multiple read replicas; cache hot follower lists; eventually, treat as a special case in the routing layer.
+A social platform shards user data by user ID. A new celebrity user accumulates 50M followers. Their feed reads dominate one shard. p99 (99th percentile) latency on that shard is 10× others. Mitigation: replicate the celebrity's writes to multiple read replicas; cache hot follower lists; eventually, treat as a special case in the routing layer.
 
 **Scenario 2 — The black-friday range hot spot.**
-Time-series data range-partitioned. The "current month" partition is the only one being written to. During Black Friday, write QPS exceeds the partition's capacity. Older partitions are idle. Recovery: switch to hash + range partitioning so writes spread across shards within the current month.
+Time-series data range-partitioned. The "current month" partition is the only one being written to. During Black Friday, write QPS (Queries Per Second) exceeds the partition's capacity. Older partitions are idle. Recovery: switch to hash + range partitioning so writes spread across shards within the current month.
 
 **Scenario 3 — The schema migration across shards.**
 Adding a column to a table. The schema migration runs per-shard. 64 shards, 100GB each. Sequential: 6+ hours. The team runs migrations in parallel; some shards have replication lag spikes; one fails midway. Inconsistent schema across shards. Recovery: replay the migration on the failed shard; tighter monitoring; staged rollouts.
@@ -253,7 +253,7 @@ A team adds a "transfer balance between users" feature. Implements as 2PC across
 
 - **Vertical:** larger nodes per shard delays the need for more shards but eventually hits limits.
 - **Horizontal:** add shards. Application must accommodate new partitions.
-- **Geographic:** each region runs its own shards; cross-region replication for HA. Geographic partitioning often coincides with compliance boundaries (GDPR).
+- **Geographic:** each region runs its own shards; cross-region replication for HA (High Availability). Geographic partitioning often coincides with compliance boundaries (GDPR).
 - **Multi-tenancy:** tenants as natural shard boundaries. Easy if tenants are independent; hard if cross-tenant queries are needed.
 - **The hardest scale:** a single tenant or single key that exceeds one node's capacity. Requires application-level sharding above the database's sharding.
 
@@ -261,7 +261,7 @@ A team adds a "transfer balance between users" feature. Implements as 2PC across
 
 ## Cross-Domain Connections 🔴
 
-- **CAP**: sharding is a flavor of partitioning that interacts with consistency. Cross-shard transactions are distributed transactions. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
+- **CAP (Consistency, Availability, Partition tolerance)**: sharding is a flavor of partitioning that interacts with consistency. Cross-shard transactions are distributed transactions. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Indexing**: each shard has its own indexes. Cross-shard queries must consult multiple indexes. (See [indexing-and-storage-engines.md](../database-internals/indexing-and-storage-engines.md).)
 - **Caching**: distributed caches use consistent hashing — exactly the same algorithm. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **Sagas**: cross-shard transactions almost always require saga-style flows. (See [saga-pattern-and-distributed-transactions.md](../architecture-patterns/saga-pattern-and-distributed-transactions.md).)
@@ -374,7 +374,7 @@ This is *not* a weekend project. Realistic timeline: 6-12 months.
 
 **Phase 2 (months 3-4): Dual-database setup.**
 - Provision new sharded database cluster (16 shards initially).
-- Build CDC pipeline to backfill historical data per-tenant.
+- Build CDC (Change Data Capture) pipeline to backfill historical data per-tenant.
 - Application reads still go to old DB; writes go to both.
 
 **Phase 3 (months 5-6): Shadow reads.**
@@ -479,8 +479,10 @@ Cross-shard analytics goes to a warehouse (BigQuery / Snowflake). Not the OLTP s
                      │ CDC streams
                      ▼
             ┌───────────────────────────┐
-            │  Search index (ES)        │
-            │  Analytics warehouse (BQ)  │
+            │  Search index (ES,        │
+            │   Elasticsearch)          │
+            │  Analytics warehouse (BQ, │
+            │   BigQuery)                │
             │  for cross-tenant queries  │
             └───────────────────────────┘
 ```
@@ -491,7 +493,7 @@ The OLTP path stays clean (per-tenant sharded). Cross-tenant data is aggregated 
 
 ## Key Takeaways
 
-- **The partition key is a contract with your queries — forever.** Queries that include it hit one shard (fast); queries that don't scatter-gather across all shards (slow). It must be present in your hot-path queries by design, and it's hard to change later — treat it as an architectural constraint / ABI, not a tunable.
+- **The partition key is a contract with your queries — forever.** Queries that include it hit one shard (fast); queries that don't scatter-gather across all shards (slow). It must be present in your hot-path queries by design, and it's hard to change later — treat it as an architectural constraint / ABI (Application Binary Interface), not a tunable.
 - **Choose the partition key by analyzing query patterns first.** A senior engineer asks "what will the hot queries look like?" before "what columns do we need?" — the key falls out of the access-pattern analysis. The key must distribute load evenly, be present in hot queries, co-locate naturally-joined data, and be stable.
 - **Hot keys break partitioning entirely.** A disproportionately loaded partition is a single-shard (single-thread) bottleneck no cluster capacity can fix. Design for them: bucketing/composite keys, caching, replication of hot keys, application-level special-casing. Monitor per-shard load as a primary scaling metric.
 - **Cross-shard queries are second-class citizens.** Joins, transactions, and aggregations across shards are dramatically more expensive than local equivalents. Design the schema to keep hot queries on one shard; denormalize, replicate small reference data, push cross-shard work to batch jobs/warehouses. Test cross-shard queries under realistic shard counts — what works in single-shard dev scatters in production.

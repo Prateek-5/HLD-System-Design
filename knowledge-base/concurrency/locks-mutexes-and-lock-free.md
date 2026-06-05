@@ -12,7 +12,7 @@
 >
 > **Assumes you already know:** what a thread/process is, that a CPU runs many of them at once, and that one line of code (like `x++`) can be split into several machine steps. These OS/runtime fundamentals are not covered in the `learn/` interview track — this is a senior runtime-engineering topic, so build that background from an OS primer first.
 >
-> **Level:** this file is 🔴 overall — it lives in the KB-only `concurrency/` track, beyond what system-design interviews ask. The opening sections are approachable; the internals (memory ordering, lock-free queues, ABA) are genuinely hard. If those tags feel steep, that's expected — **you are not behind.**
+> **Level:** this file is 🔴 overall — it lives in the KB-only `concurrency/` track, beyond what system-design interviews ask. The opening sections are approachable; the internals (memory ordering, lock-free queues, ABA (A-B-A, a value changes from A to B and back to A)) are genuinely hard. If those tags feel steep, that's expected — **you are not behind.**
 
 ---
 
@@ -55,7 +55,7 @@ CPU clock speeds plateau; chips grow cores instead. Suddenly every program is mu
 Java Memory Model (2005), C++11 memory model (2011). For the first time, the *exact* semantics of "thread-safe" became language-level specifications. Programmers learned about acquire/release semantics, sequential consistency, relaxed ordering. The territory was real.
 
 **Era 5 — Software transactional memory and alternatives.**
-STM (research peak in 2000s, surviving in Haskell and Clojure). The actor model (Erlang, Akka). Channels (Go, Rust). Each tries to *eliminate the lock as the unit of synchronization*. Mixed adoption; locks remain dominant for low-level work.
+STM (Software Transactional Memory) (research peak in 2000s, surviving in Haskell and Clojure). The actor model (Erlang, Akka). Channels (Go, Rust). Each tries to *eliminate the lock as the unit of synchronization*. Mixed adoption; locks remain dominant for low-level work.
 
 **Era 6 — Async runtimes and lock contention as the new bottleneck.**
 With async/await making single-threaded concurrency easy, multi-threaded use cases shrink — but where they remain (parallel computation, shared caches, in-memory databases), lock contention is increasingly the bottleneck. Modern designs increasingly partition data per-thread (sharded locks, work-stealing) to avoid contention rather than optimize it.
@@ -198,7 +198,7 @@ Costs:
 - Memory ordering subtleties.
 - The **ABA problem**: a CAS sees the same value before and after, but the value was changed in between (and changed back). Mitigations: hazard pointers, version counters (CAS on a 128-bit value), epoch-based reclamation, RCU.
 
-Memory reclamation is the hardest part: how do you free a node when other threads might still be reading it? "Just free it" is a use-after-free. Hazard pointers and epoch-based GC are the standard answers; both are non-trivial.
+Memory reclamation is the hardest part: how do you free a node when other threads might still be reading it? "Just free it" is a use-after-free. Hazard pointers and epoch-based GC (Garbage Collection) are the standard answers; both are non-trivial.
 
 ### Wait-free
 
@@ -254,7 +254,7 @@ The senior engineer's habits:
 Method A acquires lock X, then tries to acquire lock Y. Method B acquires lock Y, then tries to acquire lock X. Under load, they collide. Service hangs. Restart "fixes" it — until next time. Permanent fix: enforce global lock ordering; refactor to acquire both locks atomically (typically via a higher-level lock).
 
 **Scenario 2 — The lock convoy in a hot cache.**
-A web server caches user profiles. Cache access goes through a single mutex. With 64 cores and high QPS, every request contends. CPU usage 30%, throughput half what it should be. Fix: shard the cache across N mutexes by hash; or use a lock-free concurrent map.
+A web server caches user profiles. Cache access goes through a single mutex. With 64 cores and high QPS (Queries Per Second), every request contends. CPU usage 30%, throughput half what it should be. Fix: shard the cache across N mutexes by hash; or use a lock-free concurrent map.
 
 **Scenario 3 — Priority inversion in a real-time system.**
 A safety-critical thread (high priority) waits on a lock held by a logging thread (low priority). A computation thread (medium priority) preempts the logging thread. Safety thread misses its deadline. Fix: priority inheritance — lock holders temporarily inherit the highest priority waiting on the lock.
@@ -284,7 +284,7 @@ A reader thread reads a flag set by a writer thread. No memory barrier. Compiler
 - **Scale out:** distributed locks (Redis, ZooKeeper, etcd) carry network latency. Use sparingly; prefer partitioning.
 - **Hot keys:** a single shared resource (a counter, a list, a singleton) is a scaling killer. Partition or eliminate.
 - **The work-stealing pattern:** each thread has its own work queue; when empty, steal from another. Used in Go's runtime, Java's ForkJoinPool, Tokio's scheduler. Eliminates global contention.
-- **At extreme scale:** lock-free + RCU + per-CPU data structures. Linux kernel pioneered these techniques for SMP scaling.
+- **At extreme scale:** lock-free + RCU + per-CPU data structures. Linux kernel pioneered these techniques for SMP (Symmetric Multiprocessing) scaling.
 
 ---
 
@@ -294,7 +294,7 @@ A reader thread reads a flag set by a writer thread. No memory barrier. Compiler
 - **Distributed consistency**: distributed locks (Redlock, ZooKeeper) are locking promoted to a network. Same failure modes, longer timescales. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Event loop**: single-threaded execution gives you free mutual exclusion within a process. The cost: no parallelism. (See [event-loop-and-async-runtime.md](../js-runtime/event-loop-and-async-runtime.md).)
 - **Backpressure**: lock waits are queues; lock convoys are queue-amplifying behavior. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
-- **Caching**: cache coherence between CPUs is a hardware-level locking protocol (MESI). The same theory recurs at silicon. False sharing is cache coherence working against you.
+- **Caching**: cache coherence between CPUs is a hardware-level locking protocol (MESI (Modified, Exclusive, Shared, Invalid)). The same theory recurs at silicon. False sharing is cache coherence working against you.
 - **OS schedulers**: priority inheritance, futex implementations, work-stealing — kernel-level concurrency primitives that user-space inherits.
 
 The unifying insight: **synchronization is what happens when state is shared. The cheaper alternative is almost always to share less.**
@@ -305,7 +305,7 @@ The unifying insight: **synchronization is what happens when state is shared. Th
 
 - **NASA's Mars Pathfinder priority inversion (1997)**: textbook case of low-priority thread holding a lock needed by a high-priority one, with a medium-priority thread monopolizing CPU. Fixed remotely by enabling priority inheritance.
 - **Linux kernel's RCU adoption**: reader-side scalability achieved by allowing readers to proceed without locks, with deferred reclamation of obsolete data. Enabled the kernel to scale to hundreds of cores.
-- **JDK's `ConcurrentHashMap` evolution**: from globally-locked Hashtable, to lock-striped (16 segments), to fully lock-free in Java 8+. Each generation a more sophisticated answer to the same problem.
+- **JDK's (Java Development Kit) `ConcurrentHashMap` evolution**: from globally-locked Hashtable, to lock-striped (16 segments), to fully lock-free in Java 8+. Each generation a more sophisticated answer to the same problem.
 - **Go's `sync.Map`**: introduced after years of community lock-contention pain on built-in `map` plus `sync.Mutex`. Targeted at append-mostly, read-heavy workloads.
 - **Redis's choice of single-threaded execution**: avoids the entire question. Trades per-core throughput for radical simplicity. Has aged remarkably well.
 - **PostgreSQL's heavyweight lock contention** at scale: well-documented in Postgres internals; mitigated through MVCC and finer-grained latch design.

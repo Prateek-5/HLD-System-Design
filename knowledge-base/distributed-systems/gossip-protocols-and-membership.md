@@ -47,7 +47,7 @@ The cost: the system never has a single source of truth. The benefit: no single 
 ## Historical Evolution 🟡
 
 **Era 1 — Centralized membership.**
-1990s, 2000s. ZooKeeper-style central registries. Excellent at small scale; bottleneck and SPOF at large scale.
+1990s, 2000s. ZooKeeper-style central registries. Excellent at small scale; bottleneck and SPOF (Single Point of Failure) at large scale.
 
 **Era 2 — Multicast and broadcast.**
 Limited by network topology; doesn't work across data centers; not internet-friendly.
@@ -186,7 +186,7 @@ Gossip's beautiful property: bandwidth per node is constant; convergence is loga
 
 Naive random peer selection ignores topology. Some refinements:
 - **Rack/zone awareness**: prefer same-rack peers for some messages; cross-rack for others.
-- **Latency-aware**: weight selection by RTT.
+- **Latency-aware**: weight selection by RTT (Round-Trip Time).
 - **Hierarchical**: gossip within zones; designated nodes gossip across zones.
 
 These optimizations matter at large scale, especially across data centers.
@@ -253,19 +253,19 @@ Security update blocks gossip ports between zones. Each zone thinks others are d
 - **Convergence time**: `log(N) × interval` — logarithmic, seconds in practice.
 - **Failure detection latency**: seconds.
 - **Cluster size**: gossip scales to 10,000+ nodes; consensus typically ≤100.
-- **Geographic**: hierarchical gossip for cross-DC; convergence time grows.
+- **Geographic**: hierarchical gossip for cross-DC (Data Center); convergence time grows.
 - **At hyperscale**: hybrid systems with gossip for membership, consensus for metadata.
 
 ---
 
 ## Cross-Domain Connections 🟡
 
-- **CAP**: gossip is the "AP" choice for cluster state. (See [cap-consistency-and-replication.md](./cap-consistency-and-replication.md).)
+- **CAP (Consistency, Availability, Partition tolerance)**: gossip is the "AP" choice for cluster state. (See [cap-consistency-and-replication.md](./cap-consistency-and-replication.md).)
 - **Consensus**: complementary; consensus for what must be authoritative, gossip for what must scale. (See [leader-election-and-consensus.md](./leader-election-and-consensus.md).)
 - **Failure detection**: gossip is the typical mechanism. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
-- **Sharding**: gossip distributes ring topology in DHT-style systems. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
+- **Sharding**: gossip distributes ring topology in DHT (Distributed Hash Table)-style systems. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
 - **Caching**: distributed caches use gossip for cluster membership. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
-- **Clocks**: gossip messages can carry HLCs for causal ordering. (See [clocks-time-and-ordering.md](./clocks-time-and-ordering.md).)
+- **Clocks**: gossip messages can carry HLCs (Hybrid Logical Clocks) for causal ordering. (See [clocks-time-and-ordering.md](./clocks-time-and-ordering.md).)
 
 The unifying observation: **gossip is the protocol that enables decentralized coordination at scales where central authorities don't fit. Whenever you see a "scalable cluster," gossip is likely the membership layer.**
 

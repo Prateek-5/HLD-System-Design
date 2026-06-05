@@ -20,9 +20,9 @@
 
 A security incident is a confirmed or suspected compromise: an account takeover, a data breach, a malware infection, a leaked secret, an unauthorized access event. The response combines the operational discipline of incident response with the additional constraints of security: evidence preservation, attacker awareness, regulatory notification, legal coordination.
 
-The framework is well-established (NIST 800-61, SANS, vendor playbooks): **Preparation → Detection → Containment → Eradication → Recovery → Lessons Learned**. Each phase has specific work different from operational incidents. Containment, in particular, is about *cutting off the attacker* without tipping them off; recovery is about ensuring you've actually evicted them, not just kicked them out the front door while they remain through a back one.
+The framework is well-established (NIST (National Institute of Standards and Technology) 800-61, SANS (SysAdmin, Audit, Network, and Security), vendor playbooks): **Preparation → Detection → Containment → Eradication → Recovery → Lessons Learned**. Each phase has specific work different from operational incidents. Containment, in particular, is about *cutting off the attacker* without tipping them off; recovery is about ensuring you've actually evicted them, not just kicked them out the front door while they remain through a back one.
 
-This is the topic where engineering meets security meets law meets PR. Teams that handle security incidents well have rehearsed the choreography. Teams that haven't make mistakes that compound: they alert the attacker; they destroy evidence; they violate disclosure timelines; they reassure customers prematurely. The cost of getting this wrong is regulatory action, customer churn, and brand damage that lasts years.
+This is the topic where engineering meets security meets law meets PR (Public Relations). Teams that handle security incidents well have rehearsed the choreography. Teams that haven't make mistakes that compound: they alert the attacker; they destroy evidence; they violate disclosure timelines; they reassure customers prematurely. The cost of getting this wrong is regulatory action, customer churn, and brand damage that lasts years.
 
 ---
 
@@ -47,16 +47,16 @@ That's security incident response. The work isn't done when the immediate threat
 ~2008. NIST 800-61, SANS frameworks. Formal phases; documented practices.
 
 **Era 3 — Disclosure regulations.**
-2010s. State breach notification laws; HIPAA; GDPR (2018). Legal requirements drove formal processes.
+2010s. State breach notification laws; HIPAA (Health Insurance Portability and Accountability Act); GDPR (General Data Protection Regulation) (2018). Legal requirements drove formal processes.
 
 **Era 4 — DFIR (Digital Forensics & Incident Response).**
 Specialized field. Tools (EnCase, Volatility); methodology; training programs.
 
 **Era 5 — Detection-driven response.**
-2015+. SIEM, EDR, XDR systems. Detection improves; response time shrinks.
+2015+. SIEM (Security Information and Event Management), EDR (Endpoint Detection and Response), XDR (Extended Detection and Response) systems. Detection improves; response time shrinks.
 
 **Era 6 — Industrialized response.**
-Today. Specialized teams (SOC, CSIRT). Tabletop exercises. Vendor partnerships. Cyber insurance.
+Today. Specialized teams (SOC (Security Operations Center), CSIRT (Computer Security Incident Response Team)). Tabletop exercises. Vendor partnerships. Cyber insurance.
 
 The pattern: each generation formalized response. The methodology is well-documented; many companies still don't practice it.
 
@@ -91,7 +91,7 @@ Where security incidents are caught:
 
 The first three are detected internally; the last three are external.
 
-The Verizon DBIR consistently shows: many breaches are detected externally, not by the victim. Investing in detection capability is a major maturity step.
+The Verizon DBIR (Data Breach Investigations Report) consistently shows: many breaches are detected externally, not by the victim. Investing in detection capability is a major maturity step.
 
 ### Containment
 
@@ -104,7 +104,7 @@ Short-term containment: stop the bleeding immediately.
 Long-term containment: prepare for sustained cut-off.
 - Patch the entry vulnerability.
 - Rebuild compromised systems.
-- Implement MFA where missing.
+- Implement MFA (Multi-Factor Authentication) where missing.
 - Network segmentation.
 
 The risk: containing too aggressively tips the attacker off; they may pivot, escalate, or destroy evidence. Containing too slowly: more damage.
@@ -141,7 +141,7 @@ System rebuild:
 - Don't trust "I cleaned the malware"; rebuild from known-good.
 
 Persistence mechanisms:
-- Attackers establish multiple footholds (backdoor accounts, scheduled tasks, modified binaries, cloud IAM roles).
+- Attackers establish multiple footholds (backdoor accounts, scheduled tasks, modified binaries, cloud IAM (Identity and Access Management) roles).
 - Eradication must find and remove all.
 
 ### Recovery
@@ -172,7 +172,7 @@ Phased restoration:
 - HIPAA: 60 days to affected individuals.
 - State laws: vary; often within days.
 
-**Regulators**: SEC (4 business days), state AGs, sector-specific.
+**Regulators**: SEC (Securities and Exchange Commission) (4 business days), state AGs (Attorneys General), sector-specific.
 
 **Law enforcement**: often optional; sometimes mandatory; may slow notification timelines.
 
@@ -184,7 +184,7 @@ Phased restoration:
 
 **Supply chain compromise.** Attacker compromises a dependency; victim ingests it. SolarWinds, log4shell.
 
-**Misconfigured cloud.** Public S3 buckets, exposed databases. Many breaches.
+**Misconfigured cloud.** Public S3 (Simple Storage Service) buckets, exposed databases. Many breaches.
 
 **Insider threat.** Disgruntled employee or contractor.
 
@@ -192,7 +192,7 @@ Phased restoration:
 
 **Zero-day exploitation.** Rare but devastating; specialized actors.
 
-Each has different response patterns. Generic IR plus pattern-specific runbooks.
+Each has different response patterns. Generic IR (Incident Response) plus pattern-specific runbooks.
 
 ### Forensics
 
@@ -227,7 +227,7 @@ When you find a vulnerability in someone else's product:
 - Report to vendor.
 - Allow time for fix.
 - Coordinate disclosure date.
-- CVE assignment.
+- CVE (Common Vulnerabilities and Exposures) assignment.
 
 Different from an incident affecting your own systems.
 
@@ -250,7 +250,7 @@ What goes wrong:
 - **The "we had backups" ransomware.** Backups in same network; encrypted too. Recovery from older off-site backups; significant data loss. Lesson: air-gapped, immutable backups.
 - **The premature reassurance.** PR announced "the breach is contained" before forensics confirmed. Attackers still inside; second wave; embarrassment compounds. Lesson: PR follows containment, not assumption of containment.
 - **The wiped evidence.** IT rebuilt compromised systems before forensics imaged. Investigation hampered; questions about scope unanswerable. Lesson: preserve before rebuild.
-- **The disclosure timeline miss.** Discovered breach Tuesday; notified DPA Friday (96 hours). GDPR violation; fine in addition to breach. Lesson: 72-hour clock starts on awareness.
+- **The disclosure timeline miss.** Discovered breach Tuesday; notified DPA (Data Protection Authority) Friday (96 hours). GDPR violation; fine in addition to breach. Lesson: 72-hour clock starts on awareness.
 - **The credential rotation gap.** Rotated user passwords; forgot service accounts. Attacker maintains access via service account. Mitigation: comprehensive rotation including service identities.
 - **The unmonitored persistence.** Attacker created scheduled task. Eradication missed it. Two weeks later, re-compromise from the task. Lesson: thorough persistence search.
 - **The communication leak.** Discussion of incident in Slack channel that included a compromised account. Attacker reads response plans; pivots accordingly. Mitigation: out-of-band secure communication.
@@ -297,7 +297,7 @@ Ransomware encrypted production. Backups: same network; also encrypted. Recovery
 
 ## Scaling Perspective 🟡
 
-- **Small companies**: outsource to MSSP; have IR retainer.
+- **Small companies**: outsource to MSSP (Managed Security Service Provider); have IR retainer.
 - **Medium**: dedicated security team; SOC.
 - **Large**: 24x7 SOC; specialized IR teams; threat intelligence.
 - **At hyperscale**: extensive infrastructure; security as a competence.

@@ -53,7 +53,7 @@ Solving this — *correctly*, in all corner cases — is consensus. The remarkab
 1970s. Lamport's "Time, Clocks, and the Ordering of Events" (1978) establishes logical clocks. The realization: total ordering of events in a distributed system is the prerequisite to any agreement.
 
 **Era 2 — The FLP impossibility.**
-Fischer, Lynch, Paterson (1985): in a fully asynchronous system with even *one* faulty node, no deterministic consensus algorithm guarantees both safety and liveness. The result is foundational. It says consensus *cannot* be solved if you're paranoid about timing — meaning practical algorithms must make timing assumptions.
+Fischer, Lynch, Paterson (1985): in a fully asynchronous system with even *one* faulty node, no deterministic consensus algorithm guarantees both safety and liveness. The result is foundational. This is the FLP (Fischer-Lynch-Paterson) impossibility result. It says consensus *cannot* be solved if you're paranoid about timing — meaning practical algorithms must make timing assumptions.
 
 **Era 3 — Paxos.**
 Leslie Lamport's "The Part-Time Parliament" (1989, finally published 1998) describes Paxos. Notoriously hard to read. The 2001 follow-up "Paxos Made Simple" tried to clarify; many engineers still found it hard. Used internally at Google (Chubby, Spanner) but the implementations remained closed-source for years.
@@ -128,7 +128,7 @@ Randomized timeouts prevent endless split votes. Within a few rounds, one Candid
 
 Once a Leader is elected:
 - Clients send commands to the Leader.
-- The Leader appends commands to its log, sends `AppendEntries` RPCs to followers.
+- The Leader appends commands to its log, sends `AppendEntries` RPCs (Remote Procedure Calls) to followers.
 - Once a majority acks, the entry is *committed*.
 - The Leader applies committed entries to its state machine and tells followers to do the same.
 
@@ -159,7 +159,7 @@ Even N is *worse* than odd N: 4 nodes tolerates only 1 failure (need 3 for major
 
 ### Latency
 
-Each consensus operation is *at least* one RTT to a majority. With 5 nodes spread across regions, this means crossing the slowest path to the third-fastest replica. Inter-region consensus has 50–200ms per operation. This is why distributed databases cap write throughput to "what one consensus group can sustain" per shard.
+Each consensus operation is *at least* one RTT (Round-Trip Time) to a majority. With 5 nodes spread across regions, this means crossing the slowest path to the third-fastest replica. Inter-region consensus has 50–200ms per operation. This is why distributed databases cap write throughput to "what one consensus group can sustain" per shard.
 
 For reads:
 - **Read from leader** (linearizable): one RTT, possibly less with leader leases.
@@ -190,9 +190,9 @@ This is why "consensus is slow" is misleading at scale: a single Raft group is s
 
 To serve linearizable reads efficiently, leaders use *leases*: "I'm the leader for the next 9 seconds; nobody else can be." Within the lease, the leader doesn't need to consult others for reads.
 
-The catch: leases assume bounded clock skew. If a leader's clock runs slow, its lease may have expired in real time while it still thinks it's valid. Spanner uses TrueTime (atomic clocks + GPS) to bound clock uncertainty; CockroachDB uses HLCs.
+The catch: leases assume bounded clock skew. If a leader's clock runs slow, its lease may have expired in real time while it still thinks it's valid. Spanner uses TrueTime (atomic clocks + GPS (Global Positioning System)) to bound clock uncertainty; CockroachDB uses HLCs (Hybrid Logical Clocks).
 
-This is where consensus meets the clock problem from the [CAP file](./cap-consistency-and-replication.md). Whoever you trust on time, you trust on correctness.
+This is where consensus meets the clock problem from the [CAP (Consistency, Availability, Partition tolerance) file](./cap-consistency-and-replication.md). Whoever you trust on time, you trust on correctness.
 
 ---
 
@@ -213,7 +213,7 @@ Procedural rules ensure that a small minority cannot block decisions while prese
 What goes wrong with consensus in production:
 
 - **The even-sized cluster.** A "4-node etcd cluster for capacity" is operationally disastrous. Loses 2 nodes → quorum lost → cluster cannot make progress → every write hangs. Documented Kubernetes outage cause.
-- **The slow disk during election.** Raft requires durably persisting votes and log entries. If disk is slow (full, busy, network FS), elections take forever. Cluster appears stuck. Diagnosis: latency on `fsync` calls in Raft logs.
+- **The slow disk during election.** Raft requires durably persisting votes and log entries. If disk is slow (full, busy, network FS (File System)), elections take forever. Cluster appears stuck. Diagnosis: latency on `fsync` calls in Raft logs.
 - **The asymmetric partition.** Node A can talk to B but not C. B can talk to both. Standard Raft handles this cleanly (B becomes leader). But edge cases exist — particularly around membership changes during partial partitions. Jepsen tests reveal these regularly.
 - **The leader election storm.** A flaky network causes leader timeouts to fire repeatedly. Each new election produces a new leader briefly, then loses connectivity. No stable leader → no progress. Mitigation: longer election timeouts in flaky environments; Pre-Vote optimization (a node checks if it can win before incrementing its term).
 - **The split-brain that wasn't.** Strict consensus prevents split-brain by quorum requirements — but membership changes done wrong can violate this. Always use library-implemented joint consensus.
@@ -246,7 +246,7 @@ A consensus node's disk is failing — fsyncs take 500ms instead of 5ms. Raft re
 A team scripts node addition as "stop cluster, add node, restart cluster." During the restart, two halves of the cluster see different memberships. Two leaders elected. Inconsistent writes. Data divergence. Fix: rebuild from backup; use joint consensus going forward.
 
 **Scenario 5 — The lease violation.**
-A leader's clock is 500ms ahead of true time. Its lease appears to be valid for 9 more seconds, but a partition has elapsed. Another leader has been elected. The original leader serves a stale read from its lease. User sees inconsistency. Fix: bound clock skew with NTP discipline; consider TrueTime-style protocols for stricter guarantees.
+A leader's clock is 500ms ahead of true time. Its lease appears to be valid for 9 more seconds, but a partition has elapsed. Another leader has been elected. The original leader serves a stale read from its lease. User sees inconsistency. Fix: bound clock skew with NTP (Network Time Protocol) discipline; consider TrueTime-style protocols for stricter guarantees.
 
 ---
 
@@ -265,7 +265,7 @@ A leader's clock is 500ms ahead of true time. Its lease appears to be valid for 
 - **Vertical**: bigger nodes help log throughput and snapshot performance.
 - **Horizontal (consensus group count)**: shard with multi-Raft. Each group scales independently.
 - **Geographic**: 5-node clusters across 5 regions tolerate any 2-region failure but pay inter-region latency on every write.
-- **Stretched clusters**: 3-node clusters across 3 regions with inter-region latency; minimum production HA topology.
+- **Stretched clusters**: 3-node clusters across 3 regions with inter-region latency; minimum production HA (High Availability) topology.
 - **Cell-based architectures**: independent consensus clusters per cell; cross-cell traffic uses sagas or eventual consistency.
 
 ---
@@ -273,7 +273,7 @@ A leader's clock is 500ms ahead of true time. Its lease appears to be valid for 
 ## Cross-Domain Connections 🟡
 
 - **CAP**: consensus is the *machinery* that implements consistent distributed systems. Raft is the practical "C" in CAP. (See [cap-consistency-and-replication.md](./cap-consistency-and-replication.md).)
-- **WAL**: a Raft log is exactly a WAL replicated across nodes. Recovery semantics are identical. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
+- **WAL (Write-Ahead Log)**: a Raft log is exactly a WAL replicated across nodes. Recovery semantics are identical. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
 - **Sharding**: multi-Raft is the standard scaling pattern for consensus-backed databases. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
 - **Sagas**: consensus is the alternative to sagas — strong agreement vs eventual recovery. Pick based on consistency requirement. (See [saga-pattern-and-distributed-transactions.md](../architecture-patterns/saga-pattern-and-distributed-transactions.md).)
 - **Observability**: leader election metrics, log replication lag, and apply latency are first-class signals for any consensus system. (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)

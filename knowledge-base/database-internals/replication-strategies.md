@@ -22,7 +22,7 @@ Database replication is how copies of data live on multiple machines, kept in sy
 
 The fundamental dimensions: **synchronous vs asynchronous**, **single-leader vs multi-leader vs leaderless**, **per-row vs per-statement**. Each combination is a different point in the consistency-availability-latency space, with different operational characteristics. There's no single best choice; there are workload-fits.
 
-This is the topic that operationalizes CAP theorem, MVCC, and consensus into actual database architectures. Postgres's streaming replication, MySQL's various replication modes, Cassandra's quorum-based writes, Kafka's ISR — all are specific designs in this space. Understanding them shapes both database selection and operational practice.
+This is the topic that operationalizes CAP (Consistency, Availability, Partition tolerance) theorem, MVCC (Multi-Version Concurrency Control), and consensus into actual database architectures. Postgres's streaming replication, MySQL's various replication modes, Cassandra's quorum-based writes, Kafka's ISR (In-Sync Replicas) — all are specific designs in this space. Understanding them shapes both database selection and operational practice.
 
 ---
 
@@ -75,7 +75,7 @@ The pattern: each generation pushed replication deeper into the database design 
 The classic model. One primary handles all writes; one or more replicas receive a stream of changes.
 
 **Mechanism:**
-- WAL streaming (Postgres): replicas tail the primary's WAL.
+- WAL (Write-Ahead Log) streaming (Postgres): replicas tail the primary's WAL.
 - Binlog streaming (MySQL): primary's binary log shipped to replicas.
 - Statement-based: SQL statements re-executed on replicas (deprecated; non-deterministic statements break this).
 - Row-based: actual row changes replicated (preferred).
@@ -91,7 +91,7 @@ Postgres-specific:
 - `synchronous_standby_names`: which replicas count.
 
 **Trade-offs:**
-- Sync replication: zero-data-loss promise; per-write latency = primary commit + slowest replica RTT.
+- Sync replication: zero-data-loss promise; per-write latency = primary commit + slowest replica RTT (Round-Trip Time).
 - Async: low latency; possible data loss equal to replication lag.
 
 ### Read scaling
@@ -118,11 +118,11 @@ Multiple primaries; writes can occur on any. Replicas exchange updates.
 - **Last-write-wins (LWW)**: timestamp-based. Issues with clock skew.
 - **Per-field merge**: merge changes if they don't overlap.
 - **Application-level resolution**: callback to resolve conflicts.
-- **CRDTs**: data structures that merge cleanly.
+- **CRDTs (Conflict-free Replicated Data Types)**: data structures that merge cleanly.
 
 **Operational reality:**
 - Multi-leader is operationally complex.
-- Schema changes are hard (requires coordinated DDL).
+- Schema changes are hard (requires coordinated DDL (Data Definition Language)).
 - Performance is good; correctness is the challenge.
 
 ### Leaderless replication
@@ -200,10 +200,10 @@ Most production systems run async with very low typical lag (milliseconds), acce
 
 **Physical**: replicate WAL/binlog at the byte level. Same database version required. Whole cluster replicated.
 
-**Logical**: replicate as logical changes (INSERT, UPDATE, DELETE). Different versions possible. Subset of tables can be replicated. CDC tools (Debezium) work on logical replication.
+**Logical**: replicate as logical changes (INSERT, UPDATE, DELETE). Different versions possible. Subset of tables can be replicated. CDC (Change Data Capture) tools (Debezium) work on logical replication.
 
 Use cases:
-- **Physical**: HA replicas; fast.
+- **Physical**: HA (High Availability) replicas; fast.
 - **Logical**: heterogeneous replication (e.g., to data warehouse); selective; cross-version.
 
 ### Cross-region replication
@@ -219,7 +219,7 @@ Multi-region active-active requires multi-leader, with all its complexity.
 
 Modern cloud databases (Amazon Aurora, Google AlloyDB) decouple compute from storage:
 - WAL is shipped to a distributed storage layer.
-- Storage replicates the WAL across multiple AZs.
+- Storage replicates the WAL across multiple AZs (Availability Zones).
 - Compute instances are stateless; failover is fast (just point to the same storage).
 
 Properties:
@@ -302,7 +302,7 @@ CDC consumer (Debezium) pauses for maintenance. Postgres retains all WAL the con
 - **Consensus**: synchronous replication often uses consensus for failover. (See [leader-election-and-consensus.md](../distributed-systems/leader-election-and-consensus.md).)
 - **MVCC**: replicas serve consistent snapshots; vacuum interacts with replication. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
 - **Sharding**: replication and sharding compose; replica sets per shard. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
-- **Disaster recovery**: replication is the foundation of DR. (See [disaster-recovery-and-rto-rpo.md](../system-failures/disaster-recovery-and-rto-rpo.md).)
+- **Disaster recovery**: replication is the foundation of DR (Disaster Recovery). (See [disaster-recovery-and-rto-rpo.md](../system-failures/disaster-recovery-and-rto-rpo.md).)
 
 The unifying observation: **replication is the bridge between durability (one machine) and availability (many machines). Every choice in the strategy maps to a specific position in the consistency-latency-availability space.**
 

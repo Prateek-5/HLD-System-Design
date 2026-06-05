@@ -22,7 +22,7 @@ The Global Interpreter Lock (GIL) is CPython's mechanism for ensuring that exact
 
 This is consequential. CPU-bound Python code does not benefit from multiple cores within one process. Threading is useful for I/O-bound work (where threads release the GIL while waiting). Process-based parallelism (`multiprocessing`) sidesteps the GIL by running separate Python interpreters, each with its own GIL.
 
-The asyncio runtime — Python's answer to event-loop concurrency — operates within the GIL, providing concurrency without parallelism. PyPy, an alternative implementation, also has a GIL. PEP 703 (2023, accepted) proposes making the GIL optional in CPython 3.13+; the transition will take years.
+The asyncio runtime — Python's answer to event-loop concurrency — operates within the GIL, providing concurrency without parallelism. PyPy, an alternative implementation, also has a GIL. PEP 703 (PEP — Python Enhancement Proposal) (2023, accepted) proposes making the GIL optional in CPython 3.13+; the transition will take years.
 
 This is the topic where Python's design choices, the C extension ecosystem, and modern concurrency patterns intersect. Understanding the GIL — what it is, why it exists, when it bites — is foundational for any Python engineer at scale.
 
@@ -38,7 +38,7 @@ But when chefs are actively cooking (CPU work), they hold the stove. Other chefs
 
 That's the GIL. Python threads are real OS threads, but they share one stove (the interpreter lock). For I/O-bound work, threading helps (you wait less). For CPU-bound work, it doesn't (you can't cook in parallel).
 
-The escape: hire separate kitchens (processes). Each kitchen has its own stove. Now multiple meals cook in parallel. The cost: you can't easily share ingredients between kitchens (no shared memory, must serialize via IPC).
+The escape: hire separate kitchens (processes). Each kitchen has its own stove. Now multiple meals cook in parallel. The cost: you can't easily share ingredients between kitchens (no shared memory, must serialize via IPC (Inter-Process Communication)).
 
 ---
 
@@ -149,7 +149,7 @@ NumPy, scipy, pandas, scikit-learn, PyTorch — many scientific libraries releas
 ```python
 import numpy as np
 arr = np.array([...])
-result = arr.dot(other)  # GIL released; uses BLAS
+result = arr.dot(other)  # GIL released; uses BLAS (Basic Linear Algebra Subprograms)
 ```
 
 This means: threading + NumPy can be parallel for the C-level work. The GIL is only held when Python code touches results.
@@ -203,9 +203,9 @@ Modern asyncio is reasonably mature. Trio and Curio are alternative async librar
 
 ### Python's other implementations
 
-**PyPy**: JIT-compiled CPython alternative. Faster for many workloads. Has a GIL.
+**PyPy**: JIT (Just-In-Time)-compiled CPython alternative. Faster for many workloads. Has a GIL.
 
-**Jython**: JVM-hosted Python. No GIL. Has its own quirks.
+**Jython**: JVM (Java Virtual Machine)-hosted Python. No GIL. Has its own quirks.
 
 **IronPython**: .NET-hosted. No GIL.
 
@@ -248,7 +248,7 @@ Diagnosis:
 **The single-counter coffee shop.**
 One counter; one barista. Multiple servers can take orders, but only the barista uses the counter. Servers can prep ingredients (I/O wait) while the barista pours; that's parallelism. But two servers can't both pour.
 
-**The factory with one CNC machine.**
+**The factory with one CNC (Computer Numerical Control) machine.**
 Many workers; one programmable machine. Workers can prep parts in parallel. Machining is serial. To parallelize machining: buy more machines (multiprocessing).
 
 ---

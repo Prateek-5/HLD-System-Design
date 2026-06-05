@@ -51,16 +51,16 @@ The mature operator uses all three together. Metrics tell you something is wrong
 Logs were files on disk. Operators SSHed in and read them. Worked at one-server scale; collapsed at ten.
 
 **Era 2 — Centralized logging.**
-syslog, then log shippers (Logstash, Fluentd), then central stores (Elasticsearch, Splunk). The "ELK stack" (Elasticsearch + Logstash + Kibana) became canonical. Logs went from local files to searchable corpora.
+syslog, then log shippers (Logstash, Fluentd), then central stores (Elasticsearch, Splunk). The "ELK (Elasticsearch, Logstash, Kibana) stack" (Elasticsearch + Logstash + Kibana) became canonical. Logs went from local files to searchable corpora.
 
 **Era 3 — Time-series metrics.**
-Nagios for alerting, Munin/Cacti for dashboards. Then Graphite (2008), then Prometheus (2012). The shift: metrics as a first-class data type, with a query language (PromQL) and a pull-based collection model. Suddenly you could ask "show me request rate per endpoint, broken down by HTTP status, over the last hour" and get an instant answer.
+Nagios for alerting, Munin/Cacti for dashboards. Then Graphite (2008), then Prometheus (2012). The shift: metrics as a first-class data type, with a query language (PromQL — Prometheus Query Language) and a pull-based collection model. Suddenly you could ask "show me request rate per endpoint, broken down by HTTP (HyperText Transfer Protocol) status, over the last hour" and get an instant answer.
 
 **Era 4 — Distributed tracing.**
 Google's Dapper paper (2010) described their internal tracing system. Open-source followed: Zipkin (Twitter), Jaeger (Uber). The realization: in microservices, *no single log* tells the story; you need the request's journey across services, with parent/child spans linking them.
 
 **Era 5 — OpenTelemetry.**
-Multiple competing standards (OpenTracing, OpenCensus) merged into OpenTelemetry (2019), an industry-wide standard for instrumentation. Vendor-neutral SDKs, common semantic conventions. The data plane standardizes; the storage and analysis stay competitive.
+Multiple competing standards (OpenTracing, OpenCensus) merged into OpenTelemetry (2019), an industry-wide standard for instrumentation. Vendor-neutral SDKs (Software Development Kits), common semantic conventions. The data plane standardizes; the storage and analysis stay competitive.
 
 **Era 6 — High-cardinality observability.**
 Honeycomb's argument: pre-aggregated metrics lose the information you need at debug time. Instead, store *wide events* (every request, every relevant attribute) and let engineers slice arbitrarily at query time. The "three pillars" model is criticized as siloed; the alternative is "events as the unit, derive everything else."
@@ -93,7 +93,7 @@ Cost model: storage is `cardinality × resolution × retention`. A 10-label metr
 The right things to measure:
 - **RED** (Rate, Errors, Duration) for services.
 - **USE** (Utilization, Saturation, Errors) for resources.
-- **The four golden signals** (Latency, Traffic, Errors, Saturation) per Google SRE.
+- **The four golden signals** (Latency, Traffic, Errors, Saturation) per Google SRE (Site Reliability Engineering).
 
 Latency must be measured as a *distribution*, not an average. Averages hide tails. p50/p95/p99 are the canonical reporting triple.
 
@@ -132,7 +132,7 @@ The cost trap: log volume scales with traffic. Free-text logs at 100K req/s with
 
 ### Traces
 
-A trace is a tree (or DAG) of *spans*, each representing a unit of work, with timing and metadata.
+A trace is a tree (or DAG — Directed Acyclic Graph) of *spans*, each representing a unit of work, with timing and metadata.
 
 ```
 Trace: req-abc123 (total: 432ms)
@@ -148,12 +148,12 @@ Each span has:
 - A **span ID** (unique to this span).
 - A **parent span ID** (forms the tree).
 - **Start/end timestamps**, duration.
-- **Attributes** (HTTP method, DB query, custom tags).
+- **Attributes** (HTTP method, DB (database) query, custom tags).
 - **Events** (log-like entries within a span).
 
 The trace's superpower: showing the **critical path**. The 432ms request had a 180ms DB query inside it. *That* is where to look. Without traces, you'd see "p99 is 500ms" with no indication of where the time went.
 
-**Context propagation** is the protocol that makes traces work across services. The trace ID is passed in HTTP headers (`traceparent` per W3C Trace Context), in Kafka message headers, in gRPC metadata. Every service receives the parent trace ID, creates child spans, and forwards the context onward. A single missing propagation breaks the trace tree.
+**Context propagation** is the protocol that makes traces work across services. The trace ID is passed in HTTP headers (`traceparent` per W3C (World Wide Web Consortium) Trace Context), in Kafka message headers, in gRPC (gRPC Remote Procedure Call) metadata. Every service receives the parent trace ID, creates child spans, and forwards the context onward. A single missing propagation breaks the trace tree.
 
 Sampling is mandatory at scale. Common strategies:
 - **Head sampling**: decide at request start (e.g., 1% of requests). Cheap; misses interesting cases (errors, slow requests) statistically.
@@ -168,8 +168,8 @@ The tradeoff: storage and query cost vs. flexibility. Pre-aggregated metrics are
 ### SLOs and error budgets
 
 Define:
-- **SLI (Indicator)**: a metric. "Fraction of requests returning 2xx within 200ms."
-- **SLO (Objective)**: a target. "99.9% of requests over a 28-day window."
+- **SLI (Service Level Indicator)**: a metric. "Fraction of requests returning 2xx within 200ms."
+- **SLO (Service Level Objective)**: a target. "99.9% of requests over a 28-day window."
 - **Error budget**: 1 - SLO. "0.1% of requests can fail." 28 days × 0.1% = ~40 minutes of budget per month.
 
 When the error budget is full, ship features. When it's depleted, freeze releases until it refills. This single mechanism aligns reliability and feature velocity in a measurable way.
@@ -246,7 +246,7 @@ The senior engineer's habits:
 ## Failure Scenarios 🔴
 
 **Scenario 1 — The cardinality bomb.**
-A new feature added `user_id` as a label on the request count metric. Within hours, Prometheus is OOM. The metric store has 50M time series. Recovery: identify the offending metric, remove the label, restart the metric backend, accept ~6 hours of historical data loss.
+A new feature added `user_id` as a label on the request count metric. Within hours, Prometheus is OOM (Out Of Memory). The metric store has 50M time series. Recovery: identify the offending metric, remove the label, restart the metric backend, accept ~6 hours of historical data loss.
 
 **Scenario 2 — The silent log loss.**
 A log shipper had a buffer overflow. Logs were dropped silently for 12 hours during an incident. The team relied on logs for debug. Without them, the incident took 4 hours longer than it should have. Postmortem: monitor log shipper health like any other dependency.
@@ -287,9 +287,9 @@ SLO-based alert was set on "error rate > 1% for 5 minutes." A subtle bug caused 
 - **Backpressure**: queue depth is a saturation metric; consumer lag is the canonical event-driven SLI. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Distributed systems**: traces are the only practical way to debug distributed timing issues. They're the visualization of the consistency models in action.
 - **Caching**: cache hit rate is a primary metric for any cache layer. Without instrumenting it, you don't know if your cache is helping.
-- **MVCC**: vacuum lag and oldest-snapshot age are saturation metrics specific to MVCC databases. Critical to monitor.
+- **MVCC**: vacuum lag and oldest-snapshot age are saturation metrics specific to MVCC (Multi-Version Concurrency Control) databases. Critical to monitor.
 - **Event loop**: event loop lag is a Node-specific SLI worth watching.
-- **V8 internals**: GC pause time is an observability target — a service with regular long GC pauses needs metric-level visibility into them.
+- **V8 internals**: GC (Garbage Collection) pause time is an observability target — a service with regular long GC pauses needs metric-level visibility into them.
 
 The unifying observation: **observability is the meta-discipline for everything else.** Every other topic in this knowledge base eventually says "monitor X." Observability is *how* you monitor.
 
@@ -299,7 +299,7 @@ The unifying observation: **observability is the meta-discipline for everything 
 
 - **Google SRE's error budget framework**: documented in the SRE book; widely adopted across industry.
 - **Netflix's tracing infrastructure**: open-sourced parts of it, with publicly described patterns for sampling, retention, and integration with deploys.
-- **Uber's Jaeger**: born from operational pain at Uber's microservice scale, now a CNCF project.
+- **Uber's Jaeger**: born from operational pain at Uber's microservice scale, now a CNCF (Cloud Native Computing Foundation) project.
 - **Honeycomb's wide-event model**: a counter-narrative to the three-pillar approach, with strong public advocacy and case studies.
 - **Cloudflare's logging architecture**: multiple public posts about the petabyte-scale challenges of high-cardinality observability at edge scale.
 - **The OpenTelemetry consolidation**: the industry-wide effort to standardize on a common instrumentation layer, decoupling SDK from backend.

@@ -18,7 +18,7 @@
 
 ## Topic Overview 🟢
 
-Capacity planning is the engineering discipline of figuring out how much hardware (CPU, memory, network, storage, IOPS, database connections) your system needs to handle expected workloads — under normal load, under peak, under failure conditions. Auto-scaling is the operational mechanism for adjusting capacity dynamically as load changes.
+Capacity planning is the engineering discipline of figuring out how much hardware (CPU, memory, network, storage, IOPS (Input/Output Operations Per Second), database connections) your system needs to handle expected workloads — under normal load, under peak, under failure conditions. Auto-scaling is the operational mechanism for adjusting capacity dynamically as load changes.
 
 The mistake teams make is treating these as the same thing. Auto-scaling is *not* capacity planning. Auto-scaling is *fine-grained adjustment around a baseline you established with capacity planning*. A team that "doesn't need capacity planning because we have auto-scaling" discovers, painfully and predictably, that auto-scaling has limits — minutes-long warm-up times, ceiling on instance count, bottlenecks that don't scale with replicas, and costs that explode when scaling reactively.
 
@@ -46,19 +46,19 @@ That's how production systems actually run. Auto-scaling for the noise. Static c
 1990s, 2000s. Servers ordered weeks in advance. Capacity planned for peak — months of estimates and procurement. Underutilized most of the time; overwhelmed during unexpected spikes.
 
 **Era 2 — Virtualization.**
-~2003 onward. VMware, Xen. Decouples logical servers from physical hardware. Capacity becomes more elastic; provisioning still mostly manual.
+~2003 onward. VMware, Xen. Decouples logical servers from physical hardware. Capacity becomes more elastic; provisioning still mostly manual. (VM = Virtual Machine.)
 
 **Era 3 — Cloud and elasticity.**
-~2007 onward (AWS launched 2006). Provision instances in minutes, pay per hour. Capacity planning shifts from "buy hardware" to "configure cloud." Auto-scaling groups appear.
+~2007 onward (AWS (Amazon Web Services) launched 2006). Provision instances in minutes, pay per hour. Capacity planning shifts from "buy hardware" to "configure cloud." Auto-scaling groups appear.
 
 **Era 4 — Container orchestration.**
-~2014 onward. Kubernetes, ECS. Containers scale in seconds vs minutes for VMs. Horizontal Pod Autoscaler standardized.
+~2014 onward. Kubernetes, ECS (Elastic Container Service). Containers scale in seconds vs minutes for VMs. Horizontal Pod Autoscaler standardized.
 
 **Era 5 — Serverless.**
 ~2014 onward. AWS Lambda, Cloud Functions. Scale to zero; scale up to thousands in seconds. Capacity planning seemingly disappears (still exists; just at the platform level).
 
 **Era 6 — Predictive and ML-driven scaling.**
-Modern systems use ML to predict load (daily patterns, weekly cycles, holiday spikes). Pre-provision capacity ahead of predicted demand. Combine with reactive scaling for noise.
+Modern systems use ML (Machine Learning) to predict load (daily patterns, weekly cycles, holiday spikes). Pre-provision capacity ahead of predicted demand. Combine with reactive scaling for noise.
 
 The pattern: scaling has gotten faster (weeks → minutes → seconds), more granular (servers → VMs → containers → functions), and more predictive (reactive → predictive). Each generation reduced the gap between demand and supply.
 
@@ -73,10 +73,10 @@ The pattern: scaling has gotten faster (weeks → minutes → seconds), more gra
 Steps:
 
 1. **Identify the workload's primary metrics.** Requests per second, queries per second, messages per second, concurrent connections.
-2. **Measure resource consumption per unit of workload.** "1 RPS = 0.05 CPU cores + 200 connection slots + 5 MB memory + 10 IOPS."
+2. **Measure resource consumption per unit of workload.** "1 RPS (Requests Per Second) = 0.05 CPU cores + 200 connection slots + 5 MB memory + 10 IOPS."
 3. **Forecast workload.** Baseline + growth + seasonality + special events.
 4. **Compute required capacity.** `Workload × per-unit cost × headroom factor`.
-5. **Plan headroom for failures.** "We must survive a single AZ failure, so add 50%."
+5. **Plan headroom for failures.** "We must survive a single AZ (Availability Zone) failure, so add 50%."
 6. **Plan headroom for variability.** Real load is bursty; add 20-50% over the smooth average.
 7. **Validate via load testing.** Don't trust calculations alone; measure under realistic load.
 
@@ -87,7 +87,7 @@ This is a *quarterly or yearly* exercise for stable services. A one-time "we pro
 Every system has a *bottleneck resource*. Common ones:
 
 - **CPU**: typical for compute-bound services, image processing, ML inference.
-- **Memory**: caches, in-memory databases, JVM heaps.
+- **Memory**: caches, in-memory databases, JVM (Java Virtual Machine) heaps.
 - **Network bandwidth**: video streaming, file transfers, replication.
 - **Network connections**: per-instance limit on open sockets.
 - **Disk IOPS**: databases, log writers, queue brokers.
@@ -138,7 +138,7 @@ The hybrid: choose right-sized instances (not the smallest), then scale out.
 A new instance is *not immediately* fully operational:
 
 - **Boot time**: VM startup, container pull, OS init. Seconds to minutes.
-- **JIT warm-up**: JVM, V8 — first requests are slow until JIT kicks in.
+- **JIT warm-up**: JVM, V8 — first requests are slow until JIT (Just-In-Time compilation) kicks in.
 - **Cache warm-up**: in-memory caches must populate. First requests have low cache hit rate.
 - **Connection pool establishment**: DB connections must be created.
 
@@ -200,7 +200,7 @@ Sources of demand:
 - **External events**: holidays, viral content.
 
 Tools:
-- Time-series forecasting (ARIMA, Prophet) for cyclical patterns.
+- Time-series forecasting (ARIMA (AutoRegressive Integrated Moving Average), Prophet) for cyclical patterns.
 - Manual planning for known events.
 - Buffer for the unforecastable.
 
@@ -228,7 +228,7 @@ A restaurant doesn't hire chefs reactively as customers walk in. They forecast: 
 That's capacity planning. Auto-scaling is the part-time chef on standby. The 7 baseline chefs are static capacity. The cross-training is failure tolerance. Restaurants run this way because reactive hiring doesn't work — chefs aren't instantly available.
 
 **The power grid.**
-A grid operator forecasts demand by season, day, hour. They contract for *baseload* (cheap, always-on power: nuclear, coal). They have *intermediate* (gas turbines, ramping up over hours) and *peaking* plants (extreme spikes, expensive per MW). On a hot July afternoon, peaking plants light up.
+A grid operator forecasts demand by season, day, hour. They contract for *baseload* (cheap, always-on power: nuclear, coal). They have *intermediate* (gas turbines, ramping up over hours) and *peaking* plants (extreme spikes, expensive per MW (Megawatt)). On a hot July afternoon, peaking plants light up.
 
 Software systems should mirror this: baseline reserved capacity, mid-tier on-demand for daily peaks, spot/preemptible for batch, and pre-warmed scale-out for known events.
 
@@ -239,7 +239,7 @@ Software systems should mirror this: baseline reserved capacity, mid-tier on-dem
 What goes wrong:
 
 - **The "auto-scaling will handle it" assumption.** Marketing launches a campaign at 9am. Traffic spikes 10× in 30 seconds. Auto-scaling adds instances over 3 minutes. Site is degraded for 2-3 minutes. Mitigation: pre-warm; buffer baseline higher; load-shed gracefully.
-- **The bottleneck behind the LB.** Scale app servers to 100 instances. DB has a 200-connection limit. App can only use 200 connections total — adding instances doesn't help. Discover this only at scale.
+- **The bottleneck behind the LB (Load Balancer).** Scale app servers to 100 instances. DB has a 200-connection limit. App can only use 200 connections total — adding instances doesn't help. Discover this only at scale.
 - **The cold-start tax.** Service rebooted; first 10 seconds of requests are slow because JIT, caches, and connection pools are cold. Latency p99 ruined for warm-up duration. Mitigation: warm-up phase before adding to load balancer.
 - **The runaway cost.** Auto-scaling adds instances during a metric anomaly that's actually a metrics bug, not real load. Bill for the day spikes 10×. Mitigation: max instance caps; cost alerts.
 - **The auto-scale-down race.** Scale-down too aggressive. A small dip in traffic terminates instances. Spike returns. Now we're undersized; auto-scale-up takes a minute. Mitigation: longer scale-down windows; conservative termination.
@@ -254,7 +254,7 @@ What goes wrong:
 Product launch at 10am. Traffic 50× normal. Auto-scaling can't keep up; cold-start adds 2-minute delay. Site is partially degraded for 30 minutes. Postmortem: pre-warm capacity ahead of known events; load shed at edge during launch.
 
 **Scenario 2 — The database bottleneck reveal.**
-Service auto-scales to 200 app instances during traffic spike. p99 latency still terrible. DB connections capped at 100 total (RDS instance limit). Each app instance gets 0.5 connections. Scale-out hurts more than helps. Fix: scale DB; or cap app pool size; or add connection pooler (PgBouncer).
+Service auto-scales to 200 app instances during traffic spike. p99 latency still terrible. DB connections capped at 100 total (RDS (Relational Database Service) instance limit). Each app instance gets 0.5 connections. Scale-out hurts more than helps. Fix: scale DB; or cap app pool size; or add connection pooler (PgBouncer).
 
 **Scenario 3 — The cost catastrophe.**
 A bug in metrics causes a flat false signal interpreted as "high load." Auto-scaler adds instances continuously. 24 hours later, cluster has scaled to 500 instances on a service that normally has 20. $50K bill. Recovery: max instance limit (now 50); alerts on instance count.
@@ -271,7 +271,7 @@ A regional AZ failure removes ⅓ of capacity. Remaining 2 AZs are at 100% load 
 
 - **Cold-start latency** matters for serverless and rapid-scale workloads.
 - **Connection pool sizing** is often the underrated bottleneck.
-- **Memory headroom** prevents OOM under spike.
+- **Memory headroom** prevents OOM (Out Of Memory) under spike.
 - **Saturation metrics** beat utilization metrics for predicting failure.
 - **Load testing** validates capacity numbers; theoretical calculations age badly.
 
@@ -294,7 +294,7 @@ A regional AZ failure removes ⅓ of capacity. Remaining 2 AZs are at 100% load 
 - **Cascading failures**: undersized fleets cascade more easily; capacity is reliability. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
 - **Backpressure**: the right response to over-capacity is shedding, not crashing. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Observability**: capacity decisions are downstream of metrics quality. (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)
-- **SLOs**: capacity must support SLO targets, including under failure. (See [slos-error-budgets-and-alerting.md](../observability/slos-error-budgets-and-alerting.md).)
+- **SLOs (Service Level Objectives)**: capacity must support SLO targets, including under failure. (See [slos-error-budgets-and-alerting.md](../observability/slos-error-budgets-and-alerting.md).)
 
 The unifying observation: **capacity planning is a forecast about the future; auto-scaling is an adjustment to present reality. Both need each other; neither replaces the other.**
 

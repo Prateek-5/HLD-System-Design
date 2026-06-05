@@ -18,9 +18,9 @@
 
 ## Topic Overview 🟢
 
-Real-time communication on the web — chat, live updates, collaborative editing, multiplayer games, financial tickers — needs persistent bidirectional connections, not request-response. **WebSockets** (RFC 6455, 2011) provide this: after an HTTP upgrade handshake, the connection becomes a persistent full-duplex channel.
+Real-time communication on the web — chat, live updates, collaborative editing, multiplayer games, financial tickers — needs persistent bidirectional connections, not request-response. **WebSockets** (RFC 6455 (Request for Comments 6455), 2011) provide this: after an HTTP upgrade handshake, the connection becomes a persistent full-duplex channel.
 
-Adjacent technologies: **Server-Sent Events (SSE)** for server-to-client streams; **WebRTC** for peer-to-peer audio/video; **WebTransport** (over QUIC) emerging as a modern alternative; **gRPC streaming** for service-to-service.
+Adjacent technologies: **Server-Sent Events (SSE)** for server-to-client streams; **WebRTC** (Web Real-Time Communication) for peer-to-peer audio/video; **WebTransport** (over QUIC (Quick UDP Internet Connections)) emerging as a modern alternative; **gRPC (gRPC Remote Procedure Call) streaming** for service-to-service.
 
 This is the topic where networking, browser APIs, and scaling realities meet. Real-time protocols have unique operational concerns: persistent connections strain load balancers; reconnection storms after outages; per-connection state explodes memory; backpressure looks different than HTTP.
 
@@ -58,7 +58,7 @@ RFC 6455. Bidirectional persistent connection. Browser support grows.
 Around the same time. Server-to-client streams over HTTP.
 
 **Era 6 — Modern era.**
-WebRTC for P2P; gRPC streaming for services; WebTransport emerging. Real-time as a normal pattern.
+WebRTC for P2P (peer-to-peer); gRPC streaming for services; WebTransport emerging. Real-time as a normal pattern.
 
 The pattern: web protocols evolved from "request-response only" to first-class persistent connections.
 
@@ -130,7 +130,7 @@ For many use cases (notifications, live updates), SSE is enough.
 
 **Live updates / notifications.** SSE; server pushes; client doesn't push back over the same channel.
 
-**Collaborative editing** (Figma, Google Docs). WebSocket; CRDTs or OT for conflict resolution.
+**Collaborative editing** (Figma, Google Docs). WebSocket; CRDTs (Conflict-free Replicated Data Types) or OT (Operational Transformation) for conflict resolution.
 
 **Multiplayer games.** WebSocket; sometimes WebRTC for low-latency.
 
@@ -141,25 +141,25 @@ For many use cases (notifications, live updates), SSE is enough.
 ### Scaling persistent connections
 
 Each open connection:
-- TCP socket: ~10KB kernel memory.
+- TCP (Transmission Control Protocol) socket: ~10KB kernel memory.
 - App-level state: variable.
 - 1M connections = ~10GB+ just for sockets.
 
 **Connection limits**:
 - File descriptors (`ulimit -n`).
-- Ephemeral ports per IP (with reuse).
+- Ephemeral ports per IP (Internet Protocol) (with reuse).
 - Memory.
 
 Tuning matters. Modern servers can hold millions of connections per box (Erlang/Elixir famously; Node, Go, modern Java with Loom too).
 
 ### Load balancing WebSockets
 
-L4 load balancing works (TCP).
+L4 (Layer 4) load balancing works (TCP).
 
-L7 load balancing must support WebSocket upgrade (most do):
+L7 (Layer 7) load balancing must support WebSocket upgrade (most do):
 - nginx: `proxy_pass` + appropriate headers.
 - HAProxy: WebSocket-aware.
-- AWS ALB: native support.
+- AWS (Amazon Web Services) ALB (Application Load Balancer): native support.
 
 Sticky sessions often needed (state on specific server).
 
@@ -180,7 +180,7 @@ A common pattern: pub/sub channels. Many subscribers; each event delivered to al
 
 Implementation:
 - In-memory: server holds connections; broadcasts to local subscribers.
-- Across servers: use Redis pub/sub or Kafka to fan messages between servers; each server fans to its connections.
+- Across servers: use Redis pub/sub (publish/subscribe) or Kafka to fan messages between servers; each server fans to its connections.
 
 At scale, fan-out is its own engineering problem.
 
@@ -212,7 +212,7 @@ Server-side: handle reconnect storm gracefully (rate limit reconnects; capacity 
 
 ### Heartbeats
 
-Connections can become silently dead (NAT timeouts, half-open). Heartbeats detect:
+Connections can become silently dead (NAT (Network Address Translation) timeouts, half-open). Heartbeats detect:
 - Send periodic ping.
 - If no pong within timeout, declare dead; reconnect.
 
@@ -223,9 +223,9 @@ Both client and server should heartbeat; intervals tunable (often 15-60s).
 Peer-to-peer audio, video, data. Used for video calls.
 
 Components:
-- ICE: NAT traversal.
-- DTLS: encryption.
-- SCTP for data; RTP for media.
+- ICE (Interactive Connectivity Establishment): NAT traversal.
+- DTLS (Datagram Transport Layer Security): encryption.
+- SCTP (Stream Control Transmission Protocol) for data; RTP (Real-time Transport Protocol) for media.
 - Signaling protocol: usually WebSocket; brokers initial connection.
 
 WebRTC is its own world; complex; rich ecosystem.
@@ -237,7 +237,7 @@ For service-to-service:
 - Client-side streaming: client streams; server responds once.
 - Bidirectional streaming: both stream.
 
-Built on HTTP/2; benefits from multiplexing.
+Built on HTTP/2 (HTTP version 2); benefits from multiplexing.
 
 ### WebTransport (emerging)
 
@@ -267,7 +267,7 @@ WebSocket: bidirectional like a phone (cinema's two-way doors). SSE: one-way lik
 
 What goes wrong:
 
-- **The connection-pool exhaustion.** Server hits OS limit on file descriptors. New connections fail. Tune `ulimit -n`.
+- **The connection-pool exhaustion.** Server hits OS (Operating System) limit on file descriptors. New connections fail. Tune `ulimit -n`.
 - **The reconnection storm.** Server restarts; all clients reconnect simultaneously. Capacity overwhelmed. Mitigation: stagger; rate-limit reconnects.
 - **The sticky-session failover.** Server fails; clients reconnect; their state is lost. Mitigation: external session store; or stateless design.
 - **The fan-out scaling.** Single chat room with 100K subscribers; 1 message → 100K writes. Scale: Redis pub/sub; per-region fan-out.
@@ -294,7 +294,7 @@ Service restart; 1M clients reconnect simultaneously. CPU melts handling handsha
 Popular channel has 100K subscribers. One server holds half. CPU saturates fanning. Mitigation: shard channel across servers; intermediate fan-out tier.
 
 **Scenario 3 — The buffer-bloat memory leak.**
-Slow client; server buffer grows; eventually OOM. Fix: bounded buffer; drop oldest.
+Slow client; server buffer grows; eventually OOM (Out Of Memory). Fix: bounded buffer; drop oldest.
 
 **Scenario 4 — The silent disconnection.**
 Mobile client goes through tunnel; connection dead but server doesn't know. Messages lost. Fix: heartbeats.
@@ -306,7 +306,7 @@ Long-lived connection; token expires mid-session; messages start failing. Mitiga
 
 ## Performance Perspective 🟡
 
-- **Connection setup**: 1 RTT (TCP) + 1 RTT (TLS) + 1 RTT (WebSocket upgrade).
+- **Connection setup**: 1 RTT (Round-Trip Time) (TCP) + 1 RTT (TLS (Transport Layer Security)) + 1 RTT (WebSocket upgrade).
 - **Message overhead**: small (frame header is 2-14 bytes).
 - **Per-connection memory**: 10-100KB depending on framework.
 - **Throughput**: language/runtime dependent; modern stacks: hundreds of thousands msg/sec/server.
@@ -325,8 +325,8 @@ Long-lived connection; token expires mid-session; messages start failing. Mitiga
 ## Cross-Domain Connections 🟡
 
 - **TCP**: WebSockets are TCP. (See [tcp-and-network-fundamentals.md](./tcp-and-network-fundamentals.md).)
-- **HTTP/2 and HTTP/3**: relevant for upgrade and modern alternatives. (See [http-2-and-http-3.md](./http-2-and-http-3.md).)
-- **Load balancing**: WebSocket-aware LB. (See [load-balancing-strategies.md](../scalability/load-balancing-strategies.md).)
+- **HTTP/2 and HTTP/3 (HTTP version 3)**: relevant for upgrade and modern alternatives. (See [http-2-and-http-3.md](./http-2-and-http-3.md).)
+- **Load balancing**: WebSocket-aware LB (Load Balancer). (See [load-balancing-strategies.md](../scalability/load-balancing-strategies.md).)
 - **Backpressure**: real-time backpressure is different. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Coroutines / actors**: well-suited to many connections. (See [actor-model-and-message-passing.md](../concurrency/actor-model-and-message-passing.md).)
 - **Sticky sessions**: in load balancing. (See [load-balancing-strategies.md](../scalability/load-balancing-strategies.md).)

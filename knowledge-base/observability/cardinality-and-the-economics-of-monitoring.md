@@ -10,7 +10,7 @@
 >
 > **Analogy:** it's like a phone plan. Calling 10 friends is cheap. But the moment you log *every word* of *every call* with *every friend* forever, your "small phone bill" becomes bigger than your rent — even though you didn't make more calls. Adding one detail to track (a label) multiplies the data the same way.
 >
-> **Assumes you already know:** what an SLO / SLI is — build that first in [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md); and basic [scalability](../../learn/foundations/scaling/scalability.md) thinking (cost growing with scale). This is a senior/staff KB-only deep-dive — there's no beginner learn/ track for cardinality itself.
+> **Assumes you already know:** what an SLO (Service Level Objective) / SLI (Service Level Indicator) is — build that first in [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md); and basic [scalability](../../learn/foundations/scaling/scalability.md) thinking (cost growing with scale). This is a senior/staff KB-only deep-dive — there's no beginner learn/ track for cardinality itself.
 >
 > **Level:** this file is 🟡/🔴 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
 
@@ -48,7 +48,7 @@ The library's solution: don't catalog everything. Sample. Pick what's worth keep
 1990s, 2000s. Logs were files. You shipped them somewhere. Cost was disk space. Cardinality wasn't a concept; you grepped what you had.
 
 **Era 2 — Centralized log aggregation.**
-Late 2000s. Splunk, ELK. Centralized storage; full-text indexing. Cost scaled with log volume; index size dominated.
+Late 2000s. Splunk, ELK (Elasticsearch, Logstash, Kibana). Centralized storage; full-text indexing. Cost scaled with log volume; index size dominated.
 
 **Era 3 — Time-series metrics.**
 ~2010. Graphite, then Prometheus. Cardinality became visible as "number of time series." Per-time-series cost became the lever.
@@ -57,7 +57,7 @@ Late 2000s. Splunk, ELK. Centralized storage; full-text indexing. Cost scaled wi
 ~2016. Honeycomb argues cardinality is the value, not the cost. Wide events. ClickHouse, Druid as backends.
 
 **Era 5 — Cost awareness.**
-2020+. Major postmortems and bills woke teams up. Observability cost becomes a major engineering line item. FinOps for observability.
+2020+. Major postmortems and bills woke teams up. Observability cost becomes a major engineering line item. FinOps (Financial Operations) for observability.
 
 **Era 6 — Tiering and intelligent retention.**
 Modern: hot/warm/cold storage tiers. Different retention per data type. Sampling that preserves rare events. Cost optimization as a discipline.
@@ -81,7 +81,7 @@ Metrics: cardinality × resolution × retention. Logs: volume × indexing × ret
 Aggregating losing dimensions; you can't slice later. Storing raw events lets you slice anything; cost is much higher. The trade-off is at the architecture level.
 
 **5. Sampling is mandatory at scale.**
-Keeping everything is fine until 10K RPS becomes 100K. Sampling — head-based or tail-based — is what makes observability affordable. Smart sampling preserves what matters.
+Keeping everything is fine until 10K RPS (Requests Per Second) becomes 100K. Sampling — head-based or tail-based — is what makes observability affordable. Smart sampling preserves what matters.
 
 ---
 
@@ -121,7 +121,7 @@ Time-series databases are designed for ~1M to 10M series. Past that:
 - **Query**: aggregations over high-cardinality data are slow.
 - **Ingestion**: hot path of "is this series new?" gets expensive.
 
-Prometheus's docs explicitly warn against unbounded labels (user IDs, request IDs, full URLs). Other TSDBs have similar limits.
+Prometheus's docs explicitly warn against unbounded labels (user IDs, request IDs, full URLs). Other TSDBs (Time-Series Databases) have similar limits.
 
 ### The right home for each dimension
 
@@ -150,7 +150,7 @@ Optimization:
 - **Retention tiering**: hot (fast access) vs cold (cheap, slow).
 - **Compression**: standard.
 
-Real numbers: a service at 10K RPS with 2KB log per request = 20MB/s = ~1.7TB/day. Index-heavy commercial platforms (Splunk-style) bill primarily on daily ingest volume, and at premium per-GB-ingested list rates this lands in the high six to seven figures per year. At more typical S3 + Athena: on the order of a few thousand dollars per year. The architecture matters enormously.
+Real numbers: a service at 10K RPS with 2KB log per request = 20MB/s = ~1.7TB/day. Index-heavy commercial platforms (Splunk-style) bill primarily on daily ingest volume, and at premium per-GB-ingested list rates this lands in the high six to seven figures per year. At more typical S3 (Simple Storage Service) + Athena: on the order of a few thousand dollars per year. The architecture matters enormously.
 
 ### Traces cost model
 
@@ -248,14 +248,14 @@ These systems push the cardinality boundary. The cost is real but provides flexi
 ## Real Engineering Analogies 🟢
 
 **The corporate accounting system.**
-A company tracks income and expenses. By department: cheap. By project within department: more storage. By individual transaction: massive. The IRS only requires aggregated reporting; managers want detail; the trade-off is real.
+A company tracks income and expenses. By department: cheap. By project within department: more storage. By individual transaction: massive. The IRS (Internal Revenue Service) only requires aggregated reporting; managers want detail; the trade-off is real.
 
 Companies often store summary data online and detailed records archived. Same pattern as observability tiering.
 
 **The retail receipt aggregation.**
 A grocery store tracks "total revenue per day" cheaply. "Revenue per item per day" is bigger. "Revenue per customer per item per day" is massive. The trade-off: how granular does management need to slice?
 
-Modern POS systems can capture all three. The CFO uses summary; the merchandiser uses item-level; the loyalty program uses customer-level. Each layer is filed separately and queried as needed.
+Modern POS (Point of Sale) systems can capture all three. The CFO (Chief Financial Officer) uses summary; the merchandiser uses item-level; the loyalty program uses customer-level. Each layer is filed separately and queried as needed.
 
 ---
 
@@ -285,7 +285,7 @@ The senior engineer's habits:
 ## Failure Scenarios 🟡
 
 **Scenario 1 — The cardinality bomb.**
-Engineer adds `customer_email` as a label. Cardinality grows from thousands to millions. TSDB OOMs. Outage on the metrics layer; alert system blind. Fix: revert; rebuild metric storage.
+Engineer adds `customer_email` as a label. Cardinality grows from thousands to millions. TSDB OOMs (Out Of Memory). Outage on the metrics layer; alert system blind. Fix: revert; rebuild metric storage.
 
 **Scenario 2 — The budget overrun.**
 Team enabled DEBUG logging in production "temporarily." Forgot. Monthly bill arrives: 5× expected. Investigation: 100M log lines/day. Recovery: filter at source; restore budget.
@@ -334,7 +334,7 @@ The unifying observation: **observability is bounded not by what you'd like to m
 
 ## Real Production Scenarios 🟡
 
-- **The "we spend more on Datadog than AWS" stories**: not uncommon at mid-sized companies.
+- **The "we spend more on Datadog than AWS (Amazon Web Services)" stories**: not uncommon at mid-sized companies.
 - **Honeycomb's wide-event model**: published case studies of cost vs flexibility trade-offs.
 - **Prometheus's Mimir / Cortex / Thanos**: scaled Prometheus deployments handling petabytes.
 - **Splunk's pricing scrutiny**: many companies have moved off Splunk for cost reasons.

@@ -57,12 +57,12 @@ That's the entire pattern. The "uncertain" outcome is built into every external 
 ## Historical Evolution 🟡
 
 **Era 1 — RPC's "let's pretend the network isn't there."**
-1980s and 90s. CORBA, DCOM, early SOAP. The premise: remote calls should look like local calls. The reality: they didn't fail like local calls. Catastrophic in production. Spawned Peter Deutsch's "Eight Fallacies of Distributed Computing" (1994), still required reading.
+1980s and 90s. RPC (Remote Procedure Call), CORBA (Common Object Request Broker Architecture), DCOM (Distributed Component Object Model), early SOAP (Simple Object Access Protocol). The premise: remote calls should look like local calls. The reality: they didn't fail like local calls. Catastrophic in production. Spawned Peter Deutsch's "Eight Fallacies of Distributed Computing" (1994), still required reading.
 
-**Era 2 — TCP and the first timeouts.**
+**Era 2 — TCP (Transmission Control Protocol) and the first timeouts.**
 TCP itself has timeouts at the protocol level. Application code mostly ignored them or set absurd values (default infinite timeouts in many HTTP clients persisted into the 2010s). Production outages followed.
 
-**Era 3 — REST and the explicit retry.**
+**Era 3 — REST (Representational State Transfer) and the explicit retry.**
 HTTP idempotency semantics formalized: GET, PUT, DELETE are idempotent; POST is not. The REST community built up a culture of "design for retry." Most teams still got it wrong because POST endpoints did everything.
 
 **Era 4 — Stripe's idempotency keys (2015-ish).**
@@ -72,7 +72,7 @@ Stripe's API documented per-request idempotency keys for POST endpoints. Industr
 Envoy, Linkerd, Istio brought timeouts and retries into the network layer. Application code stopped being the only place to configure them. The flip side: hidden retries at the mesh layer caused new categories of bugs (retry amplification through the stack).
 
 **Era 6 — The retry-budget era.**
-Modern service meshes and SDKs implement retry budgets — caps on retries as a fraction of base traffic — to prevent retry storms. Adaptive retries that back off when downstream signals saturation. Idempotency-aware retries that only retry safe operations. The pattern matures into infrastructure.
+Modern service meshes and SDKs (Software Development Kits) implement retry budgets — caps on retries as a fraction of base traffic — to prevent retry storms. Adaptive retries that back off when downstream signals saturation. Idempotency-aware retries that only retry safe operations. The pattern matures into infrastructure.
 
 The arc: each generation rediscovered that the network can fail in ways the application cannot distinguish, and that the *combination* of timeout + retry + idempotency must be addressed together — getting one without the others creates new bugs.
 
@@ -88,8 +88,8 @@ Every network call needs a timeout. Without exception. The defaults in many libr
 
 Setting a timeout requires answering:
 
-- **What's the dependency's normal p99 latency?** Lower bound for the timeout.
-- **How long can I wait while still serving the user?** Upper bound, derived from end-to-end SLO.
+- **What's the dependency's normal p99 (99th percentile) latency?** Lower bound for the timeout.
+- **How long can I wait while still serving the user?** Upper bound, derived from end-to-end SLO (Service Level Objective).
 - **What's my upstream timeout?** Mine must be shorter, with margin.
 
 **The timeout chain rule:**
@@ -108,13 +108,13 @@ Anti-pattern: same timeout at every layer. The outer timeout fires before the in
 **Connection vs read vs total:**
 
 Most HTTP clients distinguish:
-- **Connection timeout:** time to establish TCP/TLS.
+- **Connection timeout:** time to establish TCP/TLS (Transport Layer Security).
 - **Read timeout:** time between bytes received.
 - **Total timeout:** time for the entire operation.
 
 A "read timeout of 5s" doesn't bound total time — a slow trickle of bytes can keep the connection alive indefinitely. Always set a total timeout.
 
-**The "deadline" pattern (gRPC, Go context):**
+**The "deadline" pattern (gRPC (gRPC Remote Procedure Calls), Go context):**
 
 Instead of per-call timeouts, propagate a *deadline* — an absolute time by which the operation must complete. Each layer subtracts processing time from the budget. This naturally enforces the timeout chain rule without manual coordination.
 
@@ -177,7 +177,7 @@ Properties:
 
 Modern service meshes implement *retry budgets*: retries are capped as a fraction of base traffic (e.g., 10%). If retry rate exceeds the budget, retries are disabled until it recovers. This prevents amplification cascades.
 
-Linkerd's documentation has good public examples. AWS SDKs have similar behavior in their adaptive retry mode.
+Linkerd's documentation has good public examples. AWS (Amazon Web Services) SDKs have similar behavior in their adaptive retry mode.
 
 ### The retry-amplification math
 
@@ -231,7 +231,7 @@ End-to-end idempotency requires *every layer* to participate. A missed layer mea
 
 **Idempotency for operations you don't fully control:**
 
-What about "send email"? Once it's handed to the SMTP server, it's out of your hands. Mitigation: dedup *before* the handoff. Idempotency keys in the queue ensure the same email isn't enqueued twice; the queue worker dedupes against a "sent" log; emails sent are recorded with their idempotency key.
+What about "send email"? Once it's handed to the SMTP (Simple Mail Transfer Protocol) server, it's out of your hands. Mitigation: dedup *before* the handoff. Idempotency keys in the queue ensure the same email isn't enqueued twice; the queue worker dedupes against a "sent" log; emails sent are recorded with their idempotency key.
 
 The principle: *idempotency at the boundaries of your system*. Beyond that, you're trusting external behavior.
 
@@ -265,7 +265,7 @@ Send a check by certified mail with return receipt. The receipt is the success a
 - Send another check with the same memo line (idempotency).
 - Call the recipient (out-of-band confirmation).
 
-Every safe protocol — credit card networks, ACH transfers, freight tracking — works this way. Idempotency keys are tracking numbers. Timeouts are how long you wait before assuming the package is lost. Retries are sending another package with the same tracking number.
+Every safe protocol — credit card networks, ACH (Automated Clearing House) transfers, freight tracking — works this way. Idempotency keys are tracking numbers. Timeouts are how long you wait before assuming the package is lost. Retries are sending another package with the same tracking number.
 
 **The order ticket at a busy restaurant.**
 The waiter writes the order on a ticket with a unique number. The kitchen sees the ticket. If the waiter checks "is order #247 ready?" twice, the kitchen doesn't make two of them. The ticket number is the idempotency key. The kitchen's ticket queue is the deduplication layer. If the waiter never gets the food (timeout), they ask the kitchen — and the kitchen knows whether #247 was made or not.
@@ -295,7 +295,7 @@ A bug in ID generation produces collisions in idempotency keys (e.g., based on `
 
 - **Timeouts have negligible runtime cost** but bound resource holding. Cheap insurance.
 - **Retries with backoff add latency** to the failure path. Acceptable; the alternative is the user seeing the failure faster.
-- **Idempotency key lookup adds latency** to every request — typically a fast in-memory or Redis lookup, but it's not free. At very high QPS, the dedup store can be the bottleneck.
+- **Idempotency key lookup adds latency** to every request — typically a fast in-memory or Redis lookup, but it's not free. At very high QPS (Queries Per Second), the dedup store can be the bottleneck.
 - **Deadline propagation is essentially free** at runtime; the cost is implementation complexity.
 - **Retry storms are the silent latency tax** during partial outages — average latency stays okay, p99 explodes.
 
@@ -304,9 +304,9 @@ A bug in ID generation produces collisions in idempotency keys (e.g., based on `
 ## Scaling Perspective 🔴
 
 - **Timeouts must be tuned per dependency** as the system grows. Latencies change; static timeouts age badly.
-- **Idempotency stores must scale** with request volume. Sharded by key; high QPS workloads use Redis cluster or DynamoDB.
+- **Idempotency stores must scale** with request volume. Sharded by key; high QPS workloads use Redis cluster or DynamoDB (Amazon's managed NoSQL database).
 - **Retry budgets become more important** at scale — amplification effects compound.
-- **At very high scale**, idempotency key TTLs become a storage cost lever; tradeoff between dedup window and storage volume.
+- **At very high scale**, idempotency key TTLs (Time To Live) become a storage cost lever; tradeoff between dedup window and storage volume.
 - **Deadline propagation across service boundaries** must be honored by libraries and SDKs; ad-hoc implementations create silent inconsistencies.
 
 ---
@@ -316,8 +316,8 @@ A bug in ID generation produces collisions in idempotency keys (e.g., based on `
 - **Sagas:** every saga step is a retry-with-idempotency operation. The triple is fundamental to saga design. (See [saga-pattern-and-distributed-transactions.md](../architecture-patterns/saga-pattern-and-distributed-transactions.md).)
 - **Cascading failures:** timeouts and circuit breakers are the same family of pattern; retries without budgets are the cascade-amplifier. (See [cascading-failures-and-circuit-breakers.md](./cascading-failures-and-circuit-breakers.md).)
 - **Backpressure:** retries violate backpressure; budgets restore it. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
-- **Distributed consistency:** the "uncertain" outcome is an artifact of the same network-partition reality CAP theorem describes. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
-- **MVCC:** idempotent SQL UPDATEs interact with snapshot isolation; the same row may be UPDATEd twice from a retry, but the second is a no-op if the value matches.
+- **Distributed consistency:** the "uncertain" outcome is an artifact of the same network-partition reality CAP (Consistency, Availability, Partition tolerance) theorem describes. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
+- **MVCC (Multi-Version Concurrency Control):** idempotent SQL UPDATEs interact with snapshot isolation; the same row may be UPDATEd twice from a retry, but the second is a no-op if the value matches.
 - **Caching:** cache-aside patterns benefit from idempotency on the cache-fill path — concurrent fillers should not duplicate work.
 
 The unifying observation: **the network's "uncertain" outcome is the foundation problem of distributed systems, and the timeout/retry/idempotency triple is the foundation defense.** Every other distributed pattern assumes you've gotten this right.

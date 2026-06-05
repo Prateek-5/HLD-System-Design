@@ -20,7 +20,7 @@
 
 The actor model is a different bet about concurrency. Where threads + locks share state and coordinate access, actors *don't share state* — each actor has private memory, and the only way to interact is to send a message. The receiving actor processes messages one at a time, in order, alone with its state. No locks. No race conditions. No shared mutable state.
 
-This is not a niche academic idea. Erlang has been running telecom switches with nine-nines reliability since the 1980s using actors. Akka brought the model to the JVM. Microsoft Orleans powered Halo's matchmaking infrastructure. Go's goroutines + channels are a close cousin (CSP, not strictly actors — channels are first-class and there's no per-entity mailbox/address), sharing the "communicate, don't share memory" spirit. Rust's tokio tasks share the spirit too. The pattern, by various names, runs significant production systems where threading-with-locks would be unmaintainable.
+This is not a niche academic idea. Erlang has been running telecom switches with nine-nines reliability since the 1980s using actors. Akka brought the model to the JVM (Java Virtual Machine). Microsoft Orleans powered Halo's matchmaking infrastructure. Go's goroutines + channels are a close cousin (CSP (Communicating Sequential Processes), not strictly actors — channels are first-class and there's no per-entity mailbox/address), sharing the "communicate, don't share memory" spirit. Rust's tokio tasks share the spirit too. The pattern, by various names, runs significant production systems where threading-with-locks would be unmaintainable.
 
 The tradeoff is that actor code looks different. State machines, message protocols, supervision hierarchies — these are first-class concerns. The lock you didn't write is replaced by the message protocol you must design. Failures must be handled per-actor, with explicit policies. The mental shift is real.
 
@@ -180,7 +180,7 @@ Some properties Erlang has had for decades that other languages are still redisc
 - **Selective receive**: process messages out of order based on shape.
 - **Distributed by default**: connecting nodes is a single function call.
 
-The price: a quirky language, a learning curve, ecosystem smaller than mainstream languages. Elixir (built on Erlang's BEAM VM) addresses the syntax issue; Erlang's underlying primitives remain unmatched.
+The price: a quirky language, a learning curve, ecosystem smaller than mainstream languages. Elixir (built on Erlang's BEAM (Bogdan/Björn's Erlang Abstract Machine) VM) addresses the syntax issue; Erlang's underlying primitives remain unmatched.
 
 ---
 
@@ -204,7 +204,7 @@ The whole system is built around isolation and explicit handoffs. That's not a m
 
 What goes wrong in actor systems:
 
-- **The unbounded mailbox.** A producer faster than a consumer fills the mailbox. Memory grows. OOM. Always bound mailboxes in production.
+- **The unbounded mailbox.** A producer faster than a consumer fills the mailbox. Memory grows. OOM (Out Of Memory). Always bound mailboxes in production.
 - **The "hot" actor.** One actor receives all the traffic (e.g., a singleton "manager"). Throughput is capped at one CPU's worth. Sharded actors avoid this.
 - **The supervision-tree disaster.** A misconfigured supervisor restarts indefinitely. Repeated crashes consume CPU; the system runs but accomplishes nothing. Mitigations: backoff between restarts, limits on restart count, escalation policies.
 - **The lost message.** Default actor messaging is at-most-once. A network drop or actor crash loses the message. If the application assumes at-least-once, bugs surface intermittently. Mitigation: explicit acknowledgment patterns, persistent queues for critical paths.
@@ -259,7 +259,7 @@ A grain representing "all global counters" receives every counter increment. Thr
 - **Backpressure**: actor mailboxes are queues; bounded mailboxes implement backpressure naturally. (See [backpressure-and-queues.md](./backpressure-and-queues.md).)
 - **Cascading failures**: supervision trees contain failures by design. The "let it crash" philosophy is a structured cascade-containment strategy. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
 - **Event loop**: the actor model is, in essence, *many event loops cooperating*. Each actor is its own single-threaded loop. (See [event-loop-and-async-runtime.md](../js-runtime/event-loop-and-async-runtime.md).)
-- **CQRS / Event sourcing**: actor state is naturally event-sourced; akka-persistence and orleans-event-sourcing make this explicit. (See [cqrs-and-event-sourcing.md](../architecture-patterns/cqrs-and-event-sourcing.md).)
+- **CQRS (Command Query Responsibility Segregation) / Event sourcing**: actor state is naturally event-sourced; akka-persistence and orleans-event-sourcing make this explicit. (See [cqrs-and-event-sourcing.md](../architecture-patterns/cqrs-and-event-sourcing.md).)
 - **Sagas**: a saga can be modeled as an actor whose state is the saga's progress. Compensation = reverse messages. (See [saga-pattern-and-distributed-transactions.md](../architecture-patterns/saga-pattern-and-distributed-transactions.md).)
 
 The unifying observation: **the actor model takes "share nothing, communicate explicitly" as its founding principle, and gets a different set of tradeoffs than shared-memory concurrency.** Both approaches work; both have failure modes; the choice is about which failure modes you'd rather face.

@@ -40,7 +40,7 @@ In **billing**, "patient" means "an account paying for services." Their data: in
 
 Same person; three different conceptions. Same word ("patient"); three different *models*.
 
-A naive system tries to be a single "Patient" object with all the fields from all departments. It becomes huge, messy, hard to change. A surgery enhancement breaks billing logic. An ER form change cascades to billing.
+A naive system tries to be a single "Patient" object with all the fields from all departments. It becomes huge, messy, hard to change. A surgery enhancement breaks billing logic. An ER (Emergency Room) form change cascades to billing.
 
 A DDD-shaped system has three bounded contexts: ER's Patient, Surgery's Patient, Billing's Patient. They share an ID; they're translated as patients move between contexts. Each is small, focused, evolvable independently.
 
@@ -60,7 +60,7 @@ That's bounded contexts. That's the insight DDD makes formal: don't merge concep
 ~2014. Microservices = bounded contexts at the service level. DDD's relevance surged.
 
 **Era 4 — Event-driven and CQRS.**
-~2015. Domain events; CQRS; event sourcing. DDD informed these patterns and was informed by them.
+~2015. Domain events; CQRS (Command Query Responsibility Segregation); event sourcing. DDD informed these patterns and was informed by them.
 
 **Era 5 — Modern DDD practice.**
 2018+. Better tooling, better books (Vaughn Vernon's "Implementing DDD"). Continuous discovery (Event Storming) as a workshop technique.
@@ -118,7 +118,7 @@ Within a bounded context, an aggregate is:
 Example: an `Order` aggregate contains `OrderLine` items, an `Address`, a `PaymentMethod`. External code interacts with `Order`; doesn't directly manipulate `OrderLine`.
 
 Aggregates are the unit of transaction:
-- Updates within an aggregate are ACID.
+- Updates within an aggregate are ACID (Atomicity, Consistency, Isolation, Durability).
 - Updates across aggregates are eventual.
 
 This shapes implementation: each aggregate maps to a transaction; cross-aggregate operations use sagas or domain events.
@@ -172,7 +172,7 @@ The ACL:
 
 When integrating with a legacy system or external API: ACL.
 
-Example: a modern catalog service must integrate with a legacy ERP. The ERP has weird field names, non-standard data formats, idiosyncratic business rules. The ACL:
+Example: a modern catalog service must integrate with a legacy ERP (Enterprise Resource Planning). The ERP has weird field names, non-standard data formats, idiosyncratic business rules. The ACL:
 - Receives clean catalog requests.
 - Translates to ERP's format.
 - Sends to ERP.
@@ -247,7 +247,7 @@ Many DDD systems naturally evolve to use these patterns.
 ### When DDD doesn't fit
 
 Not every system needs DDD:
-- **Simple CRUD apps**: domain is shallow; DDD is overkill.
+- **Simple CRUD (Create, Read, Update, Delete) apps**: domain is shallow; DDD is overkill.
 - **Pure technical infrastructure**: the "domain" is the technical concern.
 - **Throwaway prototypes**: DDD's discipline costs time.
 

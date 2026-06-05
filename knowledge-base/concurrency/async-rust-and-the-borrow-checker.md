@@ -20,7 +20,7 @@
 
 Async Rust is a different beast from async in other languages. Where JavaScript's `async/await` is a small layer over Promises, where Python's asyncio is a runtime with sometimes-surprising semantics, Rust's async is *deeply integrated with the language's ownership system*. The borrow checker, which already enforces memory safety in synchronous Rust, has to reason about futures that pause and resume, that hold references across `await` points, that may be polled from any thread.
 
-The result: code that, when it compiles, has guarantees no other async system provides. No data races. No garbage collection. Bounded memory per task. Performance close to hand-written state machines. The cost: a learning curve that even experienced Rust developers describe as "the second compile-time war." And `Pin`, `Send`, `Sync`, `'static`, `&mut self` across `await` — vocabulary that takes weeks to internalize.
+The result: code that, when it compiles, has guarantees no other async system provides. No data races. No garbage collection (GC). Bounded memory per task. Performance close to hand-written state machines. The cost: a learning curve that even experienced Rust developers describe as "the second compile-time war." And `Pin`, `Send`, `Sync`, `'static`, `&mut self` across `await` — vocabulary that takes weeks to internalize.
 
 This is the topic where the academic ambition of Rust's safety guarantees meets the practical reality of writing high-performance services. Tokio (the dominant runtime) powers production systems at Discord, Cloudflare, AWS. Understanding async Rust is understanding what's possible when you refuse to compromise on memory safety, garbage collection, or performance — and accept the complexity that comes with it.
 
@@ -43,7 +43,7 @@ The good news: when you get it right, the result is beautifully predictable. No 
 ## Historical Evolution 🟡
 
 **Era 1 — Pre-async Rust.**
-Pre-2018. Rust had concurrency primitives (threads, channels) but no async. People used `mio` (low-level I/O) or just blocking with thread pools.
+Pre-2018. Rust had concurrency primitives (threads, channels) but no async. People used `mio` (low-level I/O (Input/Output)) or just blocking with thread pools.
 
 **Era 2 — Futures 0.1.**
 ~2017. First futures library; combinator-heavy; ergonomically painful.
@@ -232,7 +232,7 @@ The `block_on` escape hatch lets you call async from sync, but at the cost of bl
 Async Rust is fast:
 - Zero-cost abstractions: state machines are roughly as efficient as hand-written.
 - No GC: predictable latency.
-- M:N scheduling: multiple OS threads multiplexing many tasks.
+- M:N (Many-to-Many) scheduling: multiple OS threads multiplexing many tasks.
 - Cache-friendly: small, allocated tasks.
 
 Cloudflare, Discord report production systems handling millions of concurrent connections per node. The performance argument for async Rust is real.
@@ -247,7 +247,7 @@ The cost: compile times (futures have complex types); learning curve; ecosystem 
 A complex mechanical watch (your code) has many gears (tasks). Inspectors (the borrow checker) verify, before the watch runs, that no gear can ever be in a position that breaks another. Once it runs, you have certainty: no jamming, no crashes. The cost: many inspections; some require you to redesign gears the inspectors don't approve.
 
 **The hospital surgery scheduler.**
-An OR scheduler (runtime) assigns surgeries (tasks) to surgeons (threads). Surgeries can pause for tests (await); the surgeon can take another surgery during the pause. But the scheduler must verify: this surgery's instruments must be safely transferable across surgeons; the patient's records must remain accessible. Without this verification, chaos.
+An OR (Operating Room) scheduler (runtime) assigns surgeries (tasks) to surgeons (threads). Surgeries can pause for tests (await); the surgeon can take another surgery during the pause. But the scheduler must verify: this surgery's instruments must be safely transferable across surgeons; the patient's records must remain accessible. Without this verification, chaos.
 
 ---
 
@@ -267,7 +267,7 @@ What goes wrong:
 ## Failure Scenarios 🔴
 
 **Scenario 1 — The accidental blocker.**
-Engineer adds a "quick" call to a sync DB driver in an async handler. Under load, the worker thread blocks; tokio's scheduler can't reuse it. Throughput collapses. Fix: async DB driver.
+Engineer adds a "quick" call to a sync DB (Database) driver in an async handler. Under load, the worker thread blocks; tokio's scheduler can't reuse it. Throughput collapses. Fix: async DB driver.
 
 **Scenario 2 — The Send-error wall.**
 Compiler error: 80 lines of trait bounds explaining "future is not Send." After hours of investigation, the cause is an `Rc<HashMap>` deep in a callback. Refactor: `Arc<HashMap>`.
@@ -279,7 +279,7 @@ Library uses `async-std`; another uses `tokio`. Both initialize their own runtim
 Drop future mid-execution. The future was holding a database transaction. Transaction never committed or rolled back; sits open. Mitigation: explicit cleanup in Drop; structured concurrency.
 
 **Scenario 5 — The compile-time disaster.**
-Async function with generic types and many awaits compiles for 5 minutes. CI times out. Mitigation: type erasure (`Box<dyn Future>`); refactor.
+Async function with generic types and many awaits compiles for 5 minutes. CI (Continuous Integration) times out. Mitigation: type erasure (`Box<dyn Future>`); refactor.
 
 ---
 
@@ -317,9 +317,9 @@ The unifying observation: **async Rust pushes safety guarantees into concurrency
 
 - **Discord's Rust services**: documented migration from Go and Elixir for some services; tokio-based.
 - **Cloudflare's pingora**: production Rust server platform.
-- **AWS Firecracker**: VMM written in Rust with async I/O.
+- **AWS Firecracker**: VMM (Virtual Machine Monitor) written in Rust with async I/O.
 - **Linkerd 2.x proxy**: rewrote from Go to Rust for performance.
-- **Tokio's own ecosystem**: hyper, axum, tonic — production HTTP/gRPC servers.
+- **Tokio's own ecosystem**: hyper, axum, tonic — production HTTP/gRPC (gRPC Remote Procedure Call) servers.
 
 ---
 

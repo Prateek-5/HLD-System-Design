@@ -18,7 +18,7 @@
 
 ## Topic Overview 🟢
 
-A transaction, in a single database, is a beautiful thing. ACID guarantees you a clean abstraction: a unit of work that either fully succeeds or fully reverses, with no in-between states visible. Two-decade-old SQL syntax — `BEGIN; …; COMMIT;` — gives you a primitive that's mathematically rigorous and operationally robust.
+A transaction, in a single database, is a beautiful thing. ACID (Atomicity, Consistency, Isolation, Durability) guarantees you a clean abstraction: a unit of work that either fully succeeds or fully reverses, with no in-between states visible. Two-decade-old SQL syntax — `BEGIN; …; COMMIT;` — gives you a primitive that's mathematically rigorous and operationally robust.
 
 A *distributed* transaction — across multiple databases, services, or systems — is a different beast. The classical answer (Two-Phase Commit, 2PC) works in theory, fails in practice. Coordinator failures hold resources indefinitely. Network partitions block forever. Performance is unacceptable. Most distributed systems quietly abandoned 2PC two decades ago.
 
@@ -48,10 +48,10 @@ That's a saga. A sequence of local commitments, each with a way to back out sema
 ## Historical Evolution 🟡
 
 **Era 1 — Single-database transactions.**
-ACID transactions on a single RDBMS. Beautiful, well-understood. Solved most application needs through the 1990s.
+ACID transactions on a single RDBMS (Relational Database Management System). Beautiful, well-understood. Solved most application needs through the 1990s.
 
 **Era 2 — XA and 2PC.**
-The X/Open XA standard formalized distributed transactions in the 1990s. JTA in Java. Microsoft DTC. The promise: ACID across multiple resource managers. The practice: blocking, slow, brittle.
+The X/Open XA (eXtended Architecture) standard formalized distributed transactions in the 1990s. JTA (Java Transaction API) in Java. Microsoft DTC (Distributed Transaction Coordinator). The promise: ACID across multiple resource managers. The practice: blocking, slow, brittle.
 
 **Era 3 — The saga paper.**
 Hector Garcia-Molina and Kenneth Salem publish "Sagas" in 1987 — a long-transaction technique using compensation. Largely ignored in transactional database literature, rediscovered as foundational by the microservices community decades later.
@@ -60,7 +60,7 @@ Hector Garcia-Molina and Kenneth Salem publish "Sagas" in 1987 — a long-transa
 Service-per-database becomes idiomatic. 2PC across services is rejected as too coupled. Teams reach for sagas, often without naming them. Compensation handlers, idempotency keys, retry queues become part of the operational toolkit.
 
 **Era 5 — Orchestration vs choreography.**
-Two saga patterns emerge: an explicit *orchestrator* directs the sequence; or *choreography* via events lets each service react. Both have advantages; both have failure modes. Dedicated tools emerge: Temporal, Camunda, AWS Step Functions, Zeebe.
+Two saga patterns emerge: an explicit *orchestrator* directs the sequence; or *choreography* via events lets each service react. Both have advantages; both have failure modes. Dedicated tools emerge: Temporal, Camunda, AWS (Amazon Web Services) Step Functions, Zeebe.
 
 **Era 6 — The mature view.**
 Distributed transactions exist on a spectrum. ACID 2PC for tightly-bounded use cases (cross-shard within a database). Sagas for cross-service workflows. Eventual consistency with reconciliation jobs for data sync. The decision is about coupling, latency, and consistency requirements — not about a single "right answer."
@@ -88,7 +88,7 @@ The classical algorithm:
 Properties:
 - **Atomicity**: either all commit or all abort.
 - **Blocking**: participants holding "prepared" state cannot release until coordinator decides. If coordinator dies, they wait. Forever, in the worst case.
-- **Performance**: 2 RTTs per transaction; locks held for both rounds.
+- **Performance**: 2 RTTs (Round-Trip Times) per transaction; locks held for both rounds.
 - **Failure modes**: coordinator failure leaves participants in *prepared* state; participant failure aborts the transaction.
 
 3PC (Three-Phase Commit) adds a "pre-commit" round to avoid the blocking failure. In practice, 3PC's added complexity isn't worth it; modern systems either do 2PC carefully (with consensus-backed coordinators) or skip distributed transactions entirely.
@@ -263,7 +263,7 @@ A retry queue retries failed events. A new version of the consumer changes busin
 Three services consume an event. Two finish quickly; one is slow. The slow one's downstream effect arrives after a later event has been processed. Out-of-order causality. Discovered only because a user happens to refresh at the wrong moment. Fix: per-key serialization, or move to orchestration.
 
 **Scenario 5 — The orchestrator outage.**
-Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sagas were at step 3 of 5; their pivot transactions are committed; the world has visible intermediate state. When the orchestrator returns, sagas resume — but the customer has already been notified of "order placed" and is wondering why nothing's happened. Lesson: orchestrator durability and HA matter.
+Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sagas were at step 3 of 5; their pivot transactions are committed; the world has visible intermediate state. When the orchestrator returns, sagas resume — but the customer has already been notified of "order placed" and is wondering why nothing's happened. Lesson: orchestrator durability and HA (High Availability) matter.
 
 ---
 
@@ -288,9 +288,9 @@ Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sag
 
 ## Cross-Domain Connections 🟡
 
-- **CAP**: sagas are the practical answer to "we need cross-shard semantics, but partitions exist." Eventual consistency with explicit recovery. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
+- **CAP (Consistency, Availability, Partition tolerance)**: sagas are the practical answer to "we need cross-shard semantics, but partitions exist." Eventual consistency with explicit recovery. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Event sourcing**: orchestrator state is naturally event-sourced; choreography uses events as the saga's coordination medium. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
-- **MVCC**: snapshot isolation within an aggregate is the local-transaction semantics that each saga step depends on.
+- **MVCC (Multi-Version Concurrency Control)**: snapshot isolation within an aggregate is the local-transaction semantics that each saga step depends on.
 - **Backpressure**: saga retries must respect downstream backpressure; otherwise compensations storm during outages. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Cascading failures**: a saga without compensation handling cascades through dependent services on failure. Sagas with proper compensation contain the blast radius. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
 - **Idempotency**: the saga's prerequisite. Without idempotent operations, retries create chaos.

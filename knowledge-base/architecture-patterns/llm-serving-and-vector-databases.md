@@ -1,6 +1,6 @@
 # LLM Serving & Vector Databases
 
-> *"Serving large language models in production has emerged as one of the hardest infrastructure problems of the 2020s. Models that need 80GB of GPU memory; latency expectations measured in tokens per second; cost per query that makes traditional API economics look cheap. Vector databases are the new index — semantic similarity instead of keyword match. Together they're the substrate of every retrieval-augmented generation system, every modern semantic search, every AI-native product."*
+> *"Serving large language models in production has emerged as one of the hardest infrastructure problems of the 2020s. Models that need 80GB of GPU (Graphics Processing Unit) memory; latency expectations measured in tokens per second; cost per query that makes traditional API economics look cheap. Vector databases are the new index — semantic similarity instead of keyword match. Together they're the substrate of every retrieval-augmented generation (RAG) system, every modern semantic search, every AI-native product."*
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **In one line:** how to run an AI model as a real production service — answering quickly and affordably — and how to feed it the *right* background facts so it answers about *your* data instead of making things up.
 >
-> **Analogy:** a research librarian with a fast archive. You ask a question; the librarian doesn't answer from memory alone — they pull the few most *relevant* passages from the archive and lay them on the desk, *then* write your answer from those passages. The archive that finds passages "by meaning" is the **vector database**; the librarian who writes the answer is the **LLM**.
+> **Analogy:** a research librarian with a fast archive. You ask a question; the librarian doesn't answer from memory alone — they pull the few most *relevant* passages from the archive and lay them on the desk, *then* write your answer from those passages. The archive that finds passages "by meaning" is the **vector database**; the librarian who writes the answer is the **LLM (Large Language Model)**.
 >
 > **Assumes you already know:** what a web API and request/response look like, and the basics of caching. Build those first in [`learn/architecture/rest-graphql-grpc.md`](../../learn/architecture/rest-graphql-grpc.md) and [`learn/foundations/scaling/caching.md`](../../learn/foundations/scaling/caching.md) — *then* come back for the depth. (This is a KB-only senior/staff topic with no beginner learning-path counterpart.)
 >
@@ -22,7 +22,7 @@ The deployment of large language models has created an entirely new infrastructu
 
 **Vector databases** — Pinecone, Weaviate, Qdrant, pgvector, Chroma, Milvus — emerged in parallel. They store and query vector embeddings using approximate nearest neighbor (ANN) algorithms. The killer use case: retrieval-augmented generation (RAG), where the LLM is given relevant context retrieved by semantic similarity.
 
-Together they form the modern "AI stack": embeddings in vector databases; LLMs serving inference; orchestration layers gluing them together. Engineering teams that built scalable web services in the 2010s are learning new disciplines: GPU scheduling, attention computation, KV cache management, semantic chunking, prompt engineering at scale.
+Together they form the modern "AI stack": embeddings in vector databases; LLMs serving inference; orchestration layers gluing them together. Engineering teams that built scalable web services in the 2010s are learning new disciplines: GPU scheduling, attention computation, KV (Key-Value) cache management, semantic chunking, prompt engineering at scale.
 
 This is the topic for the AI era. Not the model training (that's research-grade); the *serving* and *retrieval* infrastructure that makes AI products work in production.
 
@@ -83,7 +83,7 @@ Memory:
 - Model weights (GBs to TBs).
 - KV cache (previous tokens' attention state).
 
-For a 70B parameter model in fp16: 140GB just for weights. Inference requires GPU memory for weights + KV cache + activations.
+For a 70B parameter model in fp16 (16-bit floating point): 140GB just for weights. Inference requires GPU memory for weights + KV cache + activations.
 
 ### KV cache
 
@@ -116,14 +116,14 @@ vLLM and similar implement this. Throughput improvements 2-10× over naive batch
 
 ### Quantization
 
-Reduce weight (and sometimes activation) precision: fp32 → fp16/bf16 → fp8 → int8 → int4.
+Reduce weight (and sometimes activation) precision: fp32 (32-bit floating point) → fp16/bf16 (brain floating point) → fp8 → int8 → int4.
 
 Trade-offs:
 - Smaller memory; can fit larger models.
 - Faster inference.
 - Slightly worse quality (varies by model, method, and task).
 
-High-quality serving commonly runs at fp16/bf16. For compression, weight-only 4-bit methods such as GPTQ and AWQ are widely used, and FP8 has become common on newer hardware (e.g. NVIDIA Hopper/Ada and later). The right choice depends on the model, the accelerator, and the accuracy budget — there is no single "default" precision across production.
+High-quality serving commonly runs at fp16/bf16. For compression, weight-only 4-bit methods such as GPTQ (Generative Pre-trained Transformer Quantization) and AWQ (Activation-aware Weight Quantization) are widely used, and FP8 has become common on newer hardware (e.g. NVIDIA Hopper/Ada and later). The right choice depends on the model, the accelerator, and the accuracy budget — there is no single "default" precision across production.
 
 ### Streaming output
 
@@ -176,7 +176,7 @@ Differences: managed vs self-hosted; query language; features (filters, hybrid s
 
 Combine vector search with keyword search:
 - Vector: semantic similarity.
-- Keyword: exact-match (BM25).
+- Keyword: exact-match (BM25, Best Matching 25).
 - Reranker: combines results.
 
 Often produces better results than either alone. Standard pattern in production RAG.
@@ -258,7 +258,7 @@ RAG misses relevant docs because of bad chunking. Users frustrated; they keep as
 GPU instance restarts; takes 5 minutes to load model. Auto-scaler triggered by load; new instances slow. Mitigation: provisioned concurrency.
 
 **Scenario 5 — The privacy leak.**
-Embeddings of customer data sent to third-party API. GDPR concerns. Mitigation: self-host embedding model.
+Embeddings of customer data sent to third-party API. GDPR (General Data Protection Regulation) concerns. Mitigation: self-host embedding model.
 
 ---
 

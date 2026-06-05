@@ -1,6 +1,6 @@
 # gRPC Internals & Streaming
 
-> *"gRPC took the best ideas from Google's internal Stubby — binary serialization, code generation, streaming, deadlines — and shipped them as the open-source default for service-to-service RPC. Where REST is a convention layered over HTTP, gRPC is an opinionated framework with the wire format, the runtime, and the API contract all carefully co-designed."*
+> *"gRPC took the best ideas from Google's internal Stubby — binary serialization, code generation, streaming, deadlines — and shipped them as the open-source default for service-to-service RPC (Remote Procedure Call). Where REST (Representational State Transfer) is a convention layered over HTTP, gRPC is an opinionated framework with the wire format, the runtime, and the API contract all carefully co-designed."*
 
 ## 🎯 Start Here — Intuition
 
@@ -17,6 +17,7 @@
 ## Topic Overview 🟢
 
 gRPC is a high-performance RPC framework. The pieces: **Protocol Buffers** for schema and serialization; **HTTP/2** as transport; **code generation** for client/server stubs; **streaming** as a first-class primitive (server-side, client-side, bidirectional). Used internally at Google for years; open-sourced 2015; now standard for modern microservice communication.
+
 
 The wins over REST: significantly less wire overhead (binary vs text); cross-language type safety (one schema, generated code in every language); built-in streaming; built-in deadlines and metadata; HTTP/2 multiplexing (one connection, many concurrent calls).
 
@@ -51,7 +52,7 @@ Google releases protobuf — the schema/serialization layer. Adopted broadly eve
 **Era 3 — gRPC open-sourced (2015).**
 The RPC framework on top of protobuf, using HTTP/2. Steady adoption.
 
-**Era 4 — CNCF graduation (2019).**
+**Era 4 — CNCF (Cloud Native Computing Foundation) graduation (2019).**
 gRPC becomes a CNCF graduated project. Production use at Netflix, Square, Lyft, many others.
 
 **Era 5 — Service mesh integration.**
@@ -116,7 +117,7 @@ A `User { id: "abc", email: "a@b.com" }` is roughly 15-20 bytes. The same JSON: 
 gRPC uses HTTP/2 for transport:
 - One connection per server (typically); many concurrent streams.
 - Each RPC = one HTTP/2 stream.
-- Headers in HPACK; body is the protobuf bytes.
+- Headers in HPACK (HTTP/2 Header Compression); body is the protobuf bytes.
 - Trailers carry status (success or error code).
 
 A unary call: client opens stream → sends request frame → server responds with response frame + trailers → stream closes.
@@ -251,17 +252,17 @@ Common interceptors: auth, logging, metrics, retry, circuit breaker, distributed
 
 ### Load balancing
 
-gRPC supports multiple LB strategies:
+gRPC supports multiple LB (Load Balancing) strategies:
 
 **pick_first**: connect to the first reachable server; stay until it fails.
 
 **round_robin**: rotate across servers.
 
-**xds**: use xDS protocol (Envoy/service mesh).
+**xds**: use xDS (x Discovery Service) protocol (Envoy/service mesh).
 
 Client-side LB is common: client knows the list of servers; picks each call. Avoids middlebox latency.
 
-In Kubernetes: gRPC clients need a "headless" service to see individual pod IPs (otherwise load balancing happens once at DNS lookup, not per call).
+In Kubernetes: gRPC clients need a "headless" service to see individual pod IPs (otherwise load balancing happens once at DNS (Domain Name System) lookup, not per call).
 
 ### Retry and circuit breaking
 
@@ -332,7 +333,7 @@ What goes wrong:
 
 - **The reused tag number.** Field removed; tag reused later for a new field. Old clients deserialize garbage. Silent bug. Lesson: `reserved` keyword in protobuf.
 - **The infinite deadline.** Service-to-service calls without deadlines. Slow downstream pegs the caller. Cascading failure. Mitigation: enforce deadlines in code review.
-- **The Kubernetes load-balancing trap.** gRPC client connects to the service VIP once; reuses the connection forever; never load-balances across pods. Mitigation: headless service + client-side round-robin.
+- **The Kubernetes load-balancing trap.** gRPC client connects to the service VIP (Virtual IP) once; reuses the connection forever; never load-balances across pods. Mitigation: headless service + client-side round-robin.
 - **The schema-break disaster.** Schema change shipped; clients with old generated code can't parse new responses. Mitigation: schema registry; rolling deploys with both versions supported.
 - **The streaming connection leak.** Long-lived streaming RPC; client crashes; server doesn't notice; resources leak. Mitigation: heartbeats; deadline; close detection.
 - **The metadata size.** Unbounded header growth; HPACK fills; performance degrades. Mitigation: cap metadata size.
@@ -352,14 +353,14 @@ The senior gRPC engineer's habits:
 **Scenario 1 — The infinite deadline.**
 Service A calls Service B without a deadline. B's database is slow; calls take 30s. A's threads pile up; A becomes slow. Cascade. Recovery: enforce deadlines; emergency timeout in service mesh.
 
-**Scenario 2 — The K8s load-balance miss.**
+**Scenario 2 — The K8s (Kubernetes) load-balance miss.**
 gRPC client → Service VIP. K8s LB resolves once; client opens connection to one pod. All client traffic goes to one pod. Other pods idle. Fix: headless service; client does its own round-robin across pod IPs.
 
 **Scenario 3 — The protobuf compatibility break.**
 Field removed; tag 7 reassigned to a new int field. Old clients sending the old field as a string deserialize as garbage int. Subtle; weeks to discover. Lesson: `reserved` tags forever.
 
 **Scenario 4 — The streaming back-pressure miss.**
-Bidirectional stream; client sends faster than server processes; server's buffer fills; OOM. Mitigation: flow control via `MaxConcurrentStreams`; backpressure in application code.
+Bidirectional stream; client sends faster than server processes; server's buffer fills; OOM (Out Of Memory). Mitigation: flow control via `MaxConcurrentStreams`; backpressure in application code.
 
 **Scenario 5 — The browser-meets-gRPC reality.**
 Engineering picks gRPC for a service used by browser. Discovers no native browser support. Adds gRPC-Web; needs Envoy proxy; complexity. Decision: was REST or Connect a better fit?
@@ -378,7 +379,7 @@ Engineering picks gRPC for a service used by browser. Discovers no native browse
 ## Scaling Perspective 🟡
 
 - **Per-service**: handles tens of thousands of requests/sec on commodity hardware.
-- **Cross-region**: HTTP/2 + TLS handshake costs amortize over multiplexed calls.
+- **Cross-region**: HTTP/2 + TLS (Transport Layer Security) handshake costs amortize over multiplexed calls.
 - **Service mesh**: Envoy-based proxies scale gRPC routing.
 - **At hyperscale**: dedicated implementations (Google's internal Stubby; bespoke).
 

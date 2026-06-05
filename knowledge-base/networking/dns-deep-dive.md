@@ -12,15 +12,15 @@
 >
 > **New to this?** Build the basics first in [`learn/foundations/networking/dns.md`](../../learn/foundations/networking/dns.md) — *then* come back for the depth.
 >
-> **Level:** this file is 🟡 overall — a friendly mental model up front, but the failover, DNSSEC, and caching-pathology sections get genuinely senior. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+> **Level:** this file is 🟡 overall — a friendly mental model up front, but the failover, DNSSEC (DNS Security Extensions), and caching-pathology sections get genuinely senior. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
 
 ---
 
 ## Topic Overview 🟢
 
-DNS (Domain Name System) translates human-friendly names ("example.com") into machine-friendly IP addresses (e.g., "203.0.113.10"). It's a hierarchical, distributed, caching system designed in 1983 and still running. Every browser request, every API call, every email starts with a DNS lookup.
+DNS (Domain Name System) translates human-friendly names ("example.com") into machine-friendly IP (Internet Protocol) addresses (e.g., "203.0.113.10"). It's a hierarchical, distributed, caching system designed in 1983 and still running. Every browser request, every API call, every email starts with a DNS lookup.
 
-The design is elegant: a tree of authoritative servers; recursive resolvers that traverse the tree; caching at every layer; eventual consistency through TTLs. It scales to billions of requests per second globally with no central coordination.
+The design is elegant: a tree of authoritative servers; recursive resolvers that traverse the tree; caching at every layer; eventual consistency through TTLs (Time To Live). It scales to billions of requests per second globally with no central coordination.
 
 The pathologies are also legendary: caches that don't expire when they should; resolvers that misbehave; outages that take hours to propagate; misconfigured records that cascade through every depending service. DNS outages are some of the worst because everything depends on DNS.
 
@@ -45,10 +45,10 @@ The brilliant part: this scales globally with no central authority. The problema
 ## Historical Evolution 🟢
 
 **Era 1 — HOSTS.TXT.**
-Early ARPANET: a single file `hosts.txt` listed all machines. Distributed manually. Worked for hundreds of hosts.
+Early ARPANET (Advanced Research Projects Agency Network): a single file `hosts.txt` listed all machines. Distributed manually. Worked for hundreds of hosts.
 
 **Era 2 — DNS standardized.**
-1983-1987. Paul Mockapetris designs DNS. RFCs 1034, 1035. Hierarchical, distributed.
+1983-1987. Paul Mockapetris designs DNS. RFCs (Request for Comments) 1034, 1035. Hierarchical, distributed.
 
 **Era 3 — Recursive resolvers and caching.**
 1990s. Most queries served from cache. Internet scales to millions of names.
@@ -57,7 +57,7 @@ Early ARPANET: a single file `hosts.txt` listed all machines. Distributed manual
 ~2005. DNS Security Extensions; cryptographic signatures. Slow adoption due to complexity.
 
 **Era 5 — Encrypted DNS.**
-~2018. DoH (DNS over HTTPS), DoT (DNS over TLS). Privacy and integrity concerns.
+~2018. DoH (DNS over HTTPS (HTTP Secure)), DoT (DNS over TLS (Transport Layer Security)). Privacy and integrity concerns.
 
 **Era 6 — Modern operational practice.**
 Today. CDN-managed DNS (Route53, Cloudflare); GeoDNS; failover; integrated with traffic management.
@@ -83,21 +83,21 @@ The pattern: DNS's basic design is unchanged; modern usage layers operational so
 └── net.
 ```
 
-Each level has authoritative nameservers. Root servers know the TLDs; TLD servers know the registered domains; domain servers know the records within.
+Each level has authoritative nameservers. Root servers know the TLDs (Top-Level Domains); TLD servers know the registered domains; domain servers know the records within.
 
 13 root servers (named A-M) — actually anycast clusters with hundreds of physical servers. Highly redundant.
 
 ### Record types
 
-- **A**: IPv4 address.
-- **AAAA**: IPv6 address.
-- **CNAME**: alias to another name.
-- **MX**: mail server.
-- **TXT**: arbitrary text (SPF, DKIM, etc.).
-- **NS**: nameservers for the zone.
-- **SOA**: start of authority; metadata.
-- **PTR**: reverse DNS.
-- **SRV**: service location.
+- **A**: IPv4 (Internet Protocol version 4) address.
+- **AAAA**: IPv6 (Internet Protocol version 6) address.
+- **CNAME** (Canonical Name): alias to another name.
+- **MX** (Mail Exchange): mail server.
+- **TXT** (Text): arbitrary text (SPF (Sender Policy Framework), DKIM (DomainKeys Identified Mail), etc.).
+- **NS** (Name Server): nameservers for the zone.
+- **SOA** (Start of Authority): start of authority; metadata.
+- **PTR** (Pointer): reverse DNS.
+- **SRV** (Service): service location.
 
 Each record has a TTL. Different record types may have different uses.
 
@@ -107,7 +107,7 @@ When you query `www.example.com`:
 
 1. **Browser cache**: hit? return.
 2. **OS cache**: hit? return.
-3. **Stub resolver** sends to recursive resolver (typically ISP or 1.1.1.1 / 8.8.8.8).
+3. **Stub resolver** sends to recursive resolver (typically ISP (Internet Service Provider) or 1.1.1.1 / 8.8.8.8).
 4. **Recursive resolver** checks cache; if miss:
    a. Asks root server: "who's authoritative for .com?"
    b. Asks .com server: "who's authoritative for example.com?"
@@ -161,7 +161,7 @@ Public DNS providers (1.1.1.1, 8.8.8.8) use anycast: same IP advertised from man
 Properties:
 - **Low latency**: closest server.
 - **Automatic failover**: routing handles failures.
-- **DDoS resistance**: distribute attack across many points.
+- **DDoS (Distributed Denial of Service) resistance**: distribute attack across many points.
 
 Cloudflare, Google, Quad9 all use anycast.
 
@@ -172,7 +172,7 @@ Authoritative servers can return different answers based on the requester:
 - Network performance.
 - Server health.
 
-Used for CDNs, regional routing, multi-region deployments.
+Used for CDNs (Content Delivery Networks), regional routing, multi-region deployments.
 
 Trade-off: caching becomes complicated. The recursive resolver caches *its* answer; users behind that resolver get the same answer regardless of their actual location.
 
@@ -293,19 +293,19 @@ Internal services use DNS for service discovery. DNS server fails. Services can'
 - **Caching**: DNS is a cache hierarchy. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **Load balancing**: DNS-based load balancing. (See [load-balancing-strategies.md](../scalability/load-balancing-strategies.md).)
 - **Edge / CDN**: DNS routes to nearest edge. (See [edge-computing-and-cdns.md](../scalability/edge-computing-and-cdns.md).)
-- **Failover / DR**: DNS failover patterns. (See [disaster-recovery-and-rto-rpo.md](../system-failures/disaster-recovery-and-rto-rpo.md).)
-- **TCP**: DNS lookup precedes every TCP connection. (See [tcp-and-network-fundamentals.md](./tcp-and-network-fundamentals.md).)
+- **Failover / DR (Disaster Recovery)**: DNS failover patterns. (See [disaster-recovery-and-rto-rpo.md](../system-failures/disaster-recovery-and-rto-rpo.md).)
+- **TCP (Transmission Control Protocol)**: DNS lookup precedes every TCP connection. (See [tcp-and-network-fundamentals.md](./tcp-and-network-fundamentals.md).)
 
-The unifying observation: **DNS is the layer everything depends on; its failures cascade through all layers above. The protocols below (UDP, TCP for large responses) and the practices around it (TTL, failover) shape the operational reality of every service on the internet.**
+The unifying observation: **DNS is the layer everything depends on; its failures cascade through all layers above. The protocols below (UDP (User Datagram Protocol), TCP for large responses) and the practices around it (TTL, failover) shape the operational reality of every service on the internet.**
 
 ---
 
 ## Real Production Scenarios 🟡
 
 - **Dyn DNS attack (2016)**: massive DDoS against authoritative DNS provider; took down many sites including Twitter.
-- **AWS Route 53**: hyperscale managed DNS.
+- **AWS (Amazon Web Services) Route 53**: hyperscale managed DNS.
 - **Cloudflare 1.1.1.1**: public DNS resolver.
-- **Facebook's BGP/DNS outage (2021)**: multi-hour outage caused partly by DNS unreachability.
+- **Facebook's BGP (Border Gateway Protocol)/DNS outage (2021)**: multi-hour outage caused partly by DNS unreachability.
 
 ---
 

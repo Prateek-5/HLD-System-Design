@@ -18,7 +18,7 @@
 
 ## Topic Overview 🟢
 
-Time is the most underappreciated concept in distributed systems. Most engineers go their entire careers without thinking deeply about it — until they ship a system and discover that "we'll use timestamps to order events" is a lie that has betrayed them. Two servers with NTP-synchronized clocks can disagree by tens of milliseconds. A virtual machine's clock can jump backward. A request that *should* have happened first, by wall-clock time, gets recorded after another. The ordering you assumed exists doesn't.
+Time is the most underappreciated concept in distributed systems. Most engineers go their entire careers without thinking deeply about it — until they ship a system and discover that "we'll use timestamps to order events" is a lie that has betrayed them. Two servers with NTP (Network Time Protocol)-synchronized clocks can disagree by tens of milliseconds. A virtual machine's clock can jump backward. A request that *should* have happened first, by wall-clock time, gets recorded after another. The ordering you assumed exists doesn't.
 
 Distributed systems theory has spent decades on this. Lamport's "Time, Clocks, and the Ordering of Events" (1978) is among the most influential papers in computer science. Vector clocks, hybrid logical clocks, TrueTime — each is an answer to "how do we agree on order across machines whose clocks lie?" The answers shape the design of every distributed database, every event-driven system, every cache invalidation protocol you've ever depended on.
 
@@ -38,7 +38,7 @@ Problem 2: Mail takes time. An entry written at "2:00pm" might arrive at another
 
 Problem 3: One friend's house has a power outage; their clock jumps backward by an hour. Their next entry is dated *before* their previous entry. The diary's chronology breaks entirely.
 
-Computers face exactly this. Each server has its own clock, slightly off. Network delays mean a message sent at T1 might arrive after a message sent at T2 from another server. Clocks jump (NTP corrections, VM live migration). The "objective time" we assume doesn't exist.
+Computers face exactly this. Each server has its own clock, slightly off. Network delays mean a message sent at T1 might arrive after a message sent at T2 from another server. Clocks jump (NTP corrections, VM (Virtual Machine) live migration). The "objective time" we assume doesn't exist.
 
 The remedy isn't "use better clocks" — it's "use *different kinds* of clocks for different problems." Sometimes you don't need real time; you need an ordering. Sometimes you need real time but with bounded uncertainty. Sometimes you need to know "did A actually happen before B causally?" Each answer has a different machinery.
 
@@ -55,13 +55,13 @@ Pre-1978. Distributed systems used local timestamps with the assumption "close e
 "Time, Clocks, and the Ordering of Events" introduces logical clocks. The Bakery Algorithm. The realization: in distributed systems, you can have a *consistent* ordering even when there's no objective time.
 
 **Era 3 — Vector clocks (1988).**
-Fidge and Mattern independently propose vector clocks. Allow distinguishing causal ordering from concurrent operations. Used in Dynamo-style databases, CRDTs, etc.
+Fidge and Mattern independently propose vector clocks. Allow distinguishing causal ordering from concurrent operations. Used in Dynamo-style databases, CRDTs (Conflict-free Replicated Data Types), etc.
 
 **Era 4 — NTP and clock synchronization.**
-NTP (Network Time Protocol) emerges in the 1980s; widespread deployment through the 1990s. Synchronizes clocks to ~10ms accuracy on the open internet, sub-ms on LAN. Most production systems rely on it.
+NTP (Network Time Protocol) emerges in the 1980s; widespread deployment through the 1990s. Synchronizes clocks to ~10ms accuracy on the open internet, sub-ms on LAN (Local Area Network). Most production systems rely on it.
 
 **Era 5 — Spanner and TrueTime (2012).**
-Google's Spanner introduces TrueTime: GPS + atomic clocks in every datacenter, providing a *bounded interval* of physical time. Enables externally-consistent distributed transactions. A landmark in distributed systems engineering.
+Google's Spanner introduces TrueTime: GPS (Global Positioning System) + atomic clocks in every datacenter, providing a *bounded interval* of physical time. Enables externally-consistent distributed transactions. A landmark in distributed systems engineering.
 
 **Era 6 — Hybrid logical clocks (2014).**
 Kulkarni et al. propose HLCs: combine physical time with logical counter, giving most benefits of both. Used in CockroachDB, FoundationDB, MongoDB.
@@ -225,7 +225,7 @@ What goes wrong:
 - **The VM clock jump.** A virtual machine pauses (live migration, host overload) and resumes — its wall-clock has jumped forward by seconds. Code that uses elapsed wall-clock time computes nonsense values.
 - **The container clock drift.** Containers in Kubernetes, especially under load, can have clock skew problems if NTP isn't running inside them. Subtle bugs.
 - **The race condition that wasn't.** Two events with the same timestamp. Sort order is by timestamp; ties broken by... whatever the language's stable-sort defaults to. The "later" event sometimes appears first. Discovered as intermittent test failures.
-- **The cache TTL inconsistency.** Cache TTL set to 60 seconds. Cache server clock is 30 seconds ahead. Items expire 30 seconds early. Cache hit rate drops; backend load spikes.
+- **The cache TTL (Time To Live) inconsistency.** Cache TTL set to 60 seconds. Cache server clock is 30 seconds ahead. Items expire 30 seconds early. Cache hit rate drops; backend load spikes.
 - **The "sortable UUID" surprise.** UUIDv1 has a timestamp; team expected sorting by UUID = sorting by time. Discovers that timestamps in UUIDs aren't the wall-clock value (they're 100ns intervals since 1582-10-15) and clock skew still affects them.
 
 ---
@@ -233,7 +233,7 @@ What goes wrong:
 ## Failure Scenarios 🔴
 
 **Scenario 1 — The clock skew LWW disaster.**
-A distributed key-value store uses last-write-wins by wall-clock timestamp. Server A's clock is 100ms ahead. A's writes always win conflicts, even when chronologically later. Customers report that their newer changes vanish. Investigation reveals the skew. Mitigation: HLC-based timestamps, or fixed clock skew, or change conflict resolution model.
+A distributed key-value store uses last-write-wins (LWW) by wall-clock timestamp. Server A's clock is 100ms ahead. A's writes always win conflicts, even when chronologically later. Customers report that their newer changes vanish. Investigation reveals the skew. Mitigation: HLC-based timestamps, or fixed clock skew, or change conflict resolution model.
 
 **Scenario 2 — The leap-second crash.**
 On a leap second, a Java application's `currentTimeMillis()` returns the same value twice. Code assumed strict monotonicity; falls into infinite loop. Multiple services down. Mitigation: leap-second smearing (Google approach: spread the leap second over 24 hours).
@@ -258,7 +258,7 @@ Compliance audit asks: "for any conflict between two transactions, can you prove
 - **NTP queries**: microseconds; periodic.
 
 Coordination cost is the real performance impact:
-- Linearizable timestamps require consensus (RTT to majority).
+- Linearizable timestamps require consensus (RTT (Round-Trip Time) to majority).
 - HLCs are local but need to be propagated via messages.
 - Causal ordering doesn't require coordination but needs vector tracking.
 

@@ -46,10 +46,10 @@ The progression is the same: each generation made the per-task overhead smaller.
 1970s. Each request handled by a forked process. Heavy. Apache prefork. Reliable but limited to thousands of concurrent operations.
 
 **Era 2 — Threads.**
-1990s. Cheaper than processes; share address space. Apache MPM worker. Tens of thousands of concurrent operations possible. Lock contention becomes a concern.
+1990s. Cheaper than processes; share address space. Apache MPM (Multi-Processing Module) worker. Tens of thousands of concurrent operations possible. Lock contention becomes a concern.
 
 **Era 3 — Green threads (early).**
-1990s. Java initially had green threads on top of one OS thread; abandoned for native threads in JDK 1.2. Erlang takes the opposite path: lightweight processes managed by the BEAM VM, never adopting OS-thread-per-process model.
+1990s. Java initially had green threads on top of one OS thread; abandoned for native threads in JDK (Java Development Kit) 1.2. Erlang takes the opposite path: lightweight processes managed by the BEAM (Bogdan/Björn's Erlang Abstract Machine) VM (Virtual Machine), never adopting OS-thread-per-process model.
 
 **Era 4 — The async revolution.**
 2009 onward. Node.js (event loop), Twisted (Python), Tornado, asyncio. Single-threaded async I/O. Concurrent operations limited only by memory; tens of thousands per process routine.
@@ -58,7 +58,7 @@ The progression is the same: each generation made the per-task overhead smaller.
 ~2016 onward. Go's goroutines (cheap, multiplexed onto OS threads, work-stealing scheduler). Rust's async with tokio. Kotlin coroutines. Python's asyncio matures.
 
 **Era 6 — Virtual threads.**
-2023+. Java's Project Loom delivers virtual threads — JVM-managed lightweight threads that look like OS threads but are cheap. The fragmentation between "thread world" and "async world" begins to heal.
+2023+. Java's Project Loom delivers virtual threads — JVM (Java Virtual Machine)-managed lightweight threads that look like OS threads but are cheap. The fragmentation between "thread world" and "async world" begins to heal.
 
 The pattern: each generation made concurrent units cheaper. The newer abstractions (goroutines, virtual threads) try to bring back the simplicity of "just write blocking code" with the efficiency of async I/O.
 
@@ -73,7 +73,7 @@ The pattern: each generation made concurrent units cheaper. The newer abstractio
 The kernel's thread abstraction:
 - Each thread has a stack (default 1-8 MB on Linux).
 - Each thread is scheduled by the kernel.
-- Context switches involve register save/restore, kernel TLB updates, ~1-10μs.
+- Context switches involve register save/restore, kernel TLB (Translation Lookaside Buffer) updates, ~1-10μs.
 - Blocking syscall puts the thread in a wait queue; another thread runs.
 
 Properties:
@@ -81,13 +81,13 @@ Properties:
 - **Heavy**: stack memory dominates. 10K threads = 10-80 GB just for stacks.
 - **Slow context switch**: kernel transition is the cost.
 
-For decades, thread-per-connection servers were viable — until C10K (the problem of 10,000 concurrent connections, 1999). Threads couldn't scale; the alternatives emerged.
+For decades, thread-per-connection servers were viable — until C10K (Connections 10,000 — the problem of 10,000 concurrent connections, 1999). Threads couldn't scale; the alternatives emerged.
 
 ### Green threads / virtual threads
 
 User-space threading: the runtime (not the kernel) manages "threads."
 
-**Erlang/OTP processes:**
+**Erlang/OTP (Open Telecom Platform) processes:**
 - BEAM VM schedules millions of processes.
 - Each process has ~300 bytes of overhead.
 - Processes communicate only via message passing.
@@ -96,7 +96,7 @@ User-space threading: the runtime (not the kernel) manages "threads."
 
 **Go goroutines:**
 - ~2KB initial stack (grows as needed).
-- Multiplexed onto a pool of OS threads (default: GOMAXPROCS = number of CPUs).
+- Multiplexed onto a pool of OS threads (default: GOMAXPROCS (Go Maximum Processors) = number of CPUs).
 - Work-stealing scheduler balances load.
 - Cooperative-with-preemption: scheduler can preempt goroutines at safe points (modern Go).
 
@@ -182,12 +182,12 @@ The benefit: explicit yield points enable certain optimizations and reasoning pa
 
 A runtime (tokio, asyncio, Node's libuv, Go's runtime) handles:
 - **Task scheduling**: which task runs next.
-- **I/O multiplexing**: epoll/kqueue/IOCP integration.
+- **I/O multiplexing**: epoll/kqueue/IOCP (Input/Output Completion Ports) integration.
 - **Timer management**: setTimeout-equivalents.
 - **Synchronization primitives**: async-aware mutexes, channels.
-- **Thread pool**: for tasks that must block (file I/O, DNS, etc.).
+- **Thread pool**: for tasks that must block (file I/O, DNS (Domain Name System), etc.).
 
-The runtime is significant code. tokio is tens of thousands of LoC. Node's libuv similarly. Go's runtime is integral to the language.
+The runtime is significant code. tokio is tens of thousands of LoC (Lines of Code). Node's libuv similarly. Go's runtime is integral to the language.
 
 ### Channels and message passing
 
@@ -204,7 +204,7 @@ Channels couple naturally to goroutines: a goroutine's natural failure mode is "
 
 **Rust tokio:**
 ```rust
-let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+let (tx, mut rx) = tokio::sync::mpsc::channel(100); // mpsc = Multi-Producer, Single-Consumer
 tokio::spawn(async move { tx.send(42).await.unwrap(); });
 let value = rx.recv().await.unwrap();
 ```
@@ -272,7 +272,7 @@ What goes wrong:
 
 - **The blocking call in async code.** A synchronous HTTP library used inside an async function. The whole runtime stalls during that call. Discovered as "performance is terrible under load." Fix: async-native libraries.
 - **The CPU-bound coroutine.** A heavy regex or computation in a coroutine. Other coroutines on the same thread starve. Move to worker thread or external service.
-- **The unbounded task spawning.** Application spawns a goroutine/task per request without limit. Memory grows; eventually OOMs. Fix: bounded concurrency limits.
+- **The unbounded task spawning.** Application spawns a goroutine/task per request without limit. Memory grows; eventually OOMs (Out Of Memory). Fix: bounded concurrency limits.
 - **The leaked task.** A task is spawned but never joined or cancelled. Resources held forever. Subtle leak. Fix: structured concurrency.
 - **The deadlock via channel.** Two goroutines each waiting on the other's channel. Both stuck. Mitigation: timeouts on channel sends/receives; structured patterns.
 - **The function-coloring spread.** "We need to make this async." Three months later, half the codebase is `async` because changes propagated up the call stack.
@@ -291,13 +291,13 @@ The senior engineer's habits:
 ## Failure Scenarios 🔴
 
 **Scenario 1 — The blocking-call surprise.**
-Service uses asyncio. New code includes synchronous DB call (forgot to use async driver). Under load, every request blocks on that DB call; other requests pile up. Performance equivalent to single-threaded. Fix: async-native DB driver.
+Service uses asyncio. New code includes synchronous DB (Database) call (forgot to use async driver). Under load, every request blocks on that DB call; other requests pile up. Performance equivalent to single-threaded. Fix: async-native DB driver.
 
 **Scenario 2 — The goroutine leak.**
 A goroutine waits on a channel that's never closed. Function returns; goroutine remains. Memory grows by one goroutine per request. After a million requests: 2 GB of goroutine stacks. OOM. Fix: structured concurrency; channel close on request completion.
 
 **Scenario 3 — The CPU-bound starvation.**
-A coroutine performs ML inference (CPU-heavy). All other coroutines on its thread wait. Latency p99 unacceptable. Fix: dedicated thread pool for CPU work; coroutines for I/O.
+A coroutine performs ML (Machine Learning) inference (CPU-heavy). All other coroutines on its thread wait. Latency p99 (99th percentile) unacceptable. Fix: dedicated thread pool for CPU work; coroutines for I/O.
 
 **Scenario 4 — The cooperative-scheduling deadlock.**
 Two coroutines each await on a future the other will resolve. Neither yields. The runtime can't preempt cooperative tasks. Hung. Discoverable only at runtime; fix is design-level.
@@ -368,7 +368,7 @@ The unifying observation: **concurrent units have moved from kernel-managed (hea
 - Understand your runtime's scheduler; handle cancellation explicitly; measure under realistic load (not just unit tests).
 - **Channels** coordinate by passing data (vs locks, which coordinate access to shared memory).
 
-> **Final mental model:** Coroutines, green threads, and async runtimes respond to a hardware reality (one OS thread is heavy) and an application reality (most concurrent work is waiting). Modern concurrency is layered: cheap units in user space, multiplexed onto OS threads, scheduled by the runtime. The systems that handle massive concurrency aren't the ones with the most cores — they're the ones whose abstractions match the work: cheap concurrent units for waiting, parallel threads for computing, channels for coordination. This is what turned C10K into a solved problem and made C10M routine.
+> **Final mental model:** Coroutines, green threads, and async runtimes respond to a hardware reality (one OS thread is heavy) and an application reality (most concurrent work is waiting). Modern concurrency is layered: cheap units in user space, multiplexed onto OS threads, scheduled by the runtime. The systems that handle massive concurrency aren't the ones with the most cores — they're the ones whose abstractions match the work: cheap concurrent units for waiting, parallel threads for computing, channels for coordination. This is what turned C10K into a solved problem and made C10M (Connections 10 Million) routine.
 
 ---
 

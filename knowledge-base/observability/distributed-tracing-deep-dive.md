@@ -55,7 +55,7 @@ Twitter open-sources Zipkin (2012). Uber open-sources Jaeger (2015). The first w
 Two competing standards (2016, 2017). Both attempts to provide vendor-neutral instrumentation. Caused fragmentation; libraries had to support both.
 
 **Era 5 — OpenTelemetry.**
-The merger (2019). OpenTracing + OpenCensus → OpenTelemetry. Single standard for traces, metrics, and logs. Vendor-neutral SDKs, semantic conventions, language coverage. Industry adoption rapid; almost every major observability vendor speaks OTel today.
+The merger (2019). OpenTracing + OpenCensus → OpenTelemetry. Single standard for traces, metrics, and logs. Vendor-neutral SDKs (Software Development Kits), semantic conventions, language coverage. Industry adoption rapid; almost every major observability vendor speaks OTel (OpenTelemetry) today.
 
 **Era 6 — Tail sampling and high-cardinality storage.**
 Modern systems support tail-based sampling (decide what to keep after the request finishes), which preserves slow and erroring requests at high fidelity. Storage backends (ClickHouse, Tempo, Honeycomb) optimize for high-cardinality span querying. The era of "1% sampled, hope you got the bug" gives way to intelligent sampling.
@@ -96,7 +96,7 @@ A span represents a unit of work:
 ```
 
 Key fields:
-- **trace_id**: shared across all spans in the request (128-bit random identifier, not a UUID — no version/variant bits; the only constraint is that it is not all zeroes).
+- **trace_id**: shared across all spans in the request (128-bit random identifier, not a UUID (Universally Unique Identifier) — no version/variant bits; the only constraint is that it is not all zeroes).
 - **span_id**: unique to this span (64-bit).
 - **parent_span_id**: forms the tree.
 - **start_time, end_time**: timing.
@@ -107,7 +107,7 @@ Key fields:
 
 ### Context propagation — the W3C standard
 
-The trace context flows in HTTP headers per the W3C Trace Context specification:
+The trace context flows in HTTP headers per the W3C (World Wide Web Consortium) Trace Context specification:
 
 ```
 traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
@@ -123,9 +123,9 @@ Format of `traceparent`:
 Every service receives `traceparent`, creates a child span, propagates a new `traceparent` (with its own span ID) to outbound calls. The chain is unbroken.
 
 For non-HTTP transports:
-- **gRPC**: standard metadata.
+- **gRPC** (gRPC Remote Procedure Calls): standard metadata.
 - **Kafka**: message headers.
-- **AWS SDK**: context flows through SDK calls.
+- **AWS** (Amazon Web Services) **SDK**: context flows through SDK calls.
 - **Async work**: context must be explicitly passed; this is where most propagation bugs live.
 
 ### Sampling strategies
@@ -260,11 +260,11 @@ What goes wrong:
 - **The trace gap.** Service B doesn't propagate `traceparent`. Service B's children appear as new traces unrelated to the parent. The waterfall shows the path before B; everything after is invisible. Fix: enforce propagation in shared HTTP libraries.
 - **The orphaned span.** An async worker creates a span without parent context. It floats unconnected. Fix: explicit context handoff when enqueueing async work.
 - **The cardinality explosion in attributes.** A team adds `user_id` as a span attribute. Trace storage costs blow up. Fix: cardinality-aware attribute selection; user IDs in logs/searchable attributes, not as primary span tags.
-- **The unsampled debugging session.** Customer reports issue. The trace for their request was sampled out at 1% rate. No trace exists. Fix: tail sampling that preserves errors; user-ID-based sticky sampling for VIPs.
+- **The unsampled debugging session.** Customer reports issue. The trace for their request was sampled out at 1% rate. No trace exists. Fix: tail sampling that preserves errors; user-ID-based sticky sampling for VIPs (Very Important Persons).
 - **The sampling decision lost downstream.** Service A samples in. Service B doesn't honor the `sampled` flag, makes its own decision. Inconsistent traces. Fix: respect `traceparent` flag everywhere.
-- **The clock skew anomaly.** Two services' clocks differ by 50ms. Span timing shows child ending before parent starts. Confusion. Fix: NTP synchronization; tracing tools that handle small skews gracefully.
+- **The clock skew anomaly.** Two services' clocks differ by 50ms. Span timing shows child ending before parent starts. Confusion. Fix: NTP (Network Time Protocol) synchronization; tracing tools that handle small skews gracefully.
 - **The tracing infrastructure as a single point of failure.** Tracing backend goes down. Application becomes slow because it's blocking on flush calls. Fix: async, non-blocking trace export; circuit breakers around the tracing client.
-- **The PII leak.** Span attributes include sensitive data (passwords in URLs, credit card numbers in payloads). Tracing storage is now PII-bearing. Fix: redaction at instrumentation time; treat trace storage as a regulated data source.
+- **The PII (Personally Identifiable Information) leak.** Span attributes include sensitive data (passwords in URLs, credit card numbers in payloads). Tracing storage is now PII-bearing. Fix: redaction at instrumentation time; treat trace storage as a regulated data source.
 
 The senior engineer's habits:
 - **Auto-instrument** for breadth; manually instrument business-critical paths for depth.
@@ -505,8 +505,8 @@ This is the killer feature. Tracing exists for exactly this debugging session.
 - **OpenTelemetry's continuing maturation (2023-2024)**: most major vendors have OTel-compatible ingest. Vendor lock-in reduced.
 - **Tempo (Grafana)** for trace storage: documented scaling at petabyte-scale.
 - **Honeycomb's wide-event query model**: continues to push the envelope on high-cardinality observability.
-- **Datadog APM at scale**: documented case studies of production trace volumes.
-- **eBPF-based tracing (Pixie, Parca)**: emerging zero-instrumentation observability.
+- **Datadog APM (Application Performance Monitoring) at scale**: documented case studies of production trace volumes.
+- **eBPF (extended Berkeley Packet Filter)-based tracing (Pixie, Parca)**: emerging zero-instrumentation observability.
 - **AWS X-Ray's trace summarization**: AI-assisted root cause analysis.
 - **Trace exemplars in metrics**: link from a metric anomaly to a representative trace.
 

@@ -20,7 +20,7 @@
 
 Caching is the most powerful performance technique in software, and the most dangerous. Done well, it turns a 200ms database query into a 200μs in-memory lookup. Done badly, it gives you correct answers 99% of the time and a 1% chance of showing one customer another customer's billing data.
 
-The discipline isn't really one technique — it's a *hierarchy* of caches at every layer of every system, each making the same fundamental tradeoff: **trade some freshness for a lot of speed**. CPU caches (L1/L2/L3), TLB, page cache, application-level memoization, in-memory key-value stores (Redis), CDN, browser cache. Same idea, six orders of magnitude apart.
+The discipline isn't really one technique — it's a *hierarchy* of caches at every layer of every system, each making the same fundamental tradeoff: **trade some freshness for a lot of speed**. CPU caches (L1/L2/L3), TLB (Translation Lookaside Buffer), page cache, application-level memoization, in-memory key-value stores (Redis), CDN (Content Delivery Network), browser cache. Same idea, six orders of magnitude apart.
 
 The senior engineer's job is not to know "how Redis works." It's to know **where in the hierarchy a given piece of data should live**, and what the cost of getting it wrong looks like at 3am.
 
@@ -48,7 +48,7 @@ The hard part isn't the desk. The hard part is when someone *changes the book in
 ## Historical Evolution 🟢
 
 **Era 1 — CPU caches.**
-Mainframes had memory hierarchies before "cache" was a software word. SRAM close to the CPU, DRAM further out, disk further still. The principle: locality of reference. Programs tend to access the same memory repeatedly (temporal locality) and nearby memory next (spatial locality). The hardware exploits this with on-chip caches measured in kilobytes.
+Mainframes had memory hierarchies before "cache" was a software word. SRAM (Static Random-Access Memory) close to the CPU, DRAM (Dynamic Random-Access Memory) further out, disk further still. The principle: locality of reference. Programs tend to access the same memory repeatedly (temporal locality) and nearby memory next (spatial locality). The hardware exploits this with on-chip caches measured in kilobytes.
 
 **Era 2 — Operating system page cache.**
 Filesystems learned to cache disk blocks in RAM. A file read might never touch the disk if the same data was read recently. This is invisible to applications and accounts for a huge fraction of "fast" file I/O on modern systems.
@@ -60,7 +60,7 @@ Web 1.0 era. Memcached (2003). LiveJournal needed to scale a database-backed sit
 Redis (2009). Multi-purpose: cache, queue, pub/sub, primary store. Suddenly you have a cache that supports complex data types, transactions, persistence, replication. The line between "cache" and "database" blurs.
 
 **Era 5 — CDN and edge caching.**
-Akamai (1998), CloudFront, Cloudflare, Fastly. Move static assets — and increasingly dynamic ones — to edge nodes geographically close to users. Cuts cross-continent latency from 150ms to 5ms. The economics: serve once from origin, cache at every PoP.
+Akamai (1998), CloudFront, Cloudflare, Fastly. Move static assets — and increasingly dynamic ones — to edge nodes geographically close to users. Cuts cross-continent latency from 150ms to 5ms. The economics: serve once from origin, cache at every PoP (Point of Presence).
 
 **Era 6 — The reactive era and cache-aside everywhere.**
 Service meshes, function-level memoization, GraphQL response caching, edge computing with cache-aware logic. The hierarchy now reaches from the CPU up to the user's browser, with caches at every hop.
@@ -146,10 +146,10 @@ When the cache is full, which entry leaves?
 |---|---|---|
 | **LRU** (least recently used) | Evict the entry not accessed longest | General purpose |
 | **LFU** (least frequently used) | Evict the entry accessed least overall | Stable workloads; plain LFU suffers cache pollution (once-hot keys never evict), so use decay (Redis's `lfu-decay-time`) or W-TinyLFU |
-| **FIFO** | Evict in arrival order | Simplistic; rarely best |
-| **TLRU** | LRU with TTL filter | When freshness matters |
-| **W-TinyLFU** | Hybrid; admission filter + LRU | Modern (Caffeine) |
-| **2Q / ARC** | Adaptive between recency and frequency | Mixed workloads |
+| **FIFO** (First In, First Out) | Evict in arrival order | Simplistic; rarely best |
+| **TLRU** (Time-aware Least Recently Used) | LRU with TTL (Time To Live) filter | When freshness matters |
+| **W-TinyLFU** (Window TinyLFU) | Hybrid; admission filter + LRU | Modern (Caffeine) |
+| **2Q / ARC** (Adaptive Replacement Cache) | Adaptive between recency and frequency | Mixed workloads |
 
 The default in Redis is `noeviction` (errors when full), with `allkeys-lru` and `volatile-lru` as common alternatives. The choice changes hit rate by 10–30% on real workloads — not a small knob.
 
@@ -160,7 +160,7 @@ The default in Redis is `noeviction` (errors when full), with `allkeys-lru` and 
 - **Stale-while-revalidate**: serve stale data while async-refreshing in the background. Hides backend latency.
 - **Dependency-based invalidation**: explicitly invalidate when the source changes. Most correct, hardest to implement.
 
-The TTL is your primary lever on the freshness-vs-throughput tradeoff. A 10-second TTL with 1000 RPS = 99.99% reduction in DB load on that key.
+The TTL is your primary lever on the freshness-vs-throughput tradeoff. A 10-second TTL with 1000 RPS (Requests Per Second) = 99.99% reduction in DB load on that key.
 
 ### The thundering herd / cache stampede problem
 
@@ -190,7 +190,7 @@ The dirty secret: most "cache invalidation bugs" are race conditions in option 3
 ### CDN caching specifics
 
 CDNs add a layer of complexity:
-- **Cache headers** (`Cache-Control`, `ETag`, `Last-Modified`) drive behavior.
+- **Cache headers** (`Cache-Control`, `ETag` (Entity Tag), `Last-Modified`) drive behavior.
 - **Edge cache vs origin shield**: a hierarchy *within* the CDN to reduce origin load.
 - **Purge** is eventually consistent across PoPs — global purge takes seconds to minutes.
 - **Cache key normalization**: query string ordering, cookies, geo headers — getting this wrong causes either zero cache hits or *cross-user data leakage*.
@@ -222,12 +222,12 @@ A newspaper has a *morgue* — its archive of every published article. When jour
 
 What goes wrong in real caching systems:
 
-- **The stampede when the cache restarts.** Redis OOM-killed and restarted. Cache is empty. Every request misses. Database is overwhelmed. Cascading failure. Mitigation: warm caches before serving traffic; pre-populate from snapshots; rate-limit to backend during cold starts.
+- **The stampede when the cache restarts.** Redis OOM (Out Of Memory)-killed and restarted. Cache is empty. Every request misses. Database is overwhelmed. Cascading failure. Mitigation: warm caches before serving traffic; pre-populate from snapshots; rate-limit to backend during cold starts.
 - **Cache key collisions.** A bug in key generation (`user:{id}` instead of `tenant:{tid}:user:{id}`) leaks data across tenants. Catastrophic security incident.
 - **Memory bloat from large values.** A "cache user profile" key contains the user's *entire post history* by accident. Each key is 5MB. Redis OOMs at 10K users. Always cap value sizes.
 - **TTL drift across replicas.** Multi-region cache replicas have slight clock skew. TTLs expire at different times. Some users see fresh data, others don't.
 - **Thundering herd hidden in seemingly innocent code.** A worker process refreshes a cache key once per second. The worker dies. The TTL expires. 100K concurrent requests all rebuild simultaneously. Database melts.
-- **Cache-as-database sins.** Storing data only in Redis without persistence. Redis crashes. Data lost. "I thought it was a cache." (Redis *can* persist, but the team didn't enable AOF or RDB correctly.)
+- **Cache-as-database sins.** Storing data only in Redis without persistence. Redis crashes. Data lost. "I thought it was a cache." (Redis *can* persist, but the team didn't enable AOF (Append Only File) or RDB (Redis Database snapshot) correctly.)
 - **The "stale forever" bug.** Background refresh has been failing silently for 3 weeks. Cache TTLs are sliding because of access. Users see 3-week-old data. Discovered when prices haven't updated despite the catalog change.
 - **CDN purge eventual consistency.** Marketing announces a launch. Pushed update. Purged CDN. Some users in some regions see the old version for 90 seconds. Complaints flood support.
 
@@ -252,7 +252,7 @@ Code: write DB, then `DELETE` cache. Two requests arrive nearly simultaneously: 
 A bug in key serialization caused two tenants' user IDs to collide. Cache served Tenant A's data when Tenant B requested it. Discovered when Tenant B saw Tenant A's username. Security incident, customer notifications, regulatory disclosure.
 
 **Scenario 4 — The infinite-TTL silent drift.**
-A migration set certain cache keys to TTL=0 (no expiration) "temporarily." The temporary became permanent. Six months later, a database schema change. Cache still serving old shape. Production errors looked random. RCA traced to those zero-TTL keys.
+A migration set certain cache keys to TTL=0 (no expiration) "temporarily." The temporary became permanent. Six months later, a database schema change. Cache still serving old shape. Production errors looked random. RCA (Root Cause Analysis) traced to those zero-TTL keys.
 
 **Scenario 5 — CDN purge missed a node.**
 Global purge issued. 99.9% of edge nodes purged. One node in São Paulo had a connectivity issue and missed the purge. Brazilian users saw stale content for 6 hours. Discovered through customer reports.
@@ -284,11 +284,11 @@ Global purge issued. 99.9% of edge nodes purged. One node in São Paulo had a co
 
 ## Cross-Domain Connections 🟡
 
-- **MVCC:** the buffer pool is a cache. Bloated indexes lower its hit rate. The principle (keep the working set in fast storage) is identical.
+- **MVCC (Multi-Version Concurrency Control):** the buffer pool is a cache. Bloated indexes lower its hit rate. The principle (keep the working set in fast storage) is identical.
 - **Distributed consistency:** cache invalidation is consistency-model design. Stale reads in a cache hierarchy are *exactly* the eventual consistency problem from distributed databases. Same theory, different name. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Event loop:** memoization within a request is the smallest cache. Same logic, microsecond timescale.
 - **Operating systems:** TLB is a cache for virtual-to-physical address translations; page cache is a cache for disk blocks; instruction cache is a cache for code. The OS *is* a stack of caches.
-- **Networking:** DNS caching at every level (browser, OS, recursive resolver, root). The Internet wouldn't function without this hierarchy.
+- **Networking:** DNS (Domain Name System) caching at every level (browser, OS, recursive resolver, root). The Internet wouldn't function without this hierarchy.
 - **Database query plans:** prepared statements cache plans. Plan cache invalidation when statistics change is the database's version of cache invalidation.
 
 The unifying observation: **caching is what every layer does when the layer below is too slow to talk to every time.** It's not a technique — it's a *property of layered systems with latency asymmetry*.
@@ -312,7 +312,7 @@ A high-traffic e-commerce product page. Goal: low latency globally, low origin l
 ### Latency budget
 
 - User-perceived: <300ms total.
-- TTFB target: <100ms at edge.
+- TTFB (Time To First Byte) target: <100ms at edge.
 - Backend budget when miss: ~1s.
 
 ### Tier breakdown

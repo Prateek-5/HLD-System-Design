@@ -1,4 +1,4 @@
-# SLOs, Error Budgets & Alerting
+# SLOs (Service Level Objectives), Error Budgets & Alerting
 
 > *"Reliability is not free. It costs feature velocity, infrastructure spend, and engineering attention. The teams that work this out explicitly — through SLOs and error budgets — make rational tradeoffs. The teams that don't oscillate between 'reliability is everything' and 'ship at any cost,' producing systems that are both unreliable and slow to evolve."*
 
@@ -20,7 +20,7 @@
 
 Service Level Objectives (SLOs) are the formal contract about how reliable a service must be. Service Level Indicators (SLIs) are the metrics that measure that. Error budgets are the *operational consequence* — the difference between perfect and required, measured in how many failures you can afford before you must stop shipping new features and focus on reliability.
 
-This is Google's SRE framework, popularized through the SRE book (2016). It's now industry standard practice — though widely talked about and inconsistently practiced. The framework is not just measurement; it's a *decision-making tool* that aligns reliability and feature velocity in a way that prevents the eternal "is this important enough to fix?" debate.
+This is Google's SRE (Site Reliability Engineering) framework, popularized through the SRE book (2016). It's now industry standard practice — though widely talked about and inconsistently practiced. The framework is not just measurement; it's a *decision-making tool* that aligns reliability and feature velocity in a way that prevents the eternal "is this important enough to fix?" debate.
 
 Alerting is the operational arm of all this: tying paging to SLO violations, not arbitrary metrics. The mature practice is "page on user-facing impact, ticket on internal symptoms" — a discipline that prevents alert fatigue and ensures incidents get the right urgency.
 
@@ -212,7 +212,7 @@ Google SRE's central insight: aiming for 100% reliability is wrong. It's:
 - Impossible (real systems fail).
 - Counterproductive (your customers' systems fail more often than your SLO budget; perfect availability beyond their tolerance gives no benefit).
 
-The right SLO reflects what *users actually need*. Users probably don't need 99.999% from your CRUD app. They might need it from the 911 dispatch service. SLO selection is a business question, not a technical one.
+The right SLO reflects what *users actually need*. Users probably don't need 99.999% from your CRUD (Create, Read, Update, Delete) app. They might need it from the 911 dispatch service. SLO selection is a business question, not a technical one.
 
 ---
 
@@ -235,7 +235,7 @@ The same metric drives external trust (passengers choose airlines partly on this
 What goes wrong:
 
 - **The SLO chosen by feel.** "Let's just say 99.9%." No analysis of user expectations, dependency reality, or business need. Either too tight (constantly violated; alerts ignored) or too loose (real problems missed). Mitigation: derive SLOs from data and business need.
-- **The SLI that doesn't reflect customer pain.** Measuring backend success rate while users see CDN errors. SLO is "green" while customers complain. Mitigation: measure as close to the user as possible.
+- **The SLI that doesn't reflect customer pain.** Measuring backend success rate while users see CDN (Content Delivery Network) errors. SLO is "green" while customers complain. Mitigation: measure as close to the user as possible.
 - **The unactionable SLO.** "99.99% availability" but the team has no way to know what's degrading. Without good observability, the SLO is a number; no diagnostic insight.
 - **The alert fatigue spiral.** SLO violations alert on every minor blip. Engineers ignore. Real incidents missed. Mitigation: burn-rate alerts; multi-window confirmation.
 - **The SLO without an owner.** "We have an availability SLO" but no one has authority to make tradeoffs. When budget runs out, business pressures override; SLO becomes theater.
@@ -308,7 +308,7 @@ The unifying observation: **SLOs are the bridge between engineering metrics and 
 - **Google SRE's framework**: foundational. The SRE book and SRE workbook are the canonical references.
 - **Netflix's SLOs and chaos**: combines SLOs with chaos engineering for reliability validation.
 - **GitHub's public availability reports**: documented SLO performance over time; transparency-driven.
-- **Cloudflare's SLA + SLO public posts**: customer-facing SLA backed by stricter internal SLOs.
+- **Cloudflare's SLA + SLO public posts**: customer-facing SLA (Service Level Agreement) backed by stricter internal SLOs.
 - **Stripe's reliability culture**: documented SLO-driven engineering. Public engineering posts.
 - **The SRE book's practical examples**: detailed case studies of SLO selection, alerting design, and error budget policy.
 
@@ -495,7 +495,7 @@ The framework's value isn't the math. It's the *aligned conversation* between en
 - **Google's SRE Workbook (continuing reference)**: still the foundational text.
 - **Datadog SLOs**: managed SLO computation; widely used.
 - **New Relic's SLO product**: similar.
-- **The "RED method" by Tom Wilkie**: continues to be the foundation.
+- **The "RED method" (Rate, Errors, Duration) by Tom Wilkie**: continues to be the foundation.
 - **Slack's SLO journey**: documented evolution from no-SLOs to mature SLO culture.
 - **Honeycomb's BubbleUp**: anomaly detection on SLI dimensions; complements SLO alerts.
 

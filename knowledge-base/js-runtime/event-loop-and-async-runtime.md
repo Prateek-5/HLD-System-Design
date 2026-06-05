@@ -48,16 +48,16 @@ That's the entire model. Everything else is mechanics.
 Apache, classic Java EE servers: one OS thread per connection. Beautiful programming model. Disastrous at scale. 10K connections = 10K threads = 80GB of stack memory + a context-switch storm. The "C10K problem" was named in 1999 and dominated server engineering for a decade.
 
 **Era 2 — `select()` and `poll()`.**
-The first wave of event-driven servers used POSIX `select` to wait on many file descriptors with one thread. Worked. Scaled to a few thousand connections, then quadratic costs in the syscall killed it.
+The first wave of event-driven servers used POSIX (Portable Operating System Interface) `select` to wait on many file descriptors with one thread. Worked. Scaled to a few thousand connections, then quadratic costs in the syscall killed it.
 
-**Era 3 — `epoll`, `kqueue`, IOCP.**
-Linux's `epoll` (2002) and BSD's `kqueue` introduced O(1) event notification: register interest in fds once, get back only the ones with activity. This is the kernel-level primitive that makes modern event loops viable. Without it, async would still be a niche pattern.
+**Era 3 — `epoll`, `kqueue`, IOCP (Input/Output Completion Ports).**
+Linux's `epoll` (2002) and BSD (Berkeley Software Distribution)'s `kqueue` introduced O(1) event notification: register interest in fds (file descriptors) once, get back only the ones with activity. This is the kernel-level primitive that makes modern event loops viable. Without it, async would still be a niche pattern.
 
 **Era 4 — Node.js (2009).**
 Ryan Dahl's insight: JavaScript already has a single-threaded async model (the browser event loop), and the language's culture is callback-friendly. Pair it with V8 (a fast JS engine) and libuv (a cross-platform abstraction over epoll/kqueue/IOCP) — suddenly you have a runtime that handles tens of thousands of concurrent I/O-bound connections on a single thread.
 
 **Era 5 — Async/await everywhere.**
-Promises (ES2015), async/await (ES2017) made async code look synchronous. Other languages followed: Python's asyncio, C# async/await, Rust's async/await with tokio, Java's Project Loom (a different but related answer). Async became mainstream syntax.
+Promises (ES2015, ECMAScript 2015), async/await (ES2017) made async code look synchronous. Other languages followed: Python's asyncio, C# async/await, Rust's async/await with tokio, Java's Project Loom (a different but related answer). Async became mainstream syntax.
 
 **Era 6 — The blowback.**
 "Function coloring" (red functions can call blue, blue can't call red), the rise of *structured concurrency*, the realization that purely cooperative scheduling has ergonomic costs. Go's goroutines and Java's virtual threads represent a different bet — keep the threading mental model, but with cheap user-space threads multiplexed onto OS threads.
@@ -129,7 +129,7 @@ This is not a JavaScript quirk. It is *the* mechanism by which Promises chain wi
 
 libuv handles the bits the kernel can't do async natively:
 - File I/O (because `read`/`write` on files don't have a clean async syscall on Linux that works for *all* filesystems).
-- DNS resolution via `getaddrinfo` (synchronous-looking C library).
+- DNS (Domain Name System) resolution via `getaddrinfo` (synchronous-looking C library).
 - CPU-heavy crypto operations.
 - User-defined `worker_threads`.
 
@@ -173,7 +173,7 @@ app.get('/heavy', (req, res) => {
 
 This server can serve *one* request at a time. The CPU loop blocks the event loop entirely. Every other client waits, including the load balancer's health check.
 
-Real production: a JSON parse of a megabyte payload is ~10ms of pure CPU. A markdown render is ~50ms. A regex on attacker-controlled input can be *milliseconds to minutes* (ReDoS). Each is a tiny event-loop freeze. At scale, these add up to elevated p99 latency that is invisible in CPU graphs but obvious to users.
+Real production: a JSON parse of a megabyte payload is ~10ms of pure CPU. A markdown render is ~50ms. A regex on attacker-controlled input can be *milliseconds to minutes* (ReDoS, Regular expression Denial of Service). Each is a tiny event-loop freeze. At scale, these add up to elevated p99 latency that is invisible in CPU graphs but obvious to users.
 
 The fix categories:
 1. **Yield with `await new Promise(setImmediate)`** in long loops to let other work in.
@@ -188,7 +188,7 @@ The fix categories:
 The event loop is a single-lane bridge. Cars cross one at a time. The bridge keeper (scheduler) lets each car finish crossing, then waves on the next. Some cars are tiny (a microtask). Some are huge (a CPU loop). The bridge can't be widened. The job of every developer is to keep their cars small.
 
 **The air traffic controller.**
-ATC handles dozens of planes from one console. They never *fly* a plane — they coordinate. They authorize takeoffs, hand off to other controllers, manage the queue. If a single plane needs continuous attention (an emergency), every other plane waits. That's an event loop with a blocking task.
+ATC (Air Traffic Control) handles dozens of planes from one console. They never *fly* a plane — they coordinate. They authorize takeoffs, hand off to other controllers, manage the queue. If a single plane needs continuous attention (an emergency), every other plane waits. That's an event loop with a blocking task.
 
 ---
 
@@ -203,11 +203,11 @@ A library implements polling via recursive `Promise.resolve().then(...)`. It wor
 **Scenario 3 — The synchronous JSON in the hot path.**
 Service averages 5ms per request. A new feature parses a config blob (200KB) on every request. Median goes to 8ms. p99 goes from 30ms to 400ms — disproportionately bad because the synchronous parse blocks every concurrent request on the same loop iteration.
 
-**Scenario 4 — The ReDoS DoS.**
+**Scenario 4 — The ReDoS DoS (Denial of Service).**
 A health-check endpoint validates input via regex. Attacker sends a pathological payload. The regex engine backtracks for 30 seconds. Process appears hung. Load balancer marks it unhealthy. Auto-scaler spins up new instances. Attacker hits each one in turn. Service is down.
 
 **Scenario 5 — The memory-leak-from-closure.**
-A Promise-based queue keeps references to old completed jobs because of an unintentional closure capture in the resolution path. Memory grows by 50MB/hour. Service restarts every 12 hours from OOM. The "fix" is to deploy more frequently, until someone profiles the heap.
+A Promise-based queue keeps references to old completed jobs because of an unintentional closure capture in the resolution path. Memory grows by 50MB/hour. Service restarts every 12 hours from OOM (Out Of Memory). The "fix" is to deploy more frequently, until someone profiles the heap.
 
 ---
 
@@ -215,18 +215,18 @@ A Promise-based queue keeps references to old completed jobs because of an unint
 
 - **Event loop lag is your latency budget.** Zero blocking work = zero added latency. Every blocking ms is added to *every concurrent request's* tail.
 - **Microtasks are cheaper than macrotasks** (no phase transition cost), but they share the same blocking risk.
-- **Buffer reuse matters.** Allocating new buffers on every request is GC pressure. Reusing buffers via pools is a classic optimization.
+- **Buffer reuse matters.** Allocating new buffers on every request is GC (Garbage Collection) pressure. Reusing buffers via pools is a classic optimization.
 - **Avoid sync I/O on the request path.** Without exception. The "fast path" of a sync call is *not* faster than async — it's faster *for that one request*, at the cost of every concurrent request.
-- **`worker_threads` are real OS threads.** Use them for CPU work. The IPC cost is real, so reserve them for tasks that take >10ms.
+- **`worker_threads` are real OS threads.** Use them for CPU work. The IPC (Inter-Process Communication) cost is real, so reserve them for tasks that take >10ms.
 
 ---
 
 ## Scaling Perspective 🟡
 
 - **Vertical:** a Node process uses one CPU core. Add more concurrency to that core via async I/O, but if you saturate the core, you saturate the process.
-- **Horizontal (clustered):** Run N processes on N cores using cluster, PM2, or just multiple containers behind a load balancer. Almost always preferable to manual `worker_threads` orchestration for HTTP servers.
+- **Horizontal (clustered):** Run N processes on N cores using cluster, PM2 (Process Manager 2), or just multiple containers behind a load balancer. Almost always preferable to manual `worker_threads` orchestration for HTTP servers.
 - **Memory:** A Node process with 100K open connections still costs orders of magnitude less RAM than a thread-per-connection server with 100K threads.
-- **Where it fails to scale:** workloads dominated by CPU, not I/O. Image processing, ML inference, heavy serialization — these are not Node's natural habitat.
+- **Where it fails to scale:** workloads dominated by CPU, not I/O. Image processing, ML (Machine Learning) inference, heavy serialization — these are not Node's natural habitat.
 
 The scaling logic mirrors distributed systems: **the bottleneck is whichever resource you saturate first.** Node biases toward saturating CPU (because I/O is async); thread-per-connection biases toward saturating memory (per-thread stacks).
 
@@ -290,11 +290,11 @@ CPU profile (with `--prof` or clinic.js) reveals the hot path:
    [==] db_query
 ```
 
-Each request parses a 50KB XML invoice synchronously. ~80ms of pure CPU per parse.
+Each request parses a 50KB XML (eXtensible Markup Language) invoice synchronously. ~80ms of pure CPU per parse.
 
 ### Step 3: The synchronous-blocks-everyone realization
 
-When request A is parsing for 80ms, every other request waits. Request B that arrives during A's parse waits 80ms before it even starts. With 100 RPS, queue depth grows; tail latency explodes.
+When request A is parsing for 80ms, every other request waits. Request B that arrives during A's parse waits 80ms before it even starts. With 100 RPS (Requests Per Second), queue depth grows; tail latency explodes.
 
 This is *not* a CPU-utilization problem (CPU is 45%, not 100%). It's a *single-threaded blocking* problem. The event loop has only one execution slot; 80ms of blocking work blocks everything else.
 

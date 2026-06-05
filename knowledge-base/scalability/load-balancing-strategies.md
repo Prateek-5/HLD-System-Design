@@ -18,11 +18,11 @@
 
 ## Topic Overview 🟢
 
-Load balancing is what makes horizontal scale work. The instant you have more than one instance of a service, somebody — a piece of hardware, a piece of software, a piece of DNS configuration — is deciding which instance handles each request. That decision has consequences for latency, fairness, failure isolation, cache efficiency, session continuity, and operational complexity.
+Load balancing is what makes horizontal scale work. The instant you have more than one instance of a service, somebody — a piece of hardware, a piece of software, a piece of DNS (Domain Name System) configuration — is deciding which instance handles each request. That decision has consequences for latency, fairness, failure isolation, cache efficiency, session continuity, and operational complexity.
 
 The naive answer is "round robin" — alternate requests across instances. It works until it doesn't: hot keys land on slow instances, sticky sessions fight against rebalancing, slow downstream calls cascade through fast frontends, and the simple uniform distribution turns out to be neither uniform nor effective.
 
-Modern load balancing is a pipeline of decisions: at the DNS layer, at the network layer (L4), at the application layer (L7), at the service mesh, sometimes inside the application itself. Each layer has different tradeoffs around latency, observability, and routing intelligence. Understanding the full stack is the difference between "we have a load balancer" and "we have load balancing as a designed property of the system."
+Modern load balancing is a pipeline of decisions: at the DNS layer, at the network layer (L4, OSI Layer 4 — transport), at the application layer (L7, OSI Layer 7 — application), at the service mesh, sometimes inside the application itself. Each layer has different tradeoffs around latency, observability, and routing intelligence. Understanding the full stack is the difference between "we have a load balancer" and "we have load balancing as a designed property of the system."
 
 ---
 
@@ -58,13 +58,13 @@ F5, Cisco, Citrix Netscaler. Dedicated appliances doing L4/L7 routing in custom 
 HAProxy (2001), nginx (2004). Free, programmable, cloud-friendly. Replaced hardware in many shops. The era of "load balancer is just another server" arrived.
 
 **Era 4 — Cloud and managed LBs.**
-AWS ELB (2009) → ALB/NLB. GCP Cloud Load Balancing. Managed services with auto-scaling, health checks, integration with cloud networks. The infrastructure layer becomes elastic.
+AWS (Amazon Web Services) ELB (Elastic Load Balancer) (2009) → ALB (Application Load Balancer)/NLB (Network Load Balancer). GCP (Google Cloud Platform) Cloud Load Balancing. Managed services with auto-scaling, health checks, integration with cloud networks. The infrastructure layer becomes elastic.
 
 **Era 5 — Service mesh.**
 Linkerd (2016), Envoy (2016), Istio (2017). Load balancing pushed into a sidecar proxy alongside every application. Per-call decisions, request-level retries, fine-grained policies. Operational complexity multiplied; visibility multiplied too.
 
 **Era 6 — Adaptive and learning.**
-Modern systems use adaptive algorithms (least latency with EWMA), client-side load balancing (gRPC's pick_first, round_robin, custom), and policy-driven routing. The distinction between "load balancer" and "service infrastructure" is increasingly meaningless.
+Modern systems use adaptive algorithms (least latency with EWMA — Exponentially-Weighted Moving Average), client-side load balancing (gRPC's (gRPC Remote Procedure Call) pick_first, round_robin, custom), and policy-driven routing. The distinction between "load balancer" and "service infrastructure" is increasingly meaningless.
 
 The pattern: each generation moved the routing decision closer to the request. From DNS (slow, coarse) to hardware (fast, central) to software (flexible) to per-service mesh (per-request, contextual). The trend is increasingly fine-grained and intelligent.
 
@@ -76,16 +76,16 @@ The pattern: each generation moved the routing decision closer to the request. F
 
 ### L4 vs L7 load balancing
 
-**L4 (Layer 4, TCP/UDP):**
+**L4 (Layer 4, TCP/UDP — Transmission Control Protocol / User Datagram Protocol):**
 - Routes by IP and port. No application-layer awareness.
-- Very fast (kernel-level on modern systems; XDP, eBPF).
+- Very fast (kernel-level on modern systems; XDP — eXpress Data Path, eBPF — extended Berkeley Packet Filter).
 - Cannot inspect HTTP path, headers, or body.
 - Used for raw TCP services, databases, anything not HTTP.
 
 **L7 (Layer 7, HTTP):**
 - Routes by HTTP method, path, headers, query parameters.
 - Can do path-based routing (`/api/v1` → service A, `/api/v2` → service B).
-- Can inspect, modify, or terminate TLS.
+- Can inspect, modify, or terminate TLS (Transport Layer Security).
 - Slower than L4 (parses HTTP); typically still microseconds.
 
 Modern load balancers often do both: L4 for TCP termination, L7 for HTTP routing. AWS ALB is L7; NLB is L4.
@@ -114,7 +114,7 @@ Pick two instances at random; pick the less-loaded one. Surprisingly effective: 
 Hash the request (by URL, header, or key) to a position on a ring; route to the closest instance clockwise. Same key always goes to same instance — cache-friendly. Adding/removing instances moves only ~1/N of keys.
 
 **Maglev Hashing.**
-Google's lookup-table-based hashing scheme (not a ring). It trades slightly more disruption on backend failure for much better load evenness than ring-based consistent hashing. Used in many CDN and load balancer implementations.
+Google's lookup-table-based hashing scheme (not a ring). It trades slightly more disruption on backend failure for much better load evenness than ring-based consistent hashing. Used in many CDN (Content Delivery Network) and load balancer implementations.
 
 ### Health checks
 
@@ -137,7 +137,7 @@ When the application keeps per-session state in memory (or in a local cache), ro
 
 Mechanisms:
 - **Cookie-based**: load balancer sets a cookie pointing to the instance.
-- **IP-based**: hash client IP. Breaks behind shared NATs.
+- **IP-based**: hash client IP. Breaks behind shared NATs (Network Address Translation).
 - **Header-based**: load balancer reads a session ID and routes accordingly.
 
 Costs:
@@ -186,25 +186,25 @@ L7 load balancers maintain connection pools to backends. Tuning matters:
 - **Max connections per backend.** Too low: requests queue. Too high: backend can be overwhelmed.
 - **Connection idle timeouts.** Too short: connections recycle constantly. Too long: stale connections cause errors.
 - **Keep-alive settings.** Longer keep-alive reduces TCP handshake overhead.
-- **HTTP/2 multiplexing.** One connection per backend can carry many concurrent requests; reduces connection count.
+- **HTTP/2 (Hypertext Transfer Protocol version 2) multiplexing.** One connection per backend can carry many concurrent requests; reduces connection count.
 
-The TCP RST storm is a classic failure: tens of thousands of concurrent reconnections after a load balancer restart, each triggering kernel-level handshake costs.
+The TCP RST (Reset) storm is a classic failure: tens of thousands of concurrent reconnections after a load balancer restart, each triggering kernel-level handshake costs.
 
 ### TLS termination
 
 Where TLS is decrypted shapes the architecture:
-- **At the load balancer.** Backends speak plain HTTP. Simple. Less secure (cleartext between LB and backend).
+- **At the load balancer.** Backends speak plain HTTP. Simple. Less secure (cleartext between LB (Load Balancer) and backend).
 - **At the backend.** End-to-end encryption. Backends do TLS work. Higher CPU.
 - **Re-encrypted at the LB.** Decrypt for inspection, re-encrypt to backend. Most secure; more CPU.
 
-Modern best practice: terminate at the LB for external traffic, but use mTLS internally (service mesh) for service-to-service.
+Modern best practice: terminate at the LB for external traffic, but use mTLS (mutual TLS) internally (service mesh) for service-to-service.
 
 ---
 
 ## Real Engineering Analogies 🟢
 
 **The hospital triage nurse.**
-Patients arrive at the ER. The triage nurse decides who goes to which doctor. They consider:
+Patients arrive at the ER (Emergency Room). The triage nurse decides who goes to which doctor. They consider:
 - Severity (priority routing).
 - Doctor specialties (path-based routing).
 - Doctor availability (least-busy).
@@ -231,14 +231,14 @@ What goes wrong:
 - **The connection pool thrash.** Load balancer restarts; all connections drop; backends see massive reconnection storm. CPU spikes; TCP handshake overhead for thousands of connections.
 - **The TLS termination CPU pin.** A small backend serving TLS traffic at the LB has CPU usage 80% on TLS alone. Move termination to dedicated proxies or use hardware TLS offload.
 - **The health-check race.** Newly-deployed instance starts; LB sends traffic before warm-up is complete. First requests fail. Mitigation: a "ready" probe distinct from "alive" probe (Kubernetes' liveness vs readiness pattern).
-- **The DNS TTL trap.** Old DNS responses cached in clients for hours. New backend deployed; clients still hit old IPs. Mitigation: short TTLs; service discovery instead of DNS for dynamic systems.
+- **The DNS TTL (Time To Live) trap.** Old DNS responses cached in clients for hours. New backend deployed; clients still hit old IPs. Mitigation: short TTLs; service discovery instead of DNS for dynamic systems.
 
 ---
 
 ## Failure Scenarios 🔴
 
 **Scenario 1 — The health check that took down everything.**
-Health endpoint hit `SELECT 1` against the database. DB had brief unavailability. Health checks failed across all instances. LB marked all instances unhealthy. Site appeared down for 90 seconds while DB recovered.
+Health endpoint hit `SELECT 1` against the database. DB (database) had brief unavailability. Health checks failed across all instances. LB marked all instances unhealthy. Site appeared down for 90 seconds while DB recovered.
 
 **Scenario 2 — The slow-instance death spiral.**
 One instance has a slow disk. Round-robin sends it 1/10 of traffic. Latency on that instance is 5s vs others' 50ms. Affected users see slow responses but health checks pass (slow ≠ dead). Smart LB with EWMA-based routing would have detected slowness and reduced traffic; round robin doesn't.
@@ -261,7 +261,7 @@ Multi-region active-active behind DNS. Region 1 fails. DNS TTL is 5 minutes. Cli
 - **TLS termination**: CPU-intensive; can dominate small backends if not isolated.
 - **Connection establishment** (TCP + TLS handshake) is expensive. Pool aggressively.
 - **HTTP/2 multiplexing** reduces connection counts but doesn't help with backend processing time.
-- **Locality-aware routing** can cut p50 by 5-10ms in multi-zone deployments.
+- **Locality-aware routing** can cut p50 (50th percentile / median latency) by 5-10ms in multi-zone deployments.
 
 ---
 
@@ -318,7 +318,7 @@ The unifying observation: **load balancing is the visible face of distribution.*
 - **TLS termination is CPU-heavy** — isolate it; terminate at the LB for external traffic, mTLS internally.
 - **Locality-aware routing** in multi-zone deployments cuts latency and cross-zone bandwidth cost.
 - **Service meshes push LB to per-call decisions** with retries, circuit breakers, and outlier detection.
-- **Monitor per-instance distribution, not just aggregate request rate** — P99 of least-loaded and most-loaded instances should be close.
+- **Monitor per-instance distribution, not just aggregate request rate** — P99 (99th percentile latency) of least-loaded and most-loaded instances should be close.
 - **DNS TTL governs failover speed**; hot keys break consistent hashing (mitigate by bucketing the hot key across ring positions).
 
 ## Interview angle

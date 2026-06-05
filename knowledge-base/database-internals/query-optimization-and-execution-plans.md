@@ -22,7 +22,7 @@ A SQL query is a question; an execution plan is the answer to *how* the database
 
 The query planner is a small compiler that translates declarative SQL into a concrete plan, guided by *statistics* about the data and a cost model that predicts which plan will be cheapest. When the planner is right, life is good. When it's wrong — outdated statistics, a skewed value distribution, an unexpected join — performance can degrade by orders of magnitude with no schema change, no code change, no obvious culprit.
 
-This is the topic where indexes, MVCC, and storage internals come together in the engineer's daily life. Understanding execution plans is the difference between "the query is slow" (helpless) and "the planner picked a hash join when it should have used a merge join because the row estimate was off by 1000×" (actionable).
+This is the topic where indexes, MVCC (Multi-Version Concurrency Control), and storage internals come together in the engineer's daily life. Understanding execution plans is the difference between "the query is slow" (helpless) and "the planner picked a hash join when it should have used a merge join because the row estimate was off by 1000×" (actionable).
 
 ---
 
@@ -61,10 +61,10 @@ System R (IBM, 1979) introduced cost-based optimization with statistics-driven c
 Modern systems (Postgres `pg_hint_plan`, Spark adaptive execution, SQL Server's "Adaptive Query Processing") allow plans to *change at runtime* based on observed cardinalities. The plan is no longer fixed at compile time.
 
 **Era 5 — Learned optimizers.**
-Research and experimental implementations (DeepMind, Microsoft) using ML to predict plan costs. Promising; not yet mainstream. The fundamental problem of estimation in the presence of correlations is an active research area.
+Research and experimental implementations (DeepMind, Microsoft) using ML (Machine Learning) to predict plan costs. Promising; not yet mainstream. The fundamental problem of estimation in the presence of correlations is an active research area.
 
 **Era 6 — Columnar and vectorized execution.**
-Modern OLAP systems (ClickHouse, DuckDB, Snowflake) push beyond row-at-a-time. Vectorized execution processes batches; the optimizer plans for batch-friendly operations (hash joins over nested loops). A different cost model entirely.
+Modern OLAP (Online Analytical Processing) systems (ClickHouse, DuckDB, Snowflake) push beyond row-at-a-time. Vectorized execution processes batches; the optimizer plans for batch-friendly operations (hash joins over nested loops). A different cost model entirely.
 
 The pattern: each generation pushed the optimizer to do more — more transformations, more accurate estimates, more runtime adaptation. The fundamental theory is half a century old; the engineering is constantly evolving.
 
@@ -149,7 +149,7 @@ This is *the* problem. Real-world data has correlations the planner doesn't see.
 
 Postgres maintains per-column statistics:
 - **n_distinct**: estimated distinct value count.
-- **most_common_vals (MCV)**: top-K most frequent values.
+- **most_common_vals (MCV — Most Common Values)**: top-K most frequent values.
 - **histogram_bounds**: equi-depth histogram for the rest.
 - **correlation**: physical-to-logical ordering correlation.
 
@@ -194,7 +194,7 @@ for order in orders:
 
 Planner sees N+1 separate queries. Each is fine individually. Total is catastrophic. Fix: a join or a batch query (`WHERE order_id IN (...)`) — single round trip, single plan.
 
-ORMs are particularly susceptible. Inspect the queries actually executed; ORM laziness can hide an N+1 in a single line of code.
+ORMs (Object-Relational Mappers) are particularly susceptible. Inspect the queries actually executed; ORM laziness can hide an N+1 in a single line of code.
 
 ### Hints and plan stability
 
@@ -215,13 +215,13 @@ Modern databases sometimes change plans mid-query:
 - **SQL Server adaptive joins**: switches between hash join and nested loop based on actual row count.
 - **Postgres**: limited adaptive features; plan is mostly fixed at planning.
 
-For OLTP workloads, plan stability matters more than adaptation. For OLAP, adaptation prevents catastrophic plan choices on unfamiliar data.
+For OLTP (Online Transaction Processing) workloads, plan stability matters more than adaptation. For OLAP, adaptation prevents catastrophic plan choices on unfamiliar data.
 
 ### Vectorized vs row-at-a-time
 
 Traditional databases process rows one at a time through the operator tree. Each row goes through every operator. Cache-unfriendly; CPU-inefficient.
 
-Vectorized execution (ClickHouse, DuckDB, Snowflake) processes *batches* (typically 1024 rows). Better cache behavior; SIMD opportunities; orders-of-magnitude speedups for analytics. The optimizer must plan for batch-friendly operators.
+Vectorized execution (ClickHouse, DuckDB, Snowflake) processes *batches* (typically 1024 rows). Better cache behavior; SIMD (Single Instruction, Multiple Data) opportunities; orders-of-magnitude speedups for analytics. The optimizer must plan for batch-friendly operators.
 
 This is mostly an OLAP innovation; OLTP databases process individual queries that benefit less.
 
@@ -275,7 +275,7 @@ Engineer adds `/*+ USE_INDEX(idx_status) */` to fix a slow query. It works. Six 
 ## Scaling Perspective 🔴
 
 - **Vertical**: more memory enables hash joins over nested loops; more CPU enables parallel query.
-- **Parallel query**: modern databases parallelize scans, sorts, and aggregates. Postgres parallel workers, Spark partitions, MPP databases.
+- **Parallel query**: modern databases parallelize scans, sorts, and aggregates. Postgres parallel workers, Spark partitions, MPP (Massively Parallel Processing) databases.
 - **Distributed planners**: distributed databases (CockroachDB, Spanner, ClickHouse) plan across shards. Data locality matters; cross-shard joins are expensive.
 - **Query routing**: separate read replicas, OLAP replicas. Plan once per replica.
 - **At hyperscale**: query planning itself becomes a system — caching plans, distributing planning work, learning from past executions.
@@ -289,7 +289,7 @@ Engineer adds `/*+ USE_INDEX(idx_status) */` to fix a slow query. It works. Six 
 - **Sharding**: distributed planners must consider data locality; cross-shard plans are expensive. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
 - **Caching**: prepared statement caches are plan caches; same invalidation problems. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **Observability**: query metrics (slow queries, plan changes, statistic freshness) are first-class signals. (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)
-- **WAL**: dirty buffers from heavy writes affect cost models — pages in dirty state may have different I/O profiles. (See [wal-and-crash-recovery.md](./wal-and-crash-recovery.md).)
+- **WAL (Write-Ahead Log)**: dirty buffers from heavy writes affect cost models — pages in dirty state may have different I/O profiles. (See [wal-and-crash-recovery.md](./wal-and-crash-recovery.md).)
 
 The unifying observation: **the query planner is a small compiler whose output is execution behavior. Its quality determines whether the same SQL runs in milliseconds or minutes — and its inputs (statistics, indexes, data shape) are operational concerns that change over time.**
 

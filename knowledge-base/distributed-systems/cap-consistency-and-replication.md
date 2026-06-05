@@ -18,7 +18,7 @@
 
 ## Topic Overview 🟢
 
-You can't talk about distributed databases for ten minutes without someone mentioning CAP. You also can't talk about CAP for ten minutes without someone misquoting it. The theorem is simple, profound, and almost always cited at the wrong moment by people who haven't internalized what it actually says.
+You can't talk about distributed databases for ten minutes without someone mentioning CAP (Consistency, Availability, Partition tolerance). You also can't talk about CAP for ten minutes without someone misquoting it. The theorem is simple, profound, and almost always cited at the wrong moment by people who haven't internalized what it actually says.
 
 The deeper truth: distributed systems are not about choosing two of three letters. They're about **making a contract with your application about what it sees during failures**, and that contract is the *consistency model*. CAP is the impossibility result that frames the conversation. Consistency models are the menu. Replication and consensus are the machinery.
 
@@ -55,13 +55,13 @@ Postgres, MySQL pre-2010: one primary, N read replicas. Writes go to the primary
 "Just make replication synchronous!" Each write waits for replicas to ack. Now your write latency = network latency to the slowest replica. Cross-continent? 100ms+ on every write. The cure becomes worse than the disease.
 
 **Era 3 — Eventual consistency at scale.**
-Amazon Dynamo (2007), Cassandra, Riak. Drop strong consistency entirely. Multi-master, write to any replica, anti-entropy converges later. Massive write throughput. Application-level pain — concurrent writes can conflict, and the application now has to think about *vector clocks*, *last-write-wins*, *CRDTs*. The problem moved up the stack.
+Amazon Dynamo (2007), Cassandra, Riak. Drop strong consistency entirely. Multi-master, write to any replica, anti-entropy converges later. Massive write throughput. Application-level pain — concurrent writes can conflict, and the application now has to think about *vector clocks*, *last-write-wins*, *CRDTs (Conflict-free Replicated Data Types)*. The problem moved up the stack.
 
 **Era 4 — Consensus protocols mature.**
 Paxos was published in 1989; nobody understood it. Raft (2013) made consensus comprehensible. ZooKeeper, etcd, Consul ship. Suddenly *strong consistency on a small subset of state* (configuration, leadership) is a primitive engineers can build on.
 
 **Era 5 — NewSQL and global consistency.**
-Spanner (2012, paper 2013) cracked the global-consistency-at-scale problem with TrueTime — atomic clocks plus GPS in every datacenter. CockroachDB, FoundationDB, YugabyteDB followed without TrueTime, using HLCs (hybrid logical clocks) and clever protocols. Strong consistency at planet scale, at the cost of latency and operational complexity.
+Spanner (2012, paper 2013) cracked the global-consistency-at-scale problem with TrueTime — atomic clocks plus GPS in every datacenter. CockroachDB, FoundationDB, YugabyteDB followed without TrueTime, using HLCs (Hybrid Logical Clocks) and clever protocols. Strong consistency at planet scale, at the cost of latency and operational complexity.
 
 **Era 6 — The "right tool for the job" era.**
 Modern architectures use multiple consistency models in one system. Consensus for metadata; eventual consistency for high-volume write paths; strong consistency for financial transactions; CRDTs for collaborative editing. The single-model database is a museum piece for serious infrastructure.
@@ -83,7 +83,7 @@ Three terms with specific meanings:
 
 The "choose 2 of 3" framing is misleading. **P is not optional in real systems** — partitions happen. So the real choice is C-or-A *during a partition*. The "CA" point on the triangle is largely fictional in a multi-machine system.
 
-### PACELC — the better framing
+### PACELC (Partition: Availability/Consistency, Else: Latency/Consistency) — the better framing
 
 Daniel Abadi's refinement (2010):
 - **If Partition: A or C?**
@@ -119,7 +119,7 @@ The art is matching the model to the value. Bank balance: linearizable. Profile 
 
 **Multi-leader:**
 - Multiple nodes accept writes; they replicate to each other.
-- Consistency: needs conflict resolution (LWW, CRDTs, application logic).
+- Consistency: needs conflict resolution (LWW (Last-Write-Wins), CRDTs, application logic).
 - Failure mode: concurrent writes on different leaders create conflicts.
 
 **Leaderless (Dynamo-style):**
@@ -140,7 +140,7 @@ In practice:
 
 **Raft's contribution:** decomposed Paxos into "leader election + log replication + safety" with clear phase boundaries. The papers are readable. The implementations are still hard.
 
-**FLP impossibility result (1985):** in a fully asynchronous system with even one faulty process, no deterministic consensus algorithm can guarantee progress. Real systems sidestep this with timeouts and randomized protocols — accepting "almost always" liveness.
+**FLP (Fischer-Lynch-Paterson) impossibility result (1985):** in a fully asynchronous system with even one faulty process, no deterministic consensus algorithm can guarantee progress. Real systems sidestep this with timeouts and randomized protocols — accepting "almost always" liveness.
 
 ### Quorum reads and writes (Dynamo-style)
 
@@ -200,7 +200,7 @@ What actually breaks in distributed systems:
 
 - **Partial partitions.** The textbook diagram is "two halves of the cluster can't talk." Reality: node A can talk to B but not C; B can talk to A and C; C can talk to B but not A. Half the consensus protocols you read about become hostile under partial partitions. (Jepsen tests reveal this routinely.)
 - **Network is not eventual; it's adversarial.** Packet loss, reordering, duplication, asymmetric latency, full corruption. Anything you assume the network won't do, it will eventually.
-- **Clock skew is real and dangerous.** A node with a fast clock can claim writes are "newer" than they are, winning LWW conflicts unfairly. Default clock-sync (NTP) is precise to ~10ms; not precise enough for fine-grained ordering.
+- **Clock skew is real and dangerous.** A node with a fast clock can claim writes are "newer" than they are, winning LWW conflicts unfairly. Default clock-sync (NTP (Network Time Protocol)) is precise to ~10ms; not precise enough for fine-grained ordering.
 - **Replication lag is invisible until it's a 4-hour outage.** A read replica falls behind by hours; nobody notices because the metric isn't dashboarded; an admin promotes the replica during failover; data loss.
 - **Quorum sizing under failures.** If you tune for `R+W > N` and one node is down, your quorum requirements may not be satisfiable. The system goes from "available" to "throwing errors" silently.
 - **Split-brain.** Two leaders, both accepting writes, both convinced they're the only leader. Recovery is a manual diff-and-merge. This is the operational nightmare of multi-leader replication done wrong.
@@ -236,7 +236,7 @@ A distributed database advertises "linearizable consistency." A Jepsen test unde
 
 ## Performance Perspective 🟡
 
-- **Latency is paid in round trips.** Each consistency level costs a specific number of RTTs. Linearizable read = at least 1 RTT to leader. Quorum write = 1 RTT to quorum size. Multi-region write = inter-region RTT (typically 50–150ms).
+- **Latency is paid in round trips.** Each consistency level costs a specific number of RTTs (Round-Trip Times). Linearizable read = at least 1 RTT to leader. Quorum write = 1 RTT to quorum size. Multi-region write = inter-region RTT (typically 50–150ms).
 - **Throughput is bounded by the slowest replica** in synchronous replication; the *coordinator* in single-leader; the *quorum* in Dynamo-style.
 - **Read scalability** is straightforward via replicas; **write scalability** is the hard problem. Sharding is the usual answer.
 - **Consensus has a per-operation lower bound** of 1 RTT to a quorum. Scaling consensus often means partitioning *the consensus group itself* (Raft groups per shard).
@@ -248,7 +248,7 @@ A distributed database advertises "linearizable consistency." A Jepsen test unde
 
 - **Vertical:** add bigger nodes. Helps until coordination overhead dominates.
 - **Horizontal reads:** trivial via replicas.
-- **Horizontal writes:** sharding. Each shard's consistency is local; cross-shard transactions require 2PC, sagas, or weaker guarantees.
+- **Horizontal writes:** sharding. Each shard's consistency is local; cross-shard transactions require 2PC (Two-Phase Commit), sagas, or weaker guarantees.
 - **Geographic scale:** different consistency choices per region. Strong locally, eventual across regions, with explicit conflict resolution.
 - **Operational scale:** as the cluster grows, the probability of *some* node being down at any moment approaches 1. Design for this.
 
@@ -258,12 +258,12 @@ The hardest scaling jump is **regional → global**. Latency goes from sub-ms to
 
 ## Cross-Domain Connections 🔴
 
-- **MVCC:** snapshot isolation is the single-node ancestor of distributed consistency. Linearizability ≈ "real-time + serializable." The same anomalies (stale reads, write skew) generalize to distributed settings.
+- **MVCC (Multi-Version Concurrency Control):** snapshot isolation is the single-node ancestor of distributed consistency. Linearizability ≈ "real-time + serializable." The same anomalies (stale reads, write skew) generalize to distributed settings.
 - **Caching:** every cache is a small distributed system with its own consistency model. Cache invalidation is Phil Karlton's hardest problem because it's *distributed consistency in disguise*.
 - **Event loop:** within a process, the single-threaded event loop gives you trivial linearizability — no two operations interleave. Distribution is the act of giving up that property.
-- **Filesystems:** distributed filesystems (HDFS, Ceph, GFS) are entire distributed systems with their own CAP positions. Same theory, file-shaped.
-- **Networking:** TCP is a "consistency model" for a byte stream — ordered, no gaps, eventually delivered. UDP is "eventual" or worse. Application protocols layer on top.
-- **OS scheduling:** SMP scheduling deals with cache coherence (MESI protocol), which is essentially a hardware-level eventual consistency problem. The same theory recurs at the silicon layer.
+- **Filesystems:** distributed filesystems (HDFS (Hadoop Distributed File System), Ceph, GFS (Google File System)) are entire distributed systems with their own CAP positions. Same theory, file-shaped.
+- **Networking:** TCP (Transmission Control Protocol) is a "consistency model" for a byte stream — ordered, no gaps, eventually delivered. UDP (User Datagram Protocol) is "eventual" or worse. Application protocols layer on top.
+- **OS scheduling:** SMP (Symmetric Multiprocessing) scheduling deals with cache coherence (MESI (Modified, Exclusive, Shared, Invalid) protocol), which is essentially a hardware-level eventual consistency problem. The same theory recurs at the silicon layer.
 
 The unifying observation: **consistency is the price of replication, replication is the price of availability, and availability is the price of partition tolerance.** The same triangle keeps appearing because it reflects a fundamental property of information systems with state and physical separation.
 
@@ -350,9 +350,9 @@ The CAP/PACELC framework guides each decision; the system as a whole exists acro
 
 ## Recent Production References (2023-2024) 🟡
 
-- **Cloudflare's R2 object store**: published architecture documents. Strong consistency on metadata (consensus); eventual on data replication. PACELC: PC/EC for metadata; PA/EL for content.
+- **Cloudflare's R2 (Cloudflare's S3-compatible object storage) object store**: published architecture documents. Strong consistency on metadata (consensus); eventual on data replication. PACELC: PC/EC for metadata; PA/EL for content.
 - **CockroachDB Serverless (2022-2023)**: pay-per-request distributed SQL. Documented the trade-offs of multi-tenant isolation atop strongly-consistent infrastructure.
-- **The 2023 GCP IAM outage**: a CP-system whose unavailability cascaded across services. Postmortem available.
+- **The 2023 GCP (Google Cloud Platform) IAM (Identity and Access Management) outage**: a CP-system whose unavailability cascaded across services. Postmortem available.
 - **DynamoDB Global Tables**: Amazon's pattern for multi-region eventual consistency with conflict resolution. Well-documented.
 - **Discord's ScyllaDB migration (2023)**: tunable consistency in production at very high scale.
 - **Spanner's external consistency**: continues to be the gold standard. Public engineering on TrueTime hardware.

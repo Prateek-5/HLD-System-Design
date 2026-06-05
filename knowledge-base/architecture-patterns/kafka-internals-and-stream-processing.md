@@ -12,15 +12,15 @@
 >
 > **New to this?** Build the basics first in [`learn/architecture/message-brokers.md`](../../learn/architecture/message-brokers.md) — *then* come back for the depth.
 >
-> **Level:** this file is 🔴 overall — it's a senior/staff deep-dive into Kafka's internals. The opening sections are approachable; the storage, replication, EOS, and stream-processing sections assume real distributed-systems comfort. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+> **Level:** this file is 🔴 overall — it's a senior/staff deep-dive into Kafka's internals. The opening sections are approachable; the storage, replication, EOS (Exactly-Once Semantics), and stream-processing sections assume real distributed-systems comfort. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
 
 ---
 
 ## Topic Overview 🟢
 
-Apache Kafka is the dominant open-source streaming platform. It's used as a message broker, an event store, a CDC pipeline, an audit log, a buffer between services. The design — partitioned, replicated, append-only logs — has shaped the industry's thinking about events.
+Apache Kafka is the dominant open-source streaming platform. It's used as a message broker, an event store, a CDC (Change Data Capture) pipeline, an audit log, a buffer between services. The design — partitioned, replicated, append-only logs — has shaped the industry's thinking about events.
 
-Internals: **topics** divided into **partitions**; partitions replicated across **brokers**; producers write to partitions; consumers read at their own pace; offsets track position. Replication via in-sync replicas (ISR); consensus for metadata via Raft (KRaft) or ZooKeeper (legacy).
+Internals: **topics** divided into **partitions**; partitions replicated across **brokers**; producers write to partitions; consumers read at their own pace; offsets track position. Replication via in-sync replicas (ISR); consensus for metadata via Raft (KRaft, Kafka Raft) or ZooKeeper (legacy).
 
 Stream processing extends Kafka: Kafka Streams (library), Apache Flink, ksqlDB. Built on the log; treat events as a continuous flow; transform, aggregate, join in real time.
 
@@ -137,7 +137,7 @@ Compression: producer compresses batches; broker stores compressed.
 ### Throughput
 
 Kafka is designed for high throughput:
-- Sequential disk writes (very fast on HDD/SSD).
+- Sequential disk writes (very fast on HDD (Hard Disk Drive) / SSD (Solid-State Drive)).
 - Zero-copy reads.
 - Batching at producer and broker.
 - No random I/O.
@@ -229,7 +229,7 @@ Eliminates writing custom integrators. Battle-tested for many systems.
 
 ### Operational concerns
 
-**Lag monitoring**: consumer lag is the canonical SLI.
+**Lag monitoring**: consumer lag is the canonical SLI (Service Level Indicator).
 
 **ISR shrinkage**: followers falling out of ISR signals problems.
 
@@ -282,7 +282,7 @@ Producer drops a field; consumer expects it. Errors. Mitigation: schema registry
 
 ## Scaling Perspective 🟡
 
-- **Single cluster**: hundreds of TB; thousands of topics.
+- **Single cluster**: hundreds of TB (Terabytes); thousands of topics.
 - **Multi-cluster**: MirrorMaker for cross-region.
 - **At hyperscale**: dedicated Kafka teams; specialized tooling (LinkedIn, Uber).
 
@@ -295,7 +295,7 @@ Producer drops a field; consumer expects it. Errors. Mitigation: schema registry
 - **Sagas**: orchestrated via Kafka often. (See [saga-pattern-and-distributed-transactions.md](./saga-pattern-and-distributed-transactions.md).)
 - **Backpressure**: consumer lag is the metric. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Replication**: Kafka's design. (See [replication-strategies.md](../database-internals/replication-strategies.md).)
-- **WAL**: Kafka is essentially a distributed WAL. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
+- **WAL (Write-Ahead Log)**: Kafka is essentially a distributed WAL. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
 
 The unifying observation: **Kafka is a distributed log treated as a primary primitive. Once you see this, the design choices — partitions, offsets, replication, retention — become coherent. Kafka is what happens when "the log is the database" is taken seriously.**
 
@@ -312,7 +312,7 @@ The unifying observation: **Kafka is a distributed log treated as a primary prim
 
 ## Key Takeaways
 
-- **Kafka is a distributed log, not a queue.** "The log is the database" taken as architectural truth: partitioned, replicated, retained logs become the substrate of event-driven systems. The patterns built on top — sagas, CQRS, CDC, stream processing — all rely on Kafka's primitives.
+- **Kafka is a distributed log, not a queue.** "The log is the database" taken as architectural truth: partitioned, replicated, retained logs become the substrate of event-driven systems. The patterns built on top — sagas, CQRS (Command Query Responsibility Segregation), CDC, stream processing — all rely on Kafka's primitives.
 - **The hierarchy is topic → partitions → segments.** A topic is a logical category; partitions are independent ordered logs; each partition is a series of append-only segment files on disk.
 - **Partitions are the unit of parallelism.** A topic with 100 partitions can be consumed by up to 100 parallel consumers per consumer group. Plan partition counts for max parallelism.
 - **Consumer groups give both fan-out and parallelism.** Each partition is consumed by exactly one consumer in a group; each group tracks its own offset per partition (stored in `__consumer_offsets`).

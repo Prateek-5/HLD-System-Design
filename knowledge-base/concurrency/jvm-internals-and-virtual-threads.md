@@ -1,6 +1,6 @@
 # JVM Internals & Virtual Threads
 
-> *"The Java Virtual Machine has been the most-deployed managed runtime in production for thirty years. Its internals — the bytecode interpreter, the JIT compilers, the half-dozen garbage collectors, the threading model — are an entire engineering discipline. Project Loom's virtual threads, shipped in 2023, are the JVM's response to the C10K problem two decades after the rest of the industry went async. They preserve Java's blocking-thread idiom while quietly multiplexing millions of threads onto a few OS threads."*
+> *"The Java Virtual Machine has been the most-deployed managed runtime in production for thirty years. Its internals — the bytecode interpreter, the JIT (Just-In-Time) compilers, the half-dozen garbage collectors, the threading model — are an entire engineering discipline. Project Loom's virtual threads, shipped in 2023, are the JVM's response to the C10K (10,000 concurrent connections) problem two decades after the rest of the industry went async. They preserve Java's blocking-thread idiom while quietly multiplexing millions of threads onto a few OS threads."*
 
 ---
 
@@ -10,7 +10,7 @@
 >
 > **Analogy:** The JVM is a live interpreter at a conference. At first it translates each sentence slowly from a dictionary (interpreting bytecode), but the phrases it hears constantly it memorizes and fires off instantly (the JIT compiler). When the speaker needs helpers, the old way was hiring full-salary staff — expensive, only a few affordable (OS threads). Virtual threads are temp helpers who share a desk and only get paid while actually working, so you can have thousands at the cost of a few.
 >
-> **Assumes you already know:** what a thread and a process are, what blocking I/O means, and roughly how a program runs inside a container or VM — see [`learn/reliability/vms-and-containers.md`](../../learn/reliability/vms-and-containers.md) for the runtime-environment basics. *(This is a senior/runtime-engineering deep-dive with no beginner learning-path counterpart — that's expected.)*
+> **Assumes you already know:** what a thread and a process are, what blocking I/O means, and roughly how a program runs inside a container or VM (Virtual Machine) — see [`learn/reliability/vms-and-containers.md`](../../learn/reliability/vms-and-containers.md) for the runtime-environment basics. *(This is a senior/runtime-engineering deep-dive with no beginner learning-path counterpart — that's expected.)*
 >
 > **Level:** this file is 🔴 overall — runtime internals, mostly beyond system-design interviews. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
 
@@ -18,7 +18,7 @@
 
 ## Topic Overview 🟢
 
-The JVM (Java Virtual Machine) runs Java, Kotlin, Scala, Clojure, and other languages. Its internals — class loading, bytecode interpretation, JIT compilation, garbage collection, thread management — are mature and battle-tested. Production JVMs (HotSpot, OpenJ9, GraalVM) handle everything from low-latency trading to massive-scale Hadoop clusters.
+The JVM (Java Virtual Machine) runs Java, Kotlin, Scala, Clojure, and other languages. Its internals — class loading, bytecode interpretation, JIT compilation, garbage collection (GC), thread management — are mature and battle-tested. Production JVMs (HotSpot, OpenJ9, GraalVM) handle everything from low-latency trading to massive-scale Hadoop clusters.
 
 The recent landmark: **Project Loom** (Java 21, 2023) introduces *virtual threads*. The JVM that for decades treated threads as expensive OS resources now provides cheap user-space threads multiplexed onto a small pool of OS threads. The programming model is unchanged — code uses `Thread` as before — but scaling to a million concurrent operations no longer requires async/reactive frameworks.
 
@@ -47,9 +47,9 @@ Bytecode interpreter only. Slow.
 Sun's HotSpot JVM. Adaptive optimization; tiered compilation. Java becomes performance-competitive.
 
 **Era 3 — Garbage collector evolution.**
-Serial → Parallel → CMS → G1 → ZGC/Shenandoah. Each generation reduces pauses or improves throughput.
+Serial → Parallel → CMS (Concurrent Mark-Sweep) → G1 → ZGC/Shenandoah. Each generation reduces pauses or improves throughput.
 
-**Era 4 — Native libraries (NIO, 2002).**
+**Era 4 — Native libraries (NIO (New/Non-blocking I/O), 2002).**
 Async I/O for the JVM. Foundation for Netty, etc.
 
 **Era 5 — Reactive movement.**
@@ -133,11 +133,11 @@ JVM-specific:
 
 Tuning: `-Xms`, `-Xmx` (heap size); `-XX:+UseG1GC`; many other flags.
 
-Monitoring: GC logs (`-Xlog:gc*`); JFR; tools like Eclipse MAT for heap analysis.
+Monitoring: GC logs (`-Xlog:gc*`); JFR (Java Flight Recorder); tools like Eclipse MAT (Memory Analyzer Tool) for heap analysis.
 
 ### Threading (pre-Loom)
 
-Java threads = OS threads (since JDK 1.2; abandoning green threads).
+Java threads = OS threads (since JDK (Java Development Kit) 1.2; abandoning green threads).
 
 Each thread:
 - ~1 MB stack.
@@ -184,9 +184,9 @@ This is invisible to application code. `Thread.sleep`, `Socket.read`, `BufferedR
 
 ### Virtual thread limitations
 
-**Pinned threads.** A virtual thread that blocks inside a `synchronized` block can't unmount — it stays pinned to its carrier OS thread, which is therefore tied up. The scheduler can add *compensating* carrier threads (up to a cap) so the rest of the pool keeps progressing, but a flood of pinned threads still degrades scaling. Mitigation (pre-JDK 24): use `ReentrantLock` instead of `synchronized`. JDK 24 / JEP 491 removed the `synchronized` pinning limitation, so virtual threads can now unmount while holding monitors.
+**Pinned threads.** A virtual thread that blocks inside a `synchronized` block can't unmount — it stays pinned to its carrier OS thread, which is therefore tied up. The scheduler can add *compensating* carrier threads (up to a cap) so the rest of the pool keeps progressing, but a flood of pinned threads still degrades scaling. Mitigation (pre-JDK 24): use `ReentrantLock` instead of `synchronized`. JDK 24 / JEP 491 (JDK Enhancement Proposal) removed the `synchronized` pinning limitation, so virtual threads can now unmount while holding monitors.
 
-**Native code blocking.** JNI calls don't yield. Carrier thread is blocked.
+**Native code blocking.** JNI (Java Native Interface) calls don't yield. Carrier thread is blocked.
 
 **Thread-local storage.** Per-thread state with millions of virtual threads becomes massive. Use `ScopedValue` (Java 21+) instead.
 
@@ -194,7 +194,7 @@ These are real but solvable. Most production code can adopt virtual threads with
 
 ### Foreign Function & Memory API
 
-Java 22 (2024) finalized FFM: alternative to JNI for calling native code, with explicit memory control.
+Java 22 (2024) finalized FFM (Foreign Function & Memory): alternative to JNI for calling native code, with explicit memory control.
 
 Properties:
 - Off-heap memory management.
@@ -234,7 +234,7 @@ The reactive ecosystem (Reactor, RxJava) remains for backpressure-heavy and full
 
 The JVM hosts multiple languages:
 - **Kotlin**: Android default; coroutines as native concurrency.
-- **Scala**: functional + OO; complex.
+- **Scala**: functional + OO (Object-Oriented); complex.
 - **Clojure**: Lisp dialect.
 - **Groovy**: dynamic.
 
@@ -243,7 +243,7 @@ All compile to bytecode; interop is generally good.
 ### GraalVM
 
 Alternative JVM with:
-- **AOT compilation**: native images at build time.
+- **AOT (Ahead-Of-Time) compilation**: native images at build time.
 - **Polyglot**: run JS, Python, Ruby on the JVM.
 - **Faster startup**: native images start in milliseconds.
 
@@ -327,10 +327,10 @@ The unifying observation: **the JVM is one of the most sophisticated production 
 - **GC is configurable; choice matters.** G1 (default, general), ZGC/Shenandoah (sub-ms pauses, low-latency), Parallel (batch throughput), Serial (small heaps). Pick for your latency/throughput needs.
 - **Virtual threads (Loom, JDK 21) change the cost model:** pre-Loom a thread was an expensive OS resource (~1 MB stack, a few thousand max); post-Loom a virtual thread is a cheap (~KB) user-space context multiplexed onto carrier threads, making blocking-style code idiomatic again. They are not a cure-all — they don't automatically scale everything.
 - **Pinning:** a virtual thread blocking inside `synchronized` can't unmount and stays pinned to its carrier. Mitigate with `ReentrantLock` (JDK 24 / JEP 491 removed this limitation). Native/JNI calls also don't yield. With millions of threads, prefer `ScopedValue` over thread-locals.
-- **The JVM is highly observable.** JFR, JMC, async-profiler, GC logs — excellent, mostly-free production tooling. Keep JFR on (tune the sampling rate; always-on profiling has a small but real cost).
+- **The JVM is highly observable.** JFR, JMC (JDK Mission Control), async-profiler, GC logs — excellent, mostly-free production tooling. Keep JFR on (tune the sampling rate; always-on profiling has a small but real cost).
 - **`-Xms == -Xmx`** for predictability; container-aware tuning matters in the cloud.
 - **Classloader leaks** (retained classloaders on app-server reload) are a famous, recurring source of growing memory.
-- **OOM from giant arrays:** a single allocation larger than the heap fails — know your data sizes; off-heap memory (FFM API, Java 22) sometimes matters.
+- **OOM (Out Of Memory) from giant arrays:** a single allocation larger than the heap fails — know your data sizes; off-heap memory (FFM API, Java 22) sometimes matters.
 - **GraalVM** offers AOT native images (millisecond startup, good for serverless/CLI/microservices) and polyglot execution.
 - **Big picture:** the JVM is one of the most sophisticated production runtimes ever built. Virtual threads belatedly bring async-runtime efficiency to its blocking-thread programming model — preserving Java's idioms while solving its scaling limits.
 

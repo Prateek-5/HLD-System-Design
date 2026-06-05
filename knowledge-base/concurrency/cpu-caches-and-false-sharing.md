@@ -60,7 +60,7 @@ Multi-socket systems with non-uniform memory access. Programmer concerns deepen.
 Performance-conscious code routinely considers cache effects.
 
 **Era 6 — Modern accelerators.**
-GPUs, TPUs have their own memory hierarchies; same principles, different specifics.
+GPUs, TPUs (Tensor Processing Units) have their own memory hierarchies; same principles, different specifics.
 
 The pattern: cache hierarchy has been a constant; programmer awareness has grown.
 
@@ -180,11 +180,11 @@ NUMA-aware programming:
 - Per-socket data structures.
 - Reduce cross-socket coordination.
 
-For HPC, low-latency systems, NUMA is critical. For general-purpose servers, often less so.
+For HPC (High-Performance Computing), low-latency systems, NUMA is critical. For general-purpose servers, often less so.
 
 ### Cache-friendly data structures
 
-- **Array of structures vs structure of arrays.** SoA often better for cache when iterating over one field.
+- **Array of structures vs structure of arrays.** SoA (Structure of Arrays) often better for cache when iterating over one field.
 - **Linked lists**: bad cache behavior (pointers point everywhere).
 - **Hash tables with open addressing**: better cache than chained.
 - **Packed bitfields**: more data per cache line.
@@ -210,7 +210,7 @@ The same code; the layout matters.
 ### Cache effects in higher-level languages
 
 Java, Go, C# have padding annotations:
-- Java's `@Contended` (JEP 142).
+- Java's `@Contended` (JEP 142; JEP = JDK Enhancement Proposal).
 - Go's struct field padding manually.
 - C# `[StructLayout(LayoutKind.Explicit)]` and padding.
 
@@ -253,7 +253,7 @@ The senior performance engineer's habits:
 Concurrent counter array; performance scales to 4 threads then plateaus. Investigation: false sharing on cache lines. Pad each counter to 64 bytes; scaling restored.
 
 **Scenario 2 — The lock-free queue regression.**
-SPSC queue (single producer single consumer); claimed fast. Actual performance: meh. Cause: producer's tail pointer same line as consumer's head. Padding fixes.
+SPSC (Single Producer Single Consumer) queue (single producer single consumer); claimed fast. Actual performance: meh. Cause: producer's tail pointer same line as consumer's head. Padding fixes.
 
 **Scenario 3 — The NUMA pin.**
 Latency-critical service. Random NUMA placement causes cross-socket allocations. p99 variance. Fix: pin thread to NUMA node; allocate locally.

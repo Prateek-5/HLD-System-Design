@@ -18,9 +18,9 @@
 
 ## Topic Overview 🟢
 
-Garbage collection (GC) is the runtime mechanism that automatically reclaims memory when objects are no longer reachable. Different languages take different approaches: V8 (JavaScript) uses generational GC; the JVM has dozens of GC algorithms; Go uses a concurrent mark-sweep; Python uses reference counting plus cycle detection.
+Garbage collection (GC) is the runtime mechanism that automatically reclaims memory when objects are no longer reachable. Different languages take different approaches: V8 (JavaScript) uses generational GC; the JVM (Java Virtual Machine) has dozens of GC algorithms; Go uses a concurrent mark-sweep; Python uses reference counting plus cycle detection.
 
-The fundamental trade-offs are universal: **throughput** (how much GC work per unit of compute) vs **latency** (how long pauses are) vs **memory overhead** (how much extra space the GC needs). Different applications optimize different axes. A batch ETL job tolerates long pauses; a low-latency trading system can't.
+The fundamental trade-offs are universal: **throughput** (how much GC work per unit of compute) vs **latency** (how long pauses are) vs **memory overhead** (how much extra space the GC needs). Different applications optimize different axes. A batch ETL (Extract, Transform, Load) job tolerates long pauses; a low-latency trading system can't.
 
 This is the topic where language internals meet production reality. Most engineers treat GC as a black box until p99 latency spikes correlate with full GCs. Then GC tuning becomes a real discipline. Understanding the algorithms — generational, concurrent, regional, copying — is what separates "set the heap size and hope" from "I know exactly why my service has a 200ms pause every 30 seconds."
 
@@ -57,7 +57,7 @@ Lisp 1959. Periodic full traversal. Stop-the-world pauses.
 Lieberman & Hewitt 1983. Young/old separation. Massive throughput improvements.
 
 **Era 5 — Concurrent and incremental GC.**
-1990s onward. JVM CMS (deprecated), G1, Shenandoah, ZGC. Reduce pauses by overlapping GC with application work.
+1990s onward. JVM CMS (Concurrent Mark-Sweep, deprecated), G1 (Garbage First), Shenandoah, ZGC (Z Garbage Collector). Reduce pauses by overlapping GC with application work.
 
 **Era 6 — Modern low-latency GCs.**
 ZGC, Shenandoah, OpenJDK's recent additions. Sub-millisecond pauses on multi-terabyte heaps.
@@ -76,7 +76,7 @@ Each object has a counter. Increment on new reference; decrement on dereference.
 
 Pros: deterministic; immediate reclamation.
 Cons:
-- Per-mutation overhead (every reference change touches a counter). In CPython these increments/decrements are *non-atomic* — they're protected by the GIL, which is precisely why removing the GIL is so hard. Swift's ARC and free-threaded ("no-GIL") Python use *atomic* refcounts, which are correct under concurrency but measurably more expensive.
+- Per-mutation overhead (every reference change touches a counter). In CPython these increments/decrements are *non-atomic* — they're protected by the GIL (Global Interpreter Lock), which is precisely why removing the GIL is so hard. Swift's ARC (Automatic Reference Counting) and free-threaded ("no-GIL") Python use *atomic* refcounts, which are correct under concurrency but measurably more expensive.
 - Doesn't handle cycles (Python uses cycle detector for these).
 - Cache-unfriendly (counter updates touch every referenced object).
 
@@ -172,7 +172,7 @@ Typical pause: ~10-50ms; can spike to hundreds of ms in pathological cases.
 **Parallel GC**: multi-threaded; throughput-oriented; long pauses.
 **CMS (deprecated)**: concurrent mark-sweep; reduced pauses.
 **G1**: regional; predictable pause times. Default since Java 9.
-**ZGC**: sub-millisecond pauses on multi-TB heaps. JEP 333.
+**ZGC**: sub-millisecond pauses on multi-TB (terabyte) heaps. JEP (JDK Enhancement Proposal) 333.
 **Shenandoah**: similar goals to ZGC; Red Hat's implementation.
 
 Each has knobs. Tuning matters for production.
@@ -185,7 +185,7 @@ Concurrent mark-sweep. Designed for low-latency:
 - Stop-the-world phases are short (sub-millisecond).
 - Trade-off: more CPU for GC; less for application.
 
-Tunable via `GOGC` (target heap growth before GC; default 100%).
+Tunable via `GOGC` (Go Garbage Collector percentage; target heap growth before GC; default 100%).
 
 ### Allocation patterns
 
@@ -239,7 +239,7 @@ What goes wrong:
 
 - **The GC pause that ruined p99.** Service averages 5ms; p99 is 800ms. Investigation: full GC every 30s pauses for 600ms. Tune to G1 or ZGC; pauses drop to 30ms.
 - **The allocation-rate disaster.** Service allocates 1GB/sec; GC pressure dominates CPU. Refactor: object pooling; pre-allocated buffers. Allocation drops 90%; throughput doubles.
-- **The OOM that wasn't a leak.** Memory grew; OOMed. Investigation: legitimate workload; heap was sized too small. Fix: bigger heap.
+- **The OOM (Out Of Memory) that wasn't a leak.** Memory grew; OOMed. Investigation: legitimate workload; heap was sized too small. Fix: bigger heap.
 - **The leak from closures.** Long-lived task holds closure capturing request body. Memory grows. Fix: don't capture large objects in long-lived closures.
 - **The concurrent GC's CPU cost.** Switched to Shenandoah for latency. Throughput dropped 15%. Trade-off: pauses better, CPU worse. Sometimes acceptable.
 - **The undersized young gen.** Allocations promoted to old too quickly. Old fills; major GCs frequent. Fix: bigger young generation.
@@ -295,7 +295,7 @@ Service spends 30% of CPU on GC. Investigation: high allocation rate. Reduced vi
 
 - **V8 internals**: V8's GC details. (See [v8-internals-and-hidden-classes.md](./v8-internals-and-hidden-classes.md).)
 - **Profiling**: GC pauses show in profiles. (See [profiling-and-flame-graphs.md](../observability/profiling-and-flame-graphs.md).)
-- **SLOs**: GC pauses affect tail latency / SLO compliance. (See [slos-error-budgets-and-alerting.md](../observability/slos-error-budgets-and-alerting.md).)
+- **SLOs (Service Level Objectives)**: GC pauses affect tail latency / SLO compliance. (See [slos-error-budgets-and-alerting.md](../observability/slos-error-budgets-and-alerting.md).)
 - **Capacity planning**: heap size is a planning input. (See [auto-scaling-and-capacity-planning.md](../scalability/auto-scaling-and-capacity-planning.md).)
 - **Async Rust**: no GC; deterministic memory. (See [async-rust-and-the-borrow-checker.md](../concurrency/async-rust-and-the-borrow-checker.md).)
 

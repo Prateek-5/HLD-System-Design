@@ -125,13 +125,13 @@ for (each_row) {
 OLAP engines process batch-at-a-time:
 ```c
 for (each_batch_of_1024_rows) {
-    process_vectorized(batch);  // 1ns per row, due to SIMD
+    process_vectorized(batch);  // 1ns per row, due to SIMD (Single Instruction, Multiple Data)
 }
 ```
 
 The 100× speedup comes from:
 - Better CPU cache behavior.
-- SIMD instructions on AVX/NEON.
+- SIMD instructions on AVX (Advanced Vector Extensions)/NEON (ARM's Advanced SIMD extension).
 - Fewer function call overheads.
 - Branch prediction working better.
 
@@ -183,7 +183,7 @@ The classic pattern:
 
 ETL was traditional (limited warehouse compute). ELT is modern (cheap warehouse compute; transformation in SQL is simpler).
 
-CDC (Change Data Capture) enables near-real-time replication from OLTP to OLAP via WAL streaming.
+CDC (Change Data Capture) enables near-real-time replication from OLTP to OLAP via WAL (Write-Ahead Log) streaming.
 
 ### Common workload mismatches
 
@@ -263,7 +263,7 @@ Engineer tries to "fix" individual rows in ClickHouse via UPDATE. Query runs for
 - **Indexing**: OLTP relies on B-trees; OLAP uses sparse indexes, partitions, statistics. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
 - **MVCC**: OLTP heavily uses; OLAP often uses simpler concurrency. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
 - **Sharding**: both shard differently; OLTP by access key, OLAP by partition. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
-- **CQRS**: maps neatly to OLTP-write + OLAP-read split. (See [cqrs-and-event-sourcing.md](../architecture-patterns/cqrs-and-event-sourcing.md).)
+- **CQRS (Command Query Responsibility Segregation)**: maps neatly to OLTP-write + OLAP-read split. (See [cqrs-and-event-sourcing.md](../architecture-patterns/cqrs-and-event-sourcing.md).)
 - **Replication**: CDC streams from OLTP to OLAP. (See [replication-strategies.md](./replication-strategies.md).)
 - **Query optimization**: planner strategies differ per workload. (See [query-optimization-and-execution-plans.md](./query-optimization-and-execution-plans.md).)
 

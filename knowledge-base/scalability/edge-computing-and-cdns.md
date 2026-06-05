@@ -48,13 +48,13 @@ That's edge computing. The kitchens are edge nodes. The recipe is your code. The
 1998. Akamai pioneers CDN. Static asset caching at edge. Massive performance wins for media-heavy sites. Industry-changing.
 
 **Era 2 — CDN expansion.**
-2000s-2010s. Cloudflare (2010), CloudFront (2008), Fastly (2011). Cheaper, more programmable, more services beyond caching (DDoS protection, WAF, etc.).
+2000s-2010s. Cloudflare (2010), CloudFront (2008), Fastly (2011). Cheaper, more programmable, more services beyond caching (DDoS (Distributed Denial of Service) protection, WAF (Web Application Firewall), etc.).
 
 **Era 3 — Edge programmability.**
 ~2015. Cloudflare Workers (2017), Lambda@Edge (2017). Run code at the edge, not just serve cached content.
 
 **Era 4 — Edge-native frameworks.**
-~2020. Vercel, Netlify, Deno Deploy. Frameworks designed for edge deployment from day one. SSR, ISR, edge-rendered React.
+~2020. Vercel, Netlify, Deno Deploy. Frameworks designed for edge deployment from day one. SSR (Server-Side Rendering), ISR (Incremental Static Regeneration), edge-rendered React.
 
 **Era 5 — Edge databases.**
 2022+. Cloudflare D1, Turso, Fauna. Moving state closer to users. Solves the "edge compute but central data" latency problem for many workloads.
@@ -74,8 +74,8 @@ The pattern: each generation moved more capability to the edge. Static → dynam
 
 A CDN consists of:
 - **Origin**: your servers (where content originates).
-- **Edge nodes (PoPs)**: distributed worldwide. Each caches content.
-- **Routing**: DNS or anycast directs users to the nearest PoP.
+- **Edge nodes (PoPs (Points of Presence))**: distributed worldwide. Each caches content.
+- **Routing**: DNS (Domain Name System) or anycast directs users to the nearest PoP.
 
 Cache headers (`Cache-Control`, `ETag`, `Last-Modified`) drive behavior:
 - `Cache-Control: max-age=3600`: cache for 1 hour.
@@ -97,7 +97,7 @@ Misconfigured cache keys are a common source of either zero hit rate (everything
 ### Cache invalidation
 
 The hard part. Options:
-- **TTL-based**: items expire. Cheap; staleness up to TTL.
+- **TTL-based (Time To Live)**: items expire. Cheap; staleness up to TTL.
 - **Purge by URL**: explicit invalidation. Eventually consistent across PoPs (seconds to minutes).
 - **Surrogate keys (Fastly)**: tag content with logical keys; purge by tag. "Invalidate all pages mentioning product 12345" in one call.
 - **Stale-while-revalidate**: serve stale; refresh in background.
@@ -106,7 +106,7 @@ CDN purges are eventually consistent globally. A purge issued at 10:00 may take 
 
 ### Edge compute platforms
 
-**Cloudflare Workers**: V8 isolates per request. Sub-millisecond cold starts. JavaScript/TypeScript/WASM. 50ms CPU time per request (paid tiers higher). Global by default — your worker runs in 300+ PoPs.
+**Cloudflare Workers**: V8 isolates per request. Sub-millisecond cold starts. JavaScript/TypeScript/WASM (WebAssembly). 50ms CPU time per request (paid tiers higher). Global by default — your worker runs in 300+ PoPs.
 
 **AWS Lambda@Edge**: Node.js or Python runtime. Higher cold-start latency than Workers (V8 isolates) but more compute time. Tighter integration with AWS services.
 
@@ -125,22 +125,22 @@ The runtime model matters:
 Detect user (cookie, header), serve personalized content from cache. Avoid trips to origin for personalization decisions.
 
 **A/B testing.**
-Bucket users at the edge; route to A or B variants. Faster than client-side bucketing; works for SEO-relevant content.
+Bucket users at the edge; route to A or B variants. Faster than client-side bucketing; works for SEO (Search Engine Optimization)-relevant content.
 
 **Authentication.**
-Verify JWT, session cookie at the edge. Reject unauthenticated requests before they reach origin. Reduces origin load.
+Verify JWT (JSON Web Token), session cookie at the edge. Reject unauthenticated requests before they reach origin. Reduces origin load.
 
 **Geo-routing and compliance.**
-Detect user country; route to appropriate region (GDPR for EU users, etc.).
+Detect user country; route to appropriate region (GDPR (General Data Protection Regulation) for EU (European Union) users, etc.).
 
 **Rate limiting.**
-Per-IP rate limits enforced at edge. Far cheaper than origin-side rate limiting.
+Per-IP (Internet Protocol) rate limits enforced at edge. Far cheaper than origin-side rate limiting.
 
 **API aggregation.**
 Combine multiple backend calls into one edge response. Reduces client round-trips.
 
 **SSR (server-side rendering).**
-Render React/Vue at the edge. Faster TTFB than origin-side rendering for global users.
+Render React/Vue at the edge. Faster TTFB (Time To First Byte) than origin-side rendering for global users.
 
 **Image optimization.**
 Resize, format-convert, optimize images at edge based on device. Imgix and Cloudflare Images do this.
@@ -163,7 +163,7 @@ The architecture: edge handles the request lifecycle (auth, routing, simple deci
 
 Approaches:
 - **Read-only from origin.** Cache or replicate config/data to edge. Stale by some bounded amount.
-- **Edge KV stores** (Cloudflare KV, Workers Durable Objects). Eventually consistent, low-latency reads.
+- **Edge KV stores (Key-Value)** (Cloudflare KV, Workers Durable Objects). Eventually consistent, low-latency reads.
 - **Edge databases** (Cloudflare D1, Turso, libSQL). SQLite-based, replicated across PoPs.
 - **Strong-consistency origin**: fall through to origin for any state-changing operation.
 
@@ -171,7 +171,7 @@ The pattern: reads at edge with TTL or eventual consistency; writes at origin wi
 
 ### Anycast routing
 
-Most CDNs use anycast: the same IP address advertised from many PoPs; the network routes the user to the closest one (BGP-determined). The user does no DNS magic; they connect to "1.1.1.1" and reach the nearest Cloudflare PoP.
+Most CDNs use anycast: the same IP address advertised from many PoPs; the network routes the user to the closest one (BGP (Border Gateway Protocol)-determined). The user does no DNS magic; they connect to "1.1.1.1" and reach the nearest Cloudflare PoP.
 
 Properties:
 - **Failover is automatic**: if a PoP fails, traffic reroutes to the next-nearest.
@@ -184,14 +184,14 @@ Why edge matters:
 
 | Scenario | Latency |
 |---|---|
-| Local LAN | <1 ms |
+| Local LAN (Local Area Network) | <1 ms |
 | Same data center | 1-5 ms |
 | Same region | 10-30 ms |
 | Cross-continent | 70-150 ms |
 | Cross-globe | 150-300 ms |
 | Geosynchronous satellite | 600+ ms |
 
-A user in Australia hitting a US-only origin: ~200ms RTT *just* for one round trip. With TLS handshake (multiple RTTs) plus TCP handshake plus actual request: 800ms before first byte returned.
+A user in Australia hitting a US-only origin: ~200ms RTT (Round-Trip Time) *just* for one round trip. With TLS (Transport Layer Security) handshake (multiple RTTs) plus TCP (Transmission Control Protocol) handshake plus actual request: 800ms before first byte returned.
 
 A CDN PoP in Sydney: maybe 5-10ms RTT. The same request: tens of ms total. The user-perceived difference is dramatic.
 
@@ -212,7 +212,7 @@ McDonald's doesn't ship every burger from one kitchen. Every restaurant is an "e
 What goes wrong:
 
 - **The cache key explosion.** Cache key includes session cookies. Every user has a unique session. Hit rate near zero. Origin load identical to no-CDN.
-- **The PII leak via cache.** Cache key didn't account for `Authorization` header. User A's authenticated content cached; served to User B's request that hit the same key. Catastrophic.
+- **The PII (Personally Identifiable Information) leak via cache.** Cache key didn't account for `Authorization` header. User A's authenticated content cached; served to User B's request that hit the same key. Catastrophic.
 - **The purge that didn't.** Marketing pushed an update, requested a purge. Purge took 90 seconds globally. Some users saw old content for 90 seconds. Edge case revealed at launch.
 - **The edge runtime constraint surprise.** Code worked locally; deployed to Workers; failed because it imported a library using Node's `fs` (not available in V8 isolates). Lesson: edge runtimes are constrained; test against the actual runtime.
 - **The cold start at the edge.** Even Workers' "instant" cold starts add 5-50ms for V8 initialization on first hit at a PoP. For very latency-sensitive apps, this matters.
@@ -233,10 +233,10 @@ Pricing page caches for 5 minutes. Black Friday sale starts at midnight. Purge i
 Worker calls origin; origin is slow; Worker times out at 50ms (CPU limit). User sees error. Origin completes the work but no one's waiting. Database has been updated but client is told it failed. Idempotency saves the day; client retries; double-charged otherwise.
 
 **Scenario 4 — The edge config rollout disaster.**
-Engineer pushes new edge config. Some PoPs receive it in seconds; others in 30 seconds. During those 30s, users see inconsistent behavior. A bug in the new config crashes 1% of Workers. Mitigation: progressive rollout of edge config; canary PoPs; SLO-monitoring auto-rollback.
+Engineer pushes new edge config. Some PoPs receive it in seconds; others in 30 seconds. During those 30s, users see inconsistent behavior. A bug in the new config crashes 1% of Workers. Mitigation: progressive rollout of edge config; canary PoPs; SLO (Service Level Objective)-monitoring auto-rollback.
 
 **Scenario 5 — The edge compute cost shock.**
-Team moves CPU-heavy logic to edge for latency. Bill triples — edge compute is 5× origin compute on a per-CPU-second basis. Latency improves but ROI is negative for non-customer-facing workloads. Lesson: edge for latency-critical paths; origin for batch/heavy work.
+Team moves CPU-heavy logic to edge for latency. Bill triples — edge compute is 5× origin compute on a per-CPU-second basis. Latency improves but ROI (Return On Investment) is negative for non-customer-facing workloads. Lesson: edge for latency-critical paths; origin for batch/heavy work.
 
 ---
 

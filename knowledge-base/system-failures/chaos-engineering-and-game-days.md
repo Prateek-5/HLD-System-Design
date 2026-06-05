@@ -48,7 +48,7 @@ Game days are the *coordinated* fire drill: the whole team is there, the failure
 Decades of "let's bring down the database in dev and see what happens." Done occasionally, often not in production-equivalent environments, often by individual engineers without organizational support. Findings were rarely systematized.
 
 **Era 2 — Netflix and Chaos Monkey.**
-Netflix migrates to AWS (~2010-2011). Realizes their cloud architecture must tolerate instance failures because AWS instances *will* fail. Builds Chaos Monkey: a tool that randomly terminates production instances during business hours. Forces every service to be resilient by design, because the failure injection is constant.
+Netflix migrates to AWS (Amazon Web Services) (~2010-2011). Realizes their cloud architecture must tolerate instance failures because AWS instances *will* fail. Builds Chaos Monkey: a tool that randomly terminates production instances during business hours. Forces every service to be resilient by design, because the failure injection is constant.
 
 **Era 3 — The Simian Army.**
 Netflix expands to Chaos Gorilla (kills entire availability zones), Chaos Kong (entire regions), Latency Monkey (injects latency), Janitor Monkey (cleans unused resources). The principle: simulate every failure mode that could happen. Open-source the tools.
@@ -57,10 +57,10 @@ Netflix expands to Chaos Gorilla (kills entire availability zones), Chaos Kong (
 "Principles of Chaos Engineering" published (2015). Frames the practice as scientific: hypothesize about steady state, vary real-world events, observe deviations. The Chaos Engineering book (Rosenthal et al., 2017). Industry interest grows.
 
 **Era 5 — Game days at Amazon, Google, Microsoft.**
-Cloud providers adopt structured failure exercises. AWS publishes resilience patterns. Google's SRE book devotes chapters to disaster role playing (DiRT). Microsoft formalizes "fire drills" in Azure.
+Cloud providers adopt structured failure exercises. AWS publishes resilience patterns. Google's SRE (Site Reliability Engineering) book devotes chapters to disaster role playing (DiRT (Disaster Recovery Testing)). Microsoft formalizes "fire drills" in Azure.
 
 **Era 6 — Tooling and managed services.**
-Gremlin (2016) productizes chaos engineering. AWS Fault Injection Simulator (2020). LitmusChaos (2018) for Kubernetes. Chaos engineering moves from "Netflix's cool thing" to mainstream cloud infrastructure tooling.
+Gremlin (2016) productizes chaos engineering. AWS Fault Injection Simulator (2020). LitmusChaos (2018) for Kubernetes (K8s). Chaos engineering moves from "Netflix's cool thing" to mainstream cloud infrastructure tooling.
 
 The pattern: each generation expanded the scope of what was deliberately tested, and made the tooling more accessible. The discipline went from "weird Netflix idea" to industry-standard reliability practice.
 
@@ -74,7 +74,7 @@ The pattern: each generation expanded the scope of what was deliberately tested,
 
 A well-formed chaos experiment:
 
-1. **Define steady state.** What does normal look like? Specific metrics: requests/sec, p99 latency, error rate.
+1. **Define steady state.** What does normal look like? Specific metrics: requests/sec, p99 (99th percentile) latency, error rate.
 2. **Hypothesize.** "If we kill a backend pod, the system continues at >99% success rate with no observable customer impact."
 3. **Define blast radius.** What's the worst case if we're wrong? "We'll affect at most 5% of traffic; we can abort within 30 seconds."
 4. **Inject the failure.** Use the chaos tool. Observe.
@@ -89,24 +89,24 @@ This is *experiment* in the scientific sense. Each one teaches something — eit
 - Latency injection (add 100ms, 1s, 10s to specific calls).
 - Packet loss (drop N% of packets).
 - Network partition (block traffic between services).
-- DNS failures.
-- TLS handshake failures.
+- DNS (Domain Name System) failures.
+- TLS (Transport Layer Security) handshake failures.
 
 **Compute failures:**
 - Process crash (kill a service instance).
 - Pod failure (Kubernetes-level).
-- Node failure (whole VM goes away).
-- AZ failure (entire data center).
+- Node failure (whole VM (Virtual Machine) goes away).
+- AZ (Availability Zone) failure (entire data center).
 - Region failure (entire geography).
 
 **Resource exhaustion:**
 - CPU pressure (consume CPU).
-- Memory pressure (allocate memory until near OOM).
+- Memory pressure (allocate memory until near OOM (Out Of Memory)).
 - Disk pressure (fill disk).
-- IOPS throttling.
+- IOPS (Input/Output Operations Per Second) throttling.
 
 **Application failures:**
-- Service returns errors (5xx, 4xx).
+- Service returns errors (5xx (server errors), 4xx (client errors)).
 - Service returns slow responses.
 - Service returns malformed responses.
 - Service returns success after the request is canceled.
@@ -147,7 +147,7 @@ A game day is a scheduled, multi-hour exercise:
 
 **Preparation:**
 - Choose a scenario (e.g., "Region us-east-1 becomes unavailable").
-- Identify participants (on-call engineers, SREs, observers).
+- Identify participants (on-call engineers, SREs (Site Reliability Engineers), observers).
 - Set up a war room (physical or virtual).
 - Have a "facilitator" who knows the failure but doesn't participate in response.
 - Have observers who watch how the team responds, not just the system.
@@ -193,7 +193,7 @@ Many game day findings are *not* code bugs. They're broken access, missing docum
 - **Chaos Mesh**: Kubernetes-native; supports many failure types.
 - **LitmusChaos**: also Kubernetes-native; rich experiment library.
 - **Pumba**: Docker-targeted chaos.
-- **Toxiproxy**: TCP-level network chaos for testing.
+- **Toxiproxy**: TCP (Transmission Control Protocol)-level network chaos for testing.
 
 **Commercial / Managed:**
 - **Gremlin**: comprehensive platform.
@@ -209,7 +209,7 @@ Modern chaos in production requires:
 
 - **Authorization**: not anyone can inject failures.
 - **Observability**: metrics and alarms must be real-time.
-- **Auto-rollback**: failure injection terminates if SLOs breach.
+- **Auto-rollback**: failure injection terminates if SLOs (Service Level Objectives) breach.
 - **Audit trail**: every experiment is logged.
 - **Approval workflows**: large experiments require sign-off.
 - **Communication**: announce experiments in chat channels so unrelated alerts aren't confused.
@@ -334,7 +334,7 @@ The unifying observation: **every defensive pattern in distributed systems is hy
 - **Test in production, with safety.** Staging is too clean to reproduce real traffic patterns, concurrency, and failure modes. Always bound the blast radius — limit scope, ramp gradually (1% → 10% → 50%), auto-abort on SLO breach, time-box. Unbounded blast radius is negligence, not chaos engineering.
 - **Game days test the team, not just the system.** Many findings are not code bugs — broken access, stale runbooks, misaligned mental models, alerts that don't page. Runbooks rot and need regular exercise.
 - **Findings become bug tickets** and re-run experiments after the fix. Continuous chaos beats one-off exercises — it forces every change to maintain resilience and makes the discipline cultural.
-- **Senior habits:** schedule chaos regularly (not just before launches); hypothesize before each experiment; integrate chaos into CI/CD where appropriate; rotate game day participants to spread knowledge; track mean-time-to-detect and mean-time-to-mitigate as resilience metrics; make resilience testing part of the definition of done for new services.
+- **Senior habits:** schedule chaos regularly (not just before launches); hypothesize before each experiment; integrate chaos into CI/CD (Continuous Integration/Continuous Delivery) where appropriate; rotate game day participants to spread knowledge; track mean-time-to-detect and mean-time-to-mitigate as resilience metrics; make resilience testing part of the definition of done for new services.
 
 ---
 

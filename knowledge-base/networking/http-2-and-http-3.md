@@ -10,7 +10,7 @@
 >
 > **Analogy:** ordering at a restaurant. HTTP/1.1 is one waiter who takes one dish order, walks to the kitchen, brings it back, and only then takes your next order. HTTP/2 is one waiter who takes your whole order at once and brings dishes as they're ready — but if a tray gets dropped in the kitchen, the whole order waits. HTTP/3 gives each dish its own runner, so a dropped tray only delays that one dish.
 >
-> **Assumes you already know:** TCP vs UDP and the TCP handshake (see [`learn/foundations/networking/tcp-udp.md`](../../learn/foundations/networking/tcp-udp.md)) and TLS/SSL basics (see [`learn/reliability/ssl-tls-mtls.md`](../../learn/reliability/ssl-tls-mtls.md)). This is a KB-only deep dive with no beginner learn/ counterpart — build those fundamentals first.
+> **Assumes you already know:** TCP (Transmission Control Protocol) vs UDP (User Datagram Protocol) and the TCP handshake (see [`learn/foundations/networking/tcp-udp.md`](../../learn/foundations/networking/tcp-udp.md)) and TLS (Transport Layer Security)/SSL (Secure Sockets Layer) basics (see [`learn/reliability/ssl-tls-mtls.md`](../../learn/reliability/ssl-tls-mtls.md)). This is a KB-only deep dive with no beginner learn/ counterpart — build those fundamentals first.
 >
 > **Level:** this file is 🟡 overall, leaning 🔴 in the QUIC/QPACK/handshake internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
 
@@ -18,7 +18,7 @@
 
 ## Topic Overview 🟢
 
-HTTP, the protocol that defines the web, has gone through three major versions. **HTTP/1.1** (1997) is the textual, human-readable protocol most engineers learned. **HTTP/2** (2015) added binary framing, multiplexing, header compression, and server push — major performance improvements while running on TCP. **HTTP/3** (2022) replaces TCP with **QUIC** (over UDP), eliminating head-of-line blocking and reducing connection-establishment latency.
+HTTP, the protocol that defines the web, has gone through three major versions. **HTTP/1.1** (1997) is the textual, human-readable protocol most engineers learned. **HTTP/2** (2015) added binary framing, multiplexing, header compression, and server push — major performance improvements while running on TCP. **HTTP/3** (2022) replaces TCP with **QUIC** (Quick UDP Internet Connections) (over UDP), eliminating head-of-line blocking and reducing connection-establishment latency.
 
 The improvements are real but not free. Each version adds complexity: HTTP/2's flow control mirroring TCP's; HTTP/3 reimplementing reliability features in user space. The benefit at scale (tens of milliseconds saved per page load) compounds across billions of requests.
 
@@ -52,15 +52,15 @@ Persistent connections; pipelining (rarely worked); chunked transfer. Dominant f
 Google's experimental protocol; binary, multiplexed, header-compressed. Demonstrated benefits.
 
 **Era 4 — HTTP/2 (2015).**
-Standardized SPDY's ideas. Binary framing; multiplexing; HPACK header compression; server push. Adoption rapid.
+Standardized SPDY's ideas. Binary framing; multiplexing; HPACK (HTTP/2 Header Compression) header compression; server push. Adoption rapid.
 
 **Era 5 — QUIC and HTTP/3.**
-Google develops QUIC (~2012); IETF standardizes (2021). HTTP/3 (2022) maps HTTP semantics onto QUIC. Eliminates TCP head-of-line blocking.
+Google develops QUIC (~2012); IETF (Internet Engineering Task Force) standardizes (2021). HTTP/3 (2022) maps HTTP semantics onto QUIC. Eliminates TCP head-of-line blocking.
 
 **Era 6 — Modern adoption.**
 2023+. HTTP/3 deploys on Cloudflare, Google, Facebook. Browsers support natively. Older HTTP/2 still common.
 
-The pattern: each version reduced round-trips and head-of-line blocking. Adoption follows browsers and CDNs.
+The pattern: each version reduced round-trips and head-of-line blocking. Adoption follows browsers and CDNs (Content Delivery Networks).
 
 ---
 
@@ -118,7 +118,7 @@ Properties:
 - **UDP-based**: kernel doesn't reorder; QUIC handles in userspace.
 - **Per-stream loss handling**: a lost packet only affects its stream.
 - **Built-in encryption**: TLS 1.3 integrated; can't run unencrypted.
-- **0-RTT handshake** (when both ends support).
+- **0-RTT (Round-Trip Time) handshake** (when both ends support).
 - **Connection migration**: connections survive IP changes (mobile network switches).
 - **Faster handshakes**: 1 RTT typical; 0 RTT possible.
 
@@ -159,7 +159,7 @@ Most production deployments disabled it. HTTP/3 deprecated it.
 
 Alternative: 103 Early Hints; tells client to start fetching specific resources.
 
-### HPACK and HTTP/3's QPACK
+### HPACK and HTTP/3's QPACK (QUIC Header Compression)
 
 **HPACK (HTTP/2)**: shared dynamic table; sender and receiver track. Vulnerable to ordering issues.
 
@@ -177,7 +177,7 @@ QUIC requires TLS 1.3. HTTP/2 can use TLS 1.2 or 1.3.
 
 ### Connection coalescing
 
-HTTP/2 allows reusing a connection for another origin only when two conditions hold (RFC 7540 §9.1.1): the connection's certificate covers the host, **and** that host resolves to the same IP address as the existing connection. So a connection to `*.example.com` can serve requests for `api.example.com`, `cdn.example.com`, etc. — but only if those names point at the same IP. Cert match alone is not sufficient.
+HTTP/2 allows reusing a connection for another origin only when two conditions hold (RFC (Request for Comments) 7540 §9.1.1): the connection's certificate covers the host, **and** that host resolves to the same IP address as the existing connection. So a connection to `*.example.com` can serve requests for `api.example.com`, `cdn.example.com`, etc. — but only if those names point at the same IP. Cert match alone is not sufficient.
 
 Reduces connections; improves efficiency. Some operational care needed (sharding by IP, etc.).
 
@@ -186,12 +186,12 @@ Reduces connections; improves efficiency. Some operational care needed (sharding
 To deploy HTTP/2:
 - TLS certificate (HTTP/2 in browsers requires HTTPS).
 - Server supports HTTP/2 (most do; nginx, Apache, Envoy, etc.).
-- Client negotiation (ALPN extension).
+- Client negotiation (ALPN (Application-Layer Protocol Negotiation) extension).
 
 To deploy HTTP/3:
 - All HTTP/2 prerequisites.
 - UDP must be open at firewalls (sometimes blocked).
-- Server supports QUIC (Cloudflare, nginx with quiche, LiteSpeed, AWS CloudFront).
+- Server supports QUIC (Cloudflare, nginx with quiche, LiteSpeed, AWS (Amazon Web Services) CloudFront).
 - Browsers support natively.
 - `Alt-Svc` header advertises HTTP/3 availability.
 
@@ -230,7 +230,7 @@ HTTP/3: video call with breakout rooms; each subtopic is independent; one person
 What goes wrong:
 
 - **The HTTP/2 connection-coalescing surprise.** Two services share a certificate; coalesce into one connection; one service's outage breaks the other. Mitigation: separate certs or origins.
-- **The mobile-network HTTP/2 sluggishness.** Lossy mobile network; HTTP/2's TCP HoL blocks streams. Switch to HTTP/3 — performance recovers.
+- **The mobile-network HTTP/2 sluggishness.** Lossy mobile network; HTTP/2's TCP HoL (Head-of-Line) blocks streams. Switch to HTTP/3 — performance recovers.
 - **The QUIC-blocked enterprise.** UDP blocked at corporate firewall; HTTP/3 fails; falls back to HTTP/2. Subtle performance issue; not always noticed.
 - **The TLS handshake cliff.** New connection per request; each handshake is ~100ms. Mitigation: connection reuse; HTTP/2 multiplexing.
 - **The server push miss.** Pushed resources not used (already cached); bandwidth wasted. Disable; use 103 Early Hints.
@@ -279,10 +279,10 @@ TLS 1.3 0-RTT data is replayable by attackers. Application must ensure idempoten
 ## Cross-Domain Connections 🟡
 
 - **TCP**: HTTP/2 over TCP; HTTP/3 over UDP/QUIC. (See [tcp-and-network-fundamentals.md](./tcp-and-network-fundamentals.md).)
-- **API design**: gRPC uses HTTP/2; HTTP/3 emerging. (See [api-design-rest-vs-grpc.md](../architecture-patterns/api-design-rest-vs-grpc.md).)
+- **API design**: gRPC (gRPC Remote Procedure Calls) uses HTTP/2; HTTP/3 emerging. (See [api-design-rest-vs-grpc.md](../architecture-patterns/api-design-rest-vs-grpc.md).)
 - **Edge computing**: HTTP/3 deployed at edge first. (See [edge-computing-and-cdns.md](../scalability/edge-computing-and-cdns.md).)
 - **Caching**: HTTP cache headers semantics. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
-- **Load balancing**: L7 LBs handle HTTP/2 / HTTP/3. (See [load-balancing-strategies.md](../scalability/load-balancing-strategies.md).)
+- **Load balancing**: L7 (Layer 7, the application layer) LBs (Load Balancers) handle HTTP/2 / HTTP/3. (See [load-balancing-strategies.md](../scalability/load-balancing-strategies.md).)
 
 The unifying observation: **HTTP's evolution is a story of removing round-trips. Each version reduced what's needed to fetch a page; each compounds at the global scale of the modern web.**
 

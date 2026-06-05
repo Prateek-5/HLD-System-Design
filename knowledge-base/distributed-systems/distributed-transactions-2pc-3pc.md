@@ -16,13 +16,13 @@
 
 ## Topic Overview 🟢
 
-Distributed transactions are the holy grail of "ACID across multiple resources." Update two databases atomically. Send a message and update a database in one transaction. Update databases in different regions as if they were one. The promise: cross-resource correctness with the same guarantees you have on a single database.
+Distributed transactions are the holy grail of "ACID (Atomicity, Consistency, Isolation, Durability) across multiple resources." Update two databases atomically. Send a message and update a database in one transaction. Update databases in different regions as if they were one. The promise: cross-resource correctness with the same guarantees you have on a single database.
 
 The reality is harder. Two-Phase Commit (2PC), introduced in 1978, was the first formal protocol. It's correct in theory but has fundamental problems: blocking on coordinator failure, vulnerability to network partitions, performance overhead. Three-Phase Commit (3PC, 1983) tried to fix the blocking; introduced its own issues.
 
 Most modern distributed systems quietly avoid 2PC. Sagas with compensation, eventual consistency with reconciliation, consensus-backed transactions (Spanner, CockroachDB) — these are the workhorses today. But 2PC remains essential vocabulary; you can't understand modern alternatives without understanding what they're alternatives to.
 
-This is the topic where database transactions meet distributed systems. The lessons of 2PC's failures shaped CAP theorem, sagas, microservice patterns. Understanding this history is understanding how the field arrived at its current pragmatic position: "true distributed ACID is expensive; we'll work without it most of the time."
+This is the topic where database transactions meet distributed systems. The lessons of 2PC's failures shaped CAP (Consistency, Availability, Partition tolerance) theorem, sagas, microservice patterns. Understanding this history is understanding how the field arrived at its current pragmatic position: "true distributed ACID is expensive; we'll work without it most of the time."
 
 ---
 
@@ -47,10 +47,10 @@ The protocols that came later (3PC, sagas, Paxos-backed transactions) all try to
 ## Historical Evolution 🟡
 
 **Era 1 — 2PC (1978).**
-Jim Gray's classical formulation. The protocol that databases use for distributed XA transactions. Worked beautifully on paper.
+Jim Gray's classical formulation. The protocol that databases use for distributed XA (eXtended Architecture) transactions. Worked beautifully on paper.
 
 **Era 2 — XA and enterprise adoption.**
-1990s. XA standard for cross-resource transactions. Java JTA. Microsoft DTC. Used heavily in enterprise; mixed reputation.
+1990s. XA standard for cross-resource transactions. Java JTA (Java Transaction API). Microsoft DTC (Distributed Transaction Coordinator). Used heavily in enterprise; mixed reputation.
 
 **Era 3 — 3PC and theoretical refinements.**
 1983. Skeen, Stonebraker propose 3PC to remove blocking. Adds a "pre-commit" phase. Still has assumptions (synchronous network) that don't hold in real networks.
@@ -83,7 +83,7 @@ Today. Distributed transactions exist on a spectrum: 2PC for tightly-bounded use
 **Phase 2 — Commit (or Abort):**
 1. If all said YES: coordinator decides "commit"; writes commit record to its log; sends `COMMIT` to all.
 2. If any said NO: coordinator decides "abort"; sends `ABORT` to all.
-3. Each participant applies the commit/abort and replies `ACK`.
+3. Each participant applies the commit/abort and replies `ACK` (acknowledgment).
 
 Properties:
 - **Atomicity**: either all commit or all abort.
@@ -166,7 +166,7 @@ Instead of 2PC: a sequence of local transactions, each with a compensation. If a
 
 Properties:
 - No locks held across services.
-- No blocking on coordinator failure (orchestrator can be made HA).
+- No blocking on coordinator failure (orchestrator can be made HA (Highly Available)).
 - Eventual consistency; intermediate states visible.
 
 The default modern pattern for cross-service workflows.
@@ -181,7 +181,7 @@ Rollback isn't always possible in cross-service settings (you can't unsend an em
 
 ### The CAP perspective
 
-2PC is a CP system: consistency over availability. During partitions, it blocks. Sagas are AP: availability over strict consistency, with eventual reconciliation.
+2PC is a CP (Consistent, Partition-tolerant) system: consistency over availability. During partitions, it blocks. Sagas are AP (Available, Partition-tolerant): availability over strict consistency, with eventual reconciliation.
 
 The choice depends on the workload. Money transfers: maybe CP makes sense (with consensus-backed 2PC). Order processing: AP with sagas usually wins.
 
@@ -260,8 +260,8 @@ Team replaces XA-based payment flow with saga. Compensation logic explicitly des
 - **Sagas**: the modern alternative for cross-service. (See [saga-pattern-and-distributed-transactions.md](../architecture-patterns/saga-pattern-and-distributed-transactions.md).)
 - **Consensus**: backs modern 2PC implementations (Spanner). (See [leader-election-and-consensus.md](./leader-election-and-consensus.md).)
 - **CAP**: 2PC is a CP choice. (See [cap-consistency-and-replication.md](./cap-consistency-and-replication.md).)
-- **WAL**: 2PC requires durable logging at participants. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
-- **MVCC**: 2PC participants typically use MVCC for isolation. (See [mvcc-and-isolation-levels.md](../database-internals/mvcc-and-isolation-levels.md).)
+- **WAL (Write-Ahead Log)**: 2PC requires durable logging at participants. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
+- **MVCC (Multi-Version Concurrency Control)**: 2PC participants typically use MVCC for isolation. (See [mvcc-and-isolation-levels.md](../database-internals/mvcc-and-isolation-levels.md).)
 
 The unifying observation: **2PC was the right answer to the wrong question. The question was "how do we get ACID across resources?"; the answer assumed a coordinator that doesn't fail. Modern systems answer different questions ("how do we coordinate eventually?") and use different patterns (sagas, consensus-backed transactions).**
 

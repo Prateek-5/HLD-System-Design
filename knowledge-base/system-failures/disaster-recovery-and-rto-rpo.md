@@ -8,7 +8,7 @@
 
 > **In one line:** how do you get your system and its data back when something huge breaks — a whole data center burns down, a region goes dark, or ransomware locks your files — and how do you decide *how fast* and *how completely* you need to recover?
 >
-> **Analogy:** a fireproof safe and a fire drill at home. You keep copies of your most important documents off-site (backups) in case the house burns down, and you practice the escape route (DR drills) so that when a real fire happens, nobody freezes. RTO is "how long until we're back in a working home?" and RPO is "how recent were the documents we managed to save?"
+> **Analogy:** a fireproof safe and a fire drill at home. You keep copies of your most important documents off-site (backups) in case the house burns down, and you practice the escape route (DR (Disaster Recovery) drills) so that when a real fire happens, nobody freezes. RTO (Recovery Time Objective) is "how long until we're back in a working home?" and RPO (Recovery Point Objective) is "how recent were the documents we managed to save?"
 >
 > **New to this?** Build the basics first in [`learn/reliability/disaster-recovery.md`](../../learn/reliability/disaster-recovery.md) — *then* come back for the depth.
 >
@@ -115,7 +115,7 @@ These are typically negotiated with business stakeholders. Different systems may
 
 **Hot standby (active-passive).**
 - Full infrastructure running, ready to take traffic.
-- DNS or routing change to fail over.
+- DNS (Domain Name System) or routing change to fail over.
 - RTO: 5-15 minutes.
 - RPO: replication lag (seconds).
 - Cost: ~100% additional.
@@ -161,11 +161,11 @@ Most production systems use async replication for DR with monitored lag.
 
 ### Failover mechanisms
 
-**DNS-based.** Update DNS to point to DR site. Slow (TTL, client caches); minutes.
+**DNS-based.** Update DNS to point to DR site. Slow (TTL (Time To Live), client caches); minutes.
 
 **Anycast.** Withdraw routes from failed region; traffic flows to alive regions. Seconds.
 
-**Load balancer-based.** Routing rule change. Fast within a single LB.
+**Load balancer-based.** Routing rule change. Fast within a single LB (Load Balancer).
 
 **Application-level.** Application detects failure; rebuilds connections to DR. Fastest but most complex.
 
@@ -261,7 +261,7 @@ What goes wrong:
 - **The backup encryption key loss.** Backups encrypted; key lost. Backups effectively unusable. Lesson: key management as critical as backup itself.
 - **The ransomware that ate the backups.** Attacker gained access to backup system; encrypted them too. Air-gap or immutability needed; missing.
 
-The senior SRE/DR engineer's habits:
+The senior SRE (Site Reliability Engineer)/DR engineer's habits:
 - **Define RTO/RPO** explicitly per system.
 - **Test backup restores** monthly.
 - **Run DR drills** quarterly.
@@ -313,11 +313,11 @@ Pre-drill: chaos exercise simulates region failure. RTO target: 15 minutes. Dril
 ## Cross-Domain Connections 🔴
 
 - **Replication**: DR depends on replication strategy. (See [replication-strategies.md](../database-internals/replication-strategies.md).)
-- **WAL**: backups and replication build on WAL. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
+- **WAL**: backups and replication build on WAL (Write-Ahead Log). (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
 - **Cascading failures**: DR plans for the largest possible cascade. (See [cascading-failures-and-circuit-breakers.md](./cascading-failures-and-circuit-breakers.md).)
 - **Postmortems**: real disasters become postmortems. (See [postmortems-and-incident-response.md](./postmortems-and-incident-response.md).)
 - **Chaos engineering**: DR drills are the highest-stakes chaos exercises. (See [chaos-engineering-and-game-days.md](./chaos-engineering-and-game-days.md).)
-- **SLOs**: DR's RTO/RPO are extreme-case SLOs. (See [slos-error-budgets-and-alerting.md](../observability/slos-error-budgets-and-alerting.md).)
+- **SLOs**: DR's RTO/RPO are extreme-case SLOs (Service Level Objectives). (See [slos-error-budgets-and-alerting.md](../observability/slos-error-budgets-and-alerting.md).)
 - **Capacity planning**: DR capacity must be sized. (See [auto-scaling-and-capacity-planning.md](../scalability/auto-scaling-and-capacity-planning.md).)
 
 The unifying observation: **disaster recovery is the cumulative sum of all your other reliability practices, tested under maximum-stress conditions. The systems that survive disasters are the ones whose other practices were already mature.**

@@ -46,10 +46,10 @@ The right answer is *fit to scale and complexity*. Most teams don't need a food 
 1990s, 2000s. PHP/Java/Rails monoliths shipped as single artifacts. Worked beautifully at the scale most companies operated at.
 
 **Era 2 — SOA (Service-Oriented Architecture).**
-Late 1990s, 2000s. Enterprises split monoliths into services connected by ESBs and SOAP. Heavyweight, often centrally orchestrated, mixed track record.
+Late 1990s, 2000s. Enterprises split monoliths into services connected by ESBs (Enterprise Service Buses) and SOAP (Simple Object Access Protocol). Heavyweight, often centrally orchestrated, mixed track record.
 
 **Era 3 — Microservices emerge.**
-~2011-2014. Netflix, Amazon, others articulate "microservices" as small, independently-deployable services with HTTP/REST interfaces. Influential blog posts (Lewis & Fowler, 2014) crystallize the pattern.
+~2011-2014. Netflix, Amazon, others articulate "microservices" as small, independently-deployable services with HTTP/REST (Representational State Transfer) interfaces. Influential blog posts (Lewis & Fowler, 2014) crystallize the pattern.
 
 **Era 4 — The microservices boom.**
 2014-2018. Every conference talk is microservices. Companies large and small split monoliths. Many succeed; many discover the operational reality is harder than the diagrams suggested.
@@ -100,7 +100,7 @@ Microservices are:
 - Multiple independently-deployable services.
 - Each owned by one team (typically).
 - Each with its own database (the "shared-nothing" rule).
-- Each communicating via well-defined APIs (REST, gRPC, async events).
+- Each communicating via well-defined APIs (REST, gRPC (gRPC Remote Procedure Call), async events).
 - Each has its own deployment, scaling, and observability.
 
 Microservices strengths:
@@ -142,7 +142,7 @@ Specific pre-conditions:
 - **Independent deployment cadences** are required. Different teams need to ship at different rates.
 - **Different scaling profiles**. One feature is read-heavy, another write-heavy, another batch — different scaling needs justify different services.
 - **Different reliability requirements**. The checkout flow needs more 9s than the recommendations service.
-- **Operational maturity exists**. CI/CD, observability, on-call, chaos engineering, service mesh — these are prerequisites, not nice-to-haves.
+- **Operational maturity exists**. CI/CD (Continuous Integration/Continuous Delivery), observability, on-call, chaos engineering, service mesh — these are prerequisites, not nice-to-haves.
 
 If most of these aren't true, microservices are likely premature.
 
@@ -161,14 +161,14 @@ Most startups should start here. So should most enterprise applications below a 
 ### Service boundaries — the real work
 
 Where to draw lines:
-- **Bounded contexts** (DDD): a context is a set of related concepts with a single, consistent vocabulary and model.
+- **Bounded contexts** (DDD (Domain-Driven Design)): a context is a set of related concepts with a single, consistent vocabulary and model.
 - **Team ownership**: one team can fully own one service.
 - **Data ownership**: each piece of data has one source of truth in one service.
 - **Change frequency**: things that change together belong together; things that change independently belong apart.
 
 Anti-patterns to avoid:
 - **By tier**: separate "API layer," "business logic," "data layer" services. Distributed monolith.
-- **CRUD-per-entity**: one service per database table. Tons of cross-service calls; no real autonomy.
+- **CRUD-per-entity** (Create, Read, Update, Delete): one service per database table. Tons of cross-service calls; no real autonomy.
 - **Anemic services**: services that just proxy data; add latency without adding value.
 - **Shared database**: multiple services reading/writing the same tables. Coupling without the benefits of separation.
 
@@ -194,7 +194,7 @@ Things microservices teams must build (or buy):
 - **Centralized metrics.**
 - **CI/CD per service** (with consistency policies).
 - **Schema/contract management** (protobuf, OpenAPI).
-- **Cross-service authentication** (mTLS, JWT, etc.).
+- **Cross-service authentication** (mTLS (mutual Transport Layer Security), JWT (JSON Web Token), etc.).
 - **Network policies and security.**
 - **Chaos engineering practices.**
 - **Documentation and discoverability.**
@@ -262,7 +262,7 @@ Service A's API change requires updating clients in B, C, D. Schema migration in
 ## Performance Perspective 🟡
 
 - **Monolith function calls**: nanoseconds (in-process, no serialization or network).
-- **Microservice network calls**: add a per-hop overhead — on a LAN, sub-millisecond to a few milliseconds of round-trip plus serialization, more across zones/regions. The key point is the *added* cost of crossing a process/network boundary versus an in-process call, not a fixed floor.
+- **Microservice network calls**: add a per-hop overhead — on a LAN (Local Area Network), sub-millisecond to a few milliseconds of round-trip plus serialization, more across zones/regions. The key point is the *added* cost of crossing a process/network boundary versus an in-process call, not a fixed floor.
 - **Latency budgets**: easier in monoliths; in microservices, the boundary-crossing cost compounds with each hop and must be carefully apportioned across services.
 - **Throughput**: monoliths can saturate a single machine; microservices distribute the load but pay coordination costs.
 
@@ -285,7 +285,7 @@ Service A's API change requires updating clients in B, C, D. Schema migration in
 - **API design**: every microservice exposes an API; monoliths have internal APIs. (See [api-design-rest-vs-grpc.md](./api-design-rest-vs-grpc.md).)
 - **Distributed tracing**: essential for microservices; nice-to-have for monoliths. (See [distributed-tracing-deep-dive.md](../observability/distributed-tracing-deep-dive.md).)
 - **Sharding**: a service-oriented architecture is sharding-of-functionality; same tradeoffs around cross-shard work. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
-- **CQRS**: a natural fit in microservice architectures where read and write paths can be different services. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
+- **CQRS** (Command Query Responsibility Segregation): a natural fit in microservice architectures where read and write paths can be different services. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
 
 The unifying observation: **microservices are a distributed system; monoliths are not. Every distributed-systems concept in this knowledge base applies to microservices and largely doesn't to monoliths. That's the real cost.**
 
@@ -318,7 +318,7 @@ Identify the *actual* pain:
 ```
 Pain audit:
 1. CI takes 30 min       → split tests, parallelize, faster machines (cheap)
-2. Merge conflicts        → more PRs, smaller, better trunk-based dev
+2. Merge conflicts        → more PRs (Pull Requests), smaller, better trunk-based dev
 3. Deploys touch all      → feature flags decouple deploy from release
 4. Cross-team bugs        → modules with strict boundaries; ownership
 ```
@@ -334,14 +334,14 @@ Concrete cases:
 - "Image processing crashes the web app's memory."
   → Extract image service. Its memory pressure no longer affects others.
 
-- "Search needs ML libraries that bloat the deploy."
+- "Search needs ML (Machine Learning) libraries that bloat the deploy."
   → Extract search. Different runtime; different deploy cadence.
 
 - "Recommendations team has different ship velocity."
   → Extract recommendations. They ship daily; rest of monolith ships weekly.
 
 - "Mobile API and web API need different evolution."
-  → Extract a Backend-For-Frontend per channel.
+  → Extract a Backend-For-Frontend (BFF) per channel.
 ```
 
 Each is a *specific* extraction with a clear win. Not "let's microservice everything."
@@ -423,7 +423,7 @@ my-app/
 
 Rules enforced in code review (or compile-time if language allows):
 - Modules talk only via `api/` exports.
-- No direct DB access across modules.
+- No direct DB (Database) access across modules.
 - Cross-module flow uses domain events.
 - Each module owns its tables (via prefix or schema).
 
@@ -436,7 +436,7 @@ When extraction time comes, the boundaries are already there. Migration is "depl
 - **Shopify's modular monolith at scale (2024)**: 6000+ engineers; primarily one Rails app. Public engineering posts on enforcing module boundaries.
 - **Amazon Prime Video moving from microservices to monolith (2023)**: blog post. Their video-monitoring service consolidated services for 90% cost reduction. Caveat: this was a specific workload (video analysis); not a universal lesson, but it's a counterpoint to "always microservice."
 - **Segment's consolidation (2018, still cited)**: documented case of microservices → modular monolith.
-- **DHH's "Majestic Monolith" essays**: continuing influence; backbone of Rails-community thinking.
+- **DHH's (David Heinemeier Hansson) "Majestic Monolith" essays**: continuing influence; backbone of Rails-community thinking.
 - **Stack Overflow's architecture (always cited)**: famously runs on a small number of beefy servers; mostly monolith.
 - **The "distributed monolith" antipattern**: continues to be the dominant cautionary tale.
 - **Conway's Law as ongoing guidance**: still the most-cited principle in architecture decisions.

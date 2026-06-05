@@ -1,6 +1,6 @@
 # GPU & Accelerator Computing
 
-> *"GPUs were designed for graphics. The discovery that they were also vastly better at parallel numerical computation than CPUs reshaped scientific computing, machine learning, and now AI infrastructure. The architecture — thousands of cores, massive memory bandwidth, SIMT execution — demands a different style of programming. Understanding what GPUs are good at (and what they're not) is foundational to modern AI infrastructure."*
+> *"GPUs (Graphics Processing Units) were designed for graphics. The discovery that they were also vastly better at parallel numerical computation than CPUs reshaped scientific computing, machine learning, and now AI infrastructure. The architecture — thousands of cores, massive memory bandwidth, SIMT (Single Instruction, Multiple Threads) execution — demands a different style of programming. Understanding what GPUs are good at (and what they're not) is foundational to modern AI infrastructure."*
 
 ---
 
@@ -22,7 +22,7 @@ A modern GPU has thousands of cores, hundreds of GB/sec memory bandwidth, and a 
 
 For workloads that fit (data-parallel, regular access patterns), GPUs are 10-100× faster per dollar than CPUs. For workloads that don't (branching control flow, sequential dependencies, tiny data), GPUs underperform.
 
-The infrastructure category emerged with CUDA (2006); now spans GPU training/inference, custom ASICs (TPUs, IPUs, NPUs), specialized accelerators (FPGAs). For modern ML, AI infrastructure, and HPC, accelerator awareness is non-optional.
+The infrastructure category emerged with CUDA (Compute Unified Device Architecture) (2006); now spans GPU training/inference, custom ASICs (Application-Specific Integrated Circuits) (TPUs (Tensor Processing Units), IPUs (Intelligence Processing Units), NPUs (Neural Processing Units)), specialized accelerators (FPGAs (Field-Programmable Gate Arrays)). For modern ML (Machine Learning), AI (Artificial Intelligence) infrastructure, and HPC (High-Performance Computing), accelerator awareness is non-optional.
 
 This artifact covers the engineering reality: when to use GPUs, what they cost, how to think about programming them, and how AI/ML infrastructure depends on them.
 
@@ -47,20 +47,20 @@ That's the GPU vs CPU trade-off. Different shapes of work; different optimal arc
 **Era 1 — Graphics-only GPUs (1990s-2000s).**
 GPUs as graphics accelerators. Fixed-function pipelines.
 
-**Era 2 — General-purpose GPU (GPGPU).**
+**Era 2 — General-purpose GPU (GPGPU — General-Purpose computing on Graphics Processing Units).**
 ~2003. Researchers discover GPUs can do non-graphics computation.
 
 **Era 3 — CUDA (2006).**
-NVIDIA releases CUDA — a C-like programming model for GPUs. Inflection point.
+NVIDIA (NVIDIA Corporation) releases CUDA — a C-like programming model for GPUs. Inflection point.
 
 **Era 4 — ML revolution.**
-2012+. AlexNet wins ImageNet on GPUs. Deep learning rapidly adopts GPUs. NVIDIA's market cap grows.
+2012+. AlexNet wins ImageNet (ImageNet Large Scale Visual Recognition Challenge) on GPUs. Deep learning rapidly adopts GPUs. NVIDIA's market cap grows.
 
 **Era 5 — Custom accelerators.**
-2016+. Google's TPU. AWS Trainium/Inferentia. Apple Neural Engine. Many specialized chips.
+2016+. Google's TPU. AWS (Amazon Web Services) Trainium/Inferentia. Apple Neural Engine. Many specialized chips.
 
 **Era 6 — AI infrastructure dominant.**
-2024+. GPUs are the bottleneck of AI; H100s have multi-month lead times. Custom accelerators emerge.
+2024+. GPUs are the bottleneck of AI; H100s (NVIDIA Hopper 100 GPUs) have multi-month lead times. Custom accelerators emerge.
 
 The pattern: GPUs went from niche graphics to the core of compute. Custom accelerators emerging for specialized workloads.
 
@@ -84,14 +84,14 @@ The pattern: GPUs went from niche graphics to the core of compute. Custom accele
 - Optimized for data-parallel workloads.
 - Memory bandwidth: 500-3000 GB/sec.
 
-NVIDIA H100: 80GB HBM3 memory; ~3 TB/sec bandwidth; ~67 teraflops FP32 (CUDA cores) / ~1000 teraflops FP16 on Tensor Cores (dense; roughly double with structured sparsity). Note the ~15× gap is a Tensor Core effect, not vanilla CUDA-core FP16 throughput.
+NVIDIA H100: 80GB HBM3 (High Bandwidth Memory 3) memory; ~3 TB/sec bandwidth; ~67 teraflops FP32 (32-bit Floating Point) (CUDA cores) / ~1000 teraflops FP16 (16-bit Floating Point) on Tensor Cores (dense; roughly double with structured sparsity). Note the ~15× gap is a Tensor Core effect, not vanilla CUDA-core FP16 throughput.
 
 ### CUDA programming model
 
 CUDA introduced the abstraction:
 
 - **Thread**: smallest unit of execution.
-- **Warp**: 32 threads executing in lockstep (SIMT).
+- **Warp**: 32 threads executing in lockstep (SIMT — Single Instruction, Multiple Threads).
 - **Block**: group of threads sharing fast memory.
 - **Grid**: collection of blocks.
 
@@ -132,8 +132,8 @@ Lesson: avoid branching within warps. Group similar work together.
 GPU memory is layered:
 - **Registers**: per-thread; fastest.
 - **Shared memory**: per-block; fast (~1 TB/sec); programmer-managed.
-- **L1/L2 cache**: per-SM and global.
-- **Global memory (HBM)**: per-device; large (~1-3 TB/sec). Slow *relative to* on-chip SRAM/shared memory, but fast *relative to* PCIe host transfer.
+- **L1/L2 cache**: per-SM (Streaming Multiprocessor) and global.
+- **Global memory (HBM — High Bandwidth Memory)**: per-device; large (~1-3 TB/sec). Slow *relative to* on-chip SRAM (Static Random-Access Memory)/shared memory, but fast *relative to* PCIe (Peripheral Component Interconnect Express) host transfer.
 
 Optimization: maximize use of fast memory. Cache reuse via shared memory. Coalesced access patterns (consecutive threads access consecutive memory).
 
@@ -156,8 +156,8 @@ The bottleneck: data movement. For workloads where data is reused many times, GP
 **Excellent fit:**
 - Matrix operations (the heart of ML training/inference).
 - Image/video processing.
-- Scientific simulation (CFD, molecular dynamics).
-- Cryptocurrency mining (regular SHA-256 work).
+- Scientific simulation (CFD (Computational Fluid Dynamics), molecular dynamics).
+- Cryptocurrency mining (regular SHA-256 (Secure Hash Algorithm 256-bit) work).
 - Cryptography (parallel block cipher).
 
 **Mediocre fit:**
@@ -185,9 +185,9 @@ The framework handles kernel launches, memory management, device transfer. Most 
 
 Training: gradient computation, backprop, optimizer steps — all GPU-accelerated.
 
-Inference: forward pass, attention computation, KV cache management — also GPU-accelerated.
+Inference: forward pass, attention computation, KV (Key-Value) cache management — also GPU-accelerated.
 
-(See [LLM Serving & Vector Databases](../architecture-patterns/llm-serving-and-vector-databases.md) for inference specifics.)
+(See [LLM (Large Language Model) Serving & Vector Databases](../architecture-patterns/llm-serving-and-vector-databases.md) for inference specifics.)
 
 ### Multi-GPU
 
@@ -200,11 +200,11 @@ For models too large for one GPU:
 
 NVLink (NVIDIA's GPU-to-GPU interconnect): 900 GB/sec on H100, much faster than PCIe.
 
-Massive training (GPT-class) uses combinations: thousands of GPUs across many nodes; Infiniband for cross-node communication.
+Massive training (GPT-class — Generative Pre-trained Transformer) uses combinations: thousands of GPUs across many nodes; Infiniband for cross-node communication.
 
 ### Custom accelerators
 
-**TPU (Google)**: matrix-multiply-optimized; used for Google's models. Available on GCP.
+**TPU (Tensor Processing Unit) (Google)**: matrix-multiply-optimized; used for Google's models. Available on GCP (Google Cloud Platform).
 
 **Trainium / Inferentia (AWS)**: AWS's training/inference chips.
 
@@ -220,7 +220,7 @@ Each has its own programming model; vendor lock-in is real. Frameworks (PyTorch 
 
 Vendor-specific APIs:
 - **CUDA** (NVIDIA): the dominant ecosystem.
-- **ROCm** (AMD): CUDA-equivalent for AMD GPUs.
+- **ROCm** (Radeon Open Compute) (AMD — Advanced Micro Devices): CUDA-equivalent for AMD GPUs.
 - **oneAPI** (Intel): Intel's vision for unified accelerator programming.
 
 CUDA's network effects (libraries, tooling, education) make NVIDIA dominant in production AI.
@@ -234,7 +234,7 @@ For ML training, this is the dominant cost. For inference, depends on utilizatio
 Operational considerations:
 - Reserved capacity vs on-demand vs spot.
 - Multi-tenant inference (share GPU across users).
-- Quantization (FP32 → FP16 → INT8) reduces memory and increases throughput.
+- Quantization (FP32 → FP16 → INT8 (8-bit Integer)) reduces memory and increases throughput.
 
 ### Frameworks and abstractions
 
@@ -246,16 +246,16 @@ Operational considerations:
 **High-level**:
 - PyTorch
 - TensorFlow / JAX
-- ONNX Runtime (cross-framework)
+- ONNX (Open Neural Network Exchange) Runtime (cross-framework)
 
 Most engineers work at the high level. Low-level matters when squeezing performance.
 
 ### Inference optimizations
 
 For LLM serving:
-- **Quantization**: FP16, INT8, INT4. Smaller weights; faster.
+- **Quantization**: FP16, INT8, INT4 (4-bit Integer). Smaller weights; faster.
 - **KV cache**: avoid recomputing attention for previous tokens.
-- **PagedAttention** (vLLM): efficient KV cache memory.
+- **PagedAttention** (vLLM — virtual Large Language Model serving engine): efficient KV cache memory.
 - **Continuous batching**: process multiple requests in one GPU pass.
 - **Speculative decoding**: smaller model proposes; larger validates.
 - **Flash Attention**: cache-friendly attention computation.
@@ -307,7 +307,7 @@ Service receives small requests; loads each onto GPU; runs kernel; reads back. G
 **Scenario 2 — The branchy CUDA disaster.**
 Custom kernel has many if/else paths. Warps diverge constantly. 10× slower than equivalent CPU code. Fix: redesign for data parallelism; or accept it's not GPU-friendly.
 
-**Scenario 3 — The OOM during fine-tuning.**
+**Scenario 3 — The OOM (Out Of Memory) during fine-tuning.**
 Fine-tuning a model that should fit; activations grow during training; OOM. Mitigation: gradient checkpointing; smaller batch size; mixed precision.
 
 **Scenario 4 — The CUDA version compatibility break.**
@@ -329,7 +329,7 @@ Team rents 8× A100s for training; forgets to release after experiment. Weekend 
 
 ## Scaling Perspective 🔴
 
-- **Single GPU**: 80GB memory; tens of TFLOPs.
+- **Single GPU**: 80GB memory; tens of TFLOPs (Tera Floating-point Operations Per Second).
 - **Multi-GPU on one node**: NVLink; up to 8 GPUs per node typical.
 - **Multi-node**: Infiniband; thousands of GPUs.
 - **At hyperscale**: dedicated AI infrastructure (Meta, Google, OpenAI, Anthropic).
