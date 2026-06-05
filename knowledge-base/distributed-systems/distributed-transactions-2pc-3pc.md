@@ -4,7 +4,17 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how do you make a change happen in *all* of several separate databases/services, or in *none* of them — with no half-finished state where one committed and another didn't?
+>
+> **Analogy:** a group of friends booking a trip together — nobody pays until *everyone* has confirmed they're in. One person (the organizer) goes around asking "are you in?"; only after every single "yes" do they say "okay, everyone pay now." The scary part: if the organizer disappears right after collecting the yeses, everyone is left holding their money, afraid to pay or back out.
+>
+> **New to this?** Build the basics first in [`learn/data/distributed-transactions.md`](../../learn/data/distributed-transactions.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡/🔴 overall — the core idea is approachable, but the failure analysis and consensus-backed variants are senior territory. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+## Topic Overview 🟢
 
 Distributed transactions are the holy grail of "ACID across multiple resources." Update two databases atomically. Send a message and update a database in one transaction. Update databases in different regions as if they were one. The promise: cross-resource correctness with the same guarantees you have on a single database.
 
@@ -16,7 +26,7 @@ This is the topic where database transactions meet distributed systems. The less
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine three friends agreeing to chip in for a vacation rental.
 
@@ -34,7 +44,7 @@ The protocols that came later (3PC, sagas, Paxos-backed transactions) all try to
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — 2PC (1978).**
 Jim Gray's classical formulation. The protocol that databases use for distributed XA transactions. Worked beautifully on paper.
@@ -56,7 +66,9 @@ Today. Distributed transactions exist on a spectrum: 2PC for tightly-bounded use
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Two-Phase Commit (2PC) in detail
 
@@ -175,7 +187,7 @@ The choice depends on the workload. Money transfers: maybe CP makes sense (with 
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The wedding contract negotiation.**
 Two families negotiating a marriage contract (multi-resource transaction). Each promises certain things if the other does (Phase 1). The matchmaker (coordinator) confirms all promises (Phase 2). If the matchmaker disappears between phases, neither family knows what to do — promised but not committed. Anxiety; sometimes the wedding is delayed for years.
@@ -189,7 +201,7 @@ This is why nuclear-launch protocols have multiple redundant verification system
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -207,7 +219,7 @@ The senior architect's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The XA-induced production halt.**
 Application uses XA across DB and queue. DB has brief unavailability. Coordinator times out; tries to recover; participants are in "prepared" state. Throughput collapses. Recovery: manually rollback prepared transactions; production limps forward. Eventually re-architect to use sagas.
@@ -226,7 +238,7 @@ Team replaces XA-based payment flow with saga. Compensation logic explicitly des
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **2PC overhead**: 2 round trips to participants per transaction, plus log writes. Significant per-transaction cost.
 - **Lock duration**: locks held for the entire 2PC duration; longer than single-resource transactions.
@@ -235,7 +247,7 @@ Team replaces XA-based payment flow with saga. Compensation logic explicitly des
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Within a database (with consensus)**: scales reasonably.
 - **Across services**: doesn't scale; replace with sagas.
@@ -243,7 +255,7 @@ Team replaces XA-based payment flow with saga. Compensation logic explicitly des
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Sagas**: the modern alternative for cross-service. (See [saga-pattern-and-distributed-transactions.md](../architecture-patterns/saga-pattern-and-distributed-transactions.md).)
 - **Consensus**: backs modern 2PC implementations (Spanner). (See [leader-election-and-consensus.md](./leader-election-and-consensus.md).)
@@ -255,7 +267,7 @@ The unifying observation: **2PC was the right answer to the wrong question. The 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Spanner's design**: 2PC + Paxos. Documented in the Spanner paper.
 - **CockroachDB's transactions**: 2PC across ranges, Raft-backed.

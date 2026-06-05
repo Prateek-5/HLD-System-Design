@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** your CPU doesn't read memory one byte at a time — it copies fixed-size chunks into fast on-chip caches, and when two threads keep touching the same chunk, the chunk ping-pongs between cores and your "parallel" code crawls.
+>
+> **Analogy:** four cooks share one pantry. Nobody grabs a single egg; each grabs a whole tray of nearby items (a cache line) and works at their own station. The catch: if two cooks need *different* things off the *same* tray, every time one changes something the other's tray is declared stale and has to be fetched fresh. They're doing unrelated work, yet they keep waiting on each other — because they share a tray, not the food. That wasted shuttling is false sharing.
+>
+> **Assumes you already know:** what a thread is, that multiple CPU cores run in parallel, and roughly how a struct lays out its fields in memory. *(These are runtime/systems fundamentals; the `learn/` track is interview-focused and has no concurrency counterpart, so there's no prerequisite link to follow — start here.)*
+>
+> **Level:** this file is 🔴 overall — it's a senior/staff runtime-engineering topic, well below the system-design interview line. The intuition and the false-sharing example are very approachable; the MESI states, NUMA, and data-oriented internals are deep. If those tags make you slow down, that's expected — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Modern CPUs have multiple levels of cache between the cores and main memory: L1 (32-64 KB per core; 1ns); L2 (256KB-1MB per core; 3ns); L3 (megabytes shared across cores; 10ns); main memory (gigabytes; 100ns). The 100× speed gap between L1 and main memory means cache behavior dominates real-world performance.
 
@@ -14,7 +26,7 @@ This is the topic where the abstraction "memory is one big array" finally leaks.
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine four chefs sharing one pantry.
 
@@ -30,7 +42,7 @@ That's false sharing. The threads aren't really sharing data; the *cache line* i
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Caches in the 1980s.**
 Early multi-CPU systems. Coherence was a problem; hardware solutions emerged.
@@ -54,7 +66,9 @@ The pattern: cache hierarchy has been a constant; programmer awareness has grown
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Cache hierarchy
 
@@ -204,7 +218,7 @@ Common in concurrent data structures (ConcurrentHashMap internals, sync primitiv
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The communal kitchen with shared shelves.**
 (Already used.) Multiple chefs sharing shelves; cache lines are shelves; modification invalidates everyone's view of the shelf.
@@ -214,7 +228,7 @@ A library where readers must copy whole shelves of books to their tables. If two
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -233,7 +247,7 @@ The senior performance engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The 16-thread counter.**
 Concurrent counter array; performance scales to 4 threads then plateaus. Investigation: false sharing on cache lines. Pad each counter to 64 bytes; scaling restored.
@@ -252,7 +266,7 @@ Loop accessing array with stride that hits cache line conflicts; slower than exp
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **L1 hit**: ~1ns.
 - **L3 hit**: ~10ns.
@@ -262,7 +276,7 @@ Loop accessing array with stride that hits cache line conflicts; slower than exp
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Single core**: cache hierarchy dominates.
 - **Multi-core**: false sharing matters.
@@ -271,7 +285,7 @@ Loop accessing array with stride that hits cache line conflicts; slower than exp
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Locks**: contention often manifests as cache effects. (See [locks-mutexes-and-lock-free.md](./locks-mutexes-and-lock-free.md).)
 - **Parallelism**: cache effects limit scaling. (See [parallelism-vs-concurrency.md](./parallelism-vs-concurrency.md).)
@@ -282,7 +296,7 @@ The unifying observation: **the abstraction 'memory is uniform' is a useful lie.
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Java ConcurrentHashMap**: extensive cache-line padding internally.
 - **Linux kernel**: per-CPU variables; explicit cache discipline.
@@ -291,7 +305,7 @@ The unifying observation: **the abstraction 'memory is uniform' is a useful lie.
 
 ---
 
-## Key Takeaways
+## Key Takeaways 🟢
 
 - **Memory access is not uniform.** The hierarchy is registers → L1 (~1ns) → L2 (~3ns) → L3 (~10ns) → main memory (~100ns), with NUMA remote at ~200ns. The ~100:1 L1-to-memory gap means memory layout often dominates performance.
 - **Cache lines (typically 64 bytes) are the unit of transfer.** Reading one byte loads the whole line. Spatial locality is what makes sequential access fast and linked lists cache-hostile.
@@ -300,7 +314,7 @@ The unifying observation: **the abstraction 'memory is uniform' is a useful lie.
 - **NUMA matters on multi-socket machines.** Cross-socket access is far slower than local; pin threads and memory to the same node, use per-core/per-socket data structures.
 - **Measure, don't guess.** Profile with cache-aware tools (`perf c2c`, Intel VTune); sublinear scaling on more cores is a classic false-sharing or NUMA symptom.
 
-## Interview angle
+## Interview angle 🟢
 
 - **"What's a cache line?"** A 64-byte block — the unit loaded on any memory access.
 - **"What's false sharing?"** Different variables in the same cache line, causing coherence invalidations between cores that touch them.

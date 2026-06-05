@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** deliberately break your own system on purpose, in a controlled way, so you discover how it fails on a Tuesday morning instead of at 3am during a real outage.
+>
+> **Analogy:** a fire drill. You don't wait for a real fire to find out the alarm batteries are dead and the exit is locked — you light a small, safe, scheduled "fire" and watch whether the sprinklers, the alarms, and the people all actually do their jobs.
+>
+> **Assumes you already know:** how systems try to survive failure ([circuit breakers](../../learn/reliability/circuit-breaker.md), [disaster recovery / RTO-RPO](../../learn/reliability/disaster-recovery.md)) and what "reliable" even means ([SLA/SLO/SLI](../../learn/reliability/sla-slo-sli.md)). Chaos engineering is how you *prove* those defenses actually work.
+>
+> **Level:** this file is 🟡/🔴 overall — it's a senior/staff ops topic with no beginner learning-path counterpart. The intuition and analogies below are 🟢 and readable by anyone; the experiment lifecycle, blast-radius control, and production-safety machinery are where the real depth is. If a section's tag feels above you, that's the signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Chaos engineering is the practice of *deliberately* breaking parts of your production (or production-like) system to discover how it fails before customers do. It sounds reckless. It's actually the opposite — it's the discipline of accepting that failures are inevitable and choosing to encounter them on your terms, in business hours, with the on-call engineer warmed up, rather than at 3am during a customer launch.
 
@@ -14,7 +26,7 @@ This is the topic where reliability engineering moves from theory to practice. E
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine you're hired to ensure a building never burns down.
 
@@ -30,7 +42,7 @@ Game days are the *coordinated* fire drill: the whole team is there, the failure
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Ad-hoc disaster recovery testing.**
 Decades of "let's bring down the database in dev and see what happens." Done occasionally, often not in production-equivalent environments, often by individual engineers without organizational support. Findings were rarely systematized.
@@ -54,7 +66,9 @@ The pattern: each generation expanded the scope of what was deliberately tested,
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The chaos experiment lifecycle
 
@@ -215,7 +229,7 @@ Continuous chaos has a special property: it forces *every change* to maintain re
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The fire drill.**
 Schools and offices conduct fire drills regularly. Why? The fire is rare. The drill is frequent. The drill exercises:
@@ -233,7 +247,7 @@ The argument for chaos engineering is the same. Production is the airplane in fl
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What chaos engineering reveals (real findings, generalized):
 
@@ -248,7 +262,7 @@ What chaos engineering reveals (real findings, generalized):
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The chaos experiment that became a real incident.**
 A team injects 50% latency into a non-critical path. Hypothesis: traffic continues normally. Reality: a downstream system has tight timeouts that don't tolerate the latency. Cascading failure. Mitigation: experiment auto-aborts via SLO monitoring within 90 seconds. Lessons: blast radius worked; downstream timeout was a real bug; fix shipped.
@@ -267,7 +281,7 @@ A new chaos tool injects a "harmless" packet drop. Bug in the tool's targeting l
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Chaos experiments add load** during execution. Account for this in capacity planning.
 - **Continuous chaos** has a steady-state cost; typically <1% of capacity but real.
@@ -276,7 +290,7 @@ A new chaos tool injects a "harmless" packet drop. Bug in the tool's targeting l
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Small teams**: start with manual exercises (kill a process, see what happens). Build muscle.
 - **Medium teams**: add tooling; schedule experiments; run game days quarterly.
@@ -286,7 +300,7 @@ A new chaos tool injects a "harmless" packet drop. Bug in the tool's targeting l
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Cascading failures**: chaos engineering tests the cascade-prevention machinery. Without testing, defenses are theoretical. (See [cascading-failures-and-circuit-breakers.md](./cascading-failures-and-circuit-breakers.md).)
 - **Timeouts, retries, idempotency**: chaos exposes whether these are correctly configured. Untested = unproven. (See [timeouts-retries-and-idempotency.md](./timeouts-retries-and-idempotency.md).)
@@ -300,7 +314,7 @@ The unifying observation: **every defensive pattern in distributed systems is hy
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Netflix's Chaos Monkey**: the canonical reference. Public engineering posts spanning 15+ years.
 - **AWS GameDays**: regular internal exercises, productized as customer-facing chaos workshops.
@@ -324,7 +338,7 @@ The unifying observation: **every defensive pattern in distributed systems is hy
 
 ---
 
-## Interview Angle
+## Interview Angle 🟡
 
 - **"What's chaos engineering?"** Hypothesis-driven failure injection to find failure modes before customers do; bonus for naming Netflix and the formal principles.
 - **"How would you start a chaos program?"** Small experiments, hypothesis-driven, blast-radius bounded, growing in scope.
@@ -337,7 +351,7 @@ The unifying observation: **every defensive pattern in distributed systems is hy
 
 ---
 
-## Final Mental Model
+## Final Mental Model 🟢
 
 > **Reliability is not designed; it's discovered. Chaos engineering is the discipline of discovery — finding the failure modes before customers do, on your terms, with safety nets, in business hours.**
 

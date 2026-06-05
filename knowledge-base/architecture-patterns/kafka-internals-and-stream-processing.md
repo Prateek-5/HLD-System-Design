@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** Kafka lets one part of a system hand events to many other parts reliably, keeping a durable record so each reader can consume them at its own pace — even days later.
+>
+> **Analogy:** Think of a newspaper that never throws away an issue. Stories are appended in order, kept on the shelf for a set time, and any number of subscribers can read at their own pace — some read every issue, some skip ahead — and each just remembers which page they were on.
+>
+> **New to this?** Build the basics first in [`learn/architecture/message-brokers.md`](../../learn/architecture/message-brokers.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🔴 overall — it's a senior/staff deep-dive into Kafka's internals. The opening sections are approachable; the storage, replication, EOS, and stream-processing sections assume real distributed-systems comfort. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Apache Kafka is the dominant open-source streaming platform. It's used as a message broker, an event store, a CDC pipeline, an audit log, a buffer between services. The design — partitioned, replicated, append-only logs — has shaped the industry's thinking about events.
 
@@ -16,7 +28,7 @@ This is the topic where event-driven architecture meets the storage primitive th
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a newspaper that publishes continuously. Every story is appended to a single issue (the topic). The issue has multiple sections (partitions), each in its own queue.
 
@@ -32,7 +44,7 @@ That's Kafka. Topics, partitions, brokers, consumer offsets — the newspaper an
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — LinkedIn's pain.**
 ~2010. LinkedIn needed to move data between systems reliably. Existing solutions (queues, databases) didn't fit.
@@ -56,7 +68,9 @@ The pattern: Kafka won by treating "the log" as a first-class primitive and buil
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Topics, partitions, brokers
 
@@ -227,7 +241,7 @@ Eliminates writing custom integrators. Battle-tested for many systems.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The newspaper archive.**
 (Already used.) The log is permanent; subscribers read at their pace; multiple subscribers see the same stories; old archives eventually purged.
@@ -237,7 +251,7 @@ Append-only; durably stores everything; can be replayed; survives the original s
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The retention purge.**
 Consumer down for 8 days; retention 7 days; events purged. Some lost. Recovery: extend retention; rebuild from upstream source.
@@ -256,7 +270,7 @@ Producer drops a field; consumer expects it. Errors. Mitigation: schema registry
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Producer throughput**: tens of MB/s per producer instance; hundreds with batching.
 - **Broker throughput**: hundreds of MB/s per broker.
@@ -266,7 +280,7 @@ Producer drops a field; consumer expects it. Errors. Mitigation: schema registry
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Single cluster**: hundreds of TB; thousands of topics.
 - **Multi-cluster**: MirrorMaker for cross-region.
@@ -274,7 +288,7 @@ Producer drops a field; consumer expects it. Errors. Mitigation: schema registry
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Event-driven architecture**: Kafka is the substrate. (See [event-driven-architecture.md](./event-driven-architecture.md).)
 - **Idempotency**: at-least-once + idempotent consumers. (See [idempotency-receivers-and-exactly-once-semantics.md](./idempotency-receivers-and-exactly-once-semantics.md).)
@@ -287,7 +301,7 @@ The unifying observation: **Kafka is a distributed log treated as a primary prim
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **LinkedIn's origin**: extensively documented.
 - **Netflix's adoption**: public engineering posts.

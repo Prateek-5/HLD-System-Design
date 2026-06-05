@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** some jobs are made of millions of identical, independent little calculations — a GPU does them all at once instead of one-after-another, which is why modern AI is even possible.
+>
+> **Analogy:** a CPU is a few brilliant chefs who can each cook any dish to order; a GPU is a thousand line cooks who only know how to flip one burger but flip a thousand burgers in the time it takes a chef to plate one entrée. For a banquet of identical burgers, the line cooks win by a landslide; for one bespoke tasting menu, the chefs win.
+>
+> **Assumes you already know:** what scaling a workload means and why throughput matters — build that first in [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md). (This is a senior/staff KB-only deep-dive with no beginner counterpart of its own; some background in parallelism and ML helps too.)
+>
+> **Level:** this file is 🔴 overall — it is genuinely advanced runtime/AI-infrastructure territory. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A modern GPU has thousands of cores, hundreds of GB/sec memory bandwidth, and a programming model utterly different from CPUs. CPUs are optimized for *latency* — finish one task fast. GPUs are optimized for *throughput* — finish many parallel tasks faster than CPUs could.
 
@@ -16,7 +28,7 @@ This artifact covers the engineering reality: when to use GPUs, what they cost, 
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine two factories making the same product.
 
@@ -30,7 +42,7 @@ That's the GPU vs CPU trade-off. Different shapes of work; different optimal arc
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Graphics-only GPUs (1990s-2000s).**
 GPUs as graphics accelerators. Fixed-function pipelines.
@@ -54,7 +66,9 @@ The pattern: GPUs went from niche graphics to the core of compute. Custom accele
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### CPU vs GPU architecture
 
@@ -262,7 +276,7 @@ Common findings:
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The factory assembly line.**
 A car factory's assembly line has many workers each doing one repetitive task, in parallel. A custom-build shop has a few skilled mechanics each doing varied work end-to-end. Different shapes; different optimal architectures.
@@ -272,7 +286,7 @@ A high-volume newspaper press prints thousands of identical pages per minute. A 
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -285,7 +299,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The transfer-dominated workload.**
 Service receives small requests; loads each onto GPU; runs kernel; reads back. GPU utilization 5%; transfer 80% of time. Recovery: batch requests; keep state on GPU.
@@ -304,7 +318,7 @@ Team rents 8× A100s for training; forgets to release after experiment. Weekend 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Matrix multiply**: GPUs 10-100× faster than CPU.
 - **Memory bandwidth**: 1-3 TB/sec (vs CPU's ~100 GB/sec).
@@ -313,7 +327,7 @@ Team rents 8× A100s for training; forgets to release after experiment. Weekend 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Single GPU**: 80GB memory; tens of TFLOPs.
 - **Multi-GPU on one node**: NVLink; up to 8 GPUs per node typical.
@@ -322,7 +336,7 @@ Team rents 8× A100s for training; forgets to release after experiment. Weekend 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **LLM Serving**: GPUs are the substrate. (See [llm-serving-and-vector-databases.md](../architecture-patterns/llm-serving-and-vector-databases.md).)
 - **Parallelism**: GPUs embody data parallelism. (See [parallelism-vs-concurrency.md](../concurrency/parallelism-vs-concurrency.md).)
@@ -334,7 +348,7 @@ The unifying observation: **GPUs are the right tool for data-parallel, throughpu
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **NVIDIA's CUDA dominance**: ecosystem moat.
 - **Google's TPU papers**: custom accelerator design.
@@ -344,7 +358,7 @@ The unifying observation: **GPUs are the right tool for data-parallel, throughpu
 
 ---
 
-## Key Takeaways
+## Key Takeaways 🟢
 
 - **CPU optimizes latency; GPU optimizes throughput.** Different goals, different architectures. GPUs are the right tool for data-parallel, throughput-bound work — and the wrong tool for branchy, sequential, or small-data work.
 - **Data parallelism is the GPU's sweet spot.** Many independent operations on different data; branching/sequential code is hostile.
@@ -357,7 +371,7 @@ The unifying observation: **GPUs are the right tool for data-parallel, throughpu
 - **Custom accelerators (TPU, Trainium/Inferentia, Cerebras, Groq) are emerging,** but CUDA's ecosystem network effects keep NVIDIA dominant; vendor lock-in is real.
 - **GPUs are expensive — utilization matters.** Profile (nsight) before optimizing; monitor GPU utilization as the primary metric; plan cost explicitly; watch CUDA driver/library version compatibility (containerize the stack).
 
-## Interview angle
+## Interview angle 🟡
 
 - **"CPU vs GPU architecture?"** Latency vs throughput.
 - **"What's SIMT?"** Single Instruction Multiple Threads; warps serialize on divergent branches.

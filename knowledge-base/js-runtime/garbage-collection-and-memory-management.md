@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** your program keeps creating data it eventually stops using — garbage collection is the runtime quietly finding and throwing away that unused data so you never have to free memory by hand.
+>
+> **Analogy:** a hotel housekeeping crew. Guests (your code) check into rooms (memory) and leave junk behind. Housekeeping periodically walks the floors, figures out which rooms are still occupied vs. abandoned, and clears the abandoned ones for reuse. Clean continuously and guests barely notice; do one big sweep and the whole floor freezes while it happens — that freeze is a "GC pause."
+>
+> **Assumes you already know:** what the [throughput-vs-latency trade-off](../../learn/foundations/scaling/scalability.md) means (this topic lives entirely in that trade-off space), plus basic memory concepts (stack, heap, pointers/references). This is a senior/staff runtime-engineering topic with **no beginner learning-path counterpart** — that's expected, not a gap in your knowledge.
+>
+> **Level:** this file is 🔴 overall. The intuition and history sections are approachable; the algorithm internals and per-runtime tuning are deep. If a section's tag feels above you, that's the signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Garbage collection (GC) is the runtime mechanism that automatically reclaims memory when objects are no longer reachable. Different languages take different approaches: V8 (JavaScript) uses generational GC; the JVM has dozens of GC algorithms; Go uses a concurrent mark-sweep; Python uses reference counting plus cycle detection.
 
@@ -14,7 +26,7 @@ This is the topic where language internals meet production reality. Most enginee
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a janitorial team for an office building.
 
@@ -30,7 +42,7 @@ The trade-offs map: simpler GC = better predictability but worse throughput; mor
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Manual memory management.**
 C, C++. Programmer manages malloc/free. Maximum control; common bugs (leaks, use-after-free).
@@ -54,7 +66,9 @@ The pattern: each generation reduced GC pauses, increased throughput, or both �
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Reference counting
 
@@ -209,7 +223,7 @@ Heuristic: profile first; tune based on data.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The office janitorial crew.**
 Cleans throughout the day (concurrent GC) vs cleans only at night (stop-the-world). Different trade-offs in disturbance vs efficiency.
@@ -219,7 +233,7 @@ Periodically removes books no one's checking out. Some libraries do continuously
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -239,7 +253,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The full GC cliff.**
 Service has 20GB heap. Major GC runs every 5 minutes; pauses for 2 seconds. p99 ruined. Fix: G1 GC with paused-time goal.
@@ -258,7 +272,7 @@ Service spends 30% of CPU on GC. Investigation: high allocation rate. Reduced vi
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Allocation cost**: nanoseconds per object (TLAB).
 - **Young GC**: milliseconds typical; scales with surviving objects.
@@ -268,7 +282,7 @@ Service spends 30% of CPU on GC. Investigation: high allocation rate. Reduced vi
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Heap size**: bigger heaps = longer GC; modern algorithms (ZGC) handle multi-TB.
 - **Allocation rate**: scales with workload; can become bottleneck.
@@ -277,7 +291,7 @@ Service spends 30% of CPU on GC. Investigation: high allocation rate. Reduced vi
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **V8 internals**: V8's GC details. (See [v8-internals-and-hidden-classes.md](./v8-internals-and-hidden-classes.md).)
 - **Profiling**: GC pauses show in profiles. (See [profiling-and-flame-graphs.md](../observability/profiling-and-flame-graphs.md).)
@@ -289,7 +303,7 @@ The unifying observation: **GC trades programmer-time for runtime-time. The runt
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Discord's Go-to-Rust migration**: partly motivated by Go GC pauses.
 - **LinkedIn's JVM tuning**: extensive public engineering.
@@ -313,7 +327,7 @@ The unifying observation: **GC trades programmer-time for runtime-time. The runt
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 - **"How does GC work?"** Mark-and-sweep, generational, concurrent.
 - **"What's the weak generational hypothesis?"** Most objects die young.

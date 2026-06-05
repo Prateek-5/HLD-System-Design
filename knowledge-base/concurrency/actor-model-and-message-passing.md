@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** instead of many workers fighting over the same shared data (and needing locks to stay sane), give each worker its own private data and let them coordinate only by mailing each other messages.
+>
+> **Analogy:** a restaurant kitchen where each chef has their own station and never touches anyone else's counter. Orders move between stations on a ticket rail (messages). One chef works one ticket at a time, alone with their ingredients — so two chefs can never collide over the same cutting board.
+>
+> **Assumes you already know:** what a message queue is and why work gets buffered ([`learn/architecture/message-queues.md`](../../learn/architecture/message-queues.md)), and the basics of scaling out across workers ([`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md)). A mailbox is just a per-actor queue, so the queue intuition transfers directly.
+>
+> **Level:** this file is 🟡/🔴 overall — concurrency is a senior/staff "runtime engineering" topic, not a first-pass system-design interview subject. The intuition and analogies are 🟢; supervision, location transparency, and virtual actors get genuinely deep. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 The actor model is a different bet about concurrency. Where threads + locks share state and coordinate access, actors *don't share state* — each actor has private memory, and the only way to interact is to send a message. The receiving actor processes messages one at a time, in order, alone with its state. No locks. No race conditions. No shared mutable state.
 
@@ -16,7 +28,7 @@ This is the topic where the threads-vs-actors debate becomes concrete. Both work
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Two ways to coordinate a kitchen team for a dinner service.
 
@@ -30,7 +42,7 @@ That's the actor model. Isolation, message passing, supervision. Different bugs,
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Carl Hewitt's actor papers.**
 1973. Hewitt proposes actors as a fundamental model of concurrent computation. Mostly theoretical for years; influenced Smalltalk's object model.
@@ -54,7 +66,9 @@ The pattern: every generation realized that *isolation + messages* is a more rob
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid — mailboxes, isolation, and "communicate, don't share."
 
 ### The actor primitive
 
@@ -170,7 +184,7 @@ The price: a quirky language, a learning curve, ecosystem smaller than mainstrea
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The post office.**
 Each post office has a post master (actor). They process letters one at a time. To send a message to another post office, you write a letter and mail it. The letter goes through the mail system (network), arrives at the destination's mailbox (queue), and is processed in arrival order.
@@ -186,7 +200,7 @@ The whole system is built around isolation and explicit handoffs. That's not a m
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong in actor systems:
 
@@ -200,7 +214,7 @@ What goes wrong in actor systems:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The mailbox bomb.**
 A producer actor pushes events at 10K/s. The consumer can handle 5K/s. Mailbox unbounded. Memory grows by 100MB/min. OOM in 30 minutes. Production restart "fixes" it; recurs. Permanent fix: bound the mailbox; producer must handle backpressure.
@@ -219,7 +233,7 @@ A grain representing "all global counters" receives every counter increment. Thr
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Actor message dispatch** is microseconds in modern frameworks. Negligible per-message overhead.
 - **Mailbox enqueue/dequeue** is fast for unbounded; bounded with blocking has more contention.
@@ -229,7 +243,7 @@ A grain representing "all global counters" receives every counter increment. Thr
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: a single node can host millions of actors with appropriate runtime (Erlang BEAM, Akka).
 - **Horizontal**: actor systems scale across nodes; framework handles routing.
@@ -239,7 +253,7 @@ A grain representing "all global counters" receives every counter increment. Thr
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Locks**: actors avoid most lock pitfalls by *not sharing state*. The locks within frameworks (mailbox, scheduler) are infrastructure, not application code. (See [locks-mutexes-and-lock-free.md](./locks-mutexes-and-lock-free.md).)
 - **Backpressure**: actor mailboxes are queues; bounded mailboxes implement backpressure naturally. (See [backpressure-and-queues.md](./backpressure-and-queues.md).)
@@ -252,7 +266,7 @@ The unifying observation: **the actor model takes "share nothing, communicate ex
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **WhatsApp at billions of users** ran on Erlang. Famous slide: "2 million connections per server." Documented in conference talks.
 - **Discord's Elixir voice servers**: managed millions of concurrent voice connections per cluster on Erlang's runtime. Public engineering posts describe the model.

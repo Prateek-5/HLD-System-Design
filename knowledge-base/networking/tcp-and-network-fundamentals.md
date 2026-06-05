@@ -2,9 +2,19 @@
 
 > *"Every distributed system you've ever built sits on top of TCP. The decisions made by Vint Cerf and Bob Kahn in 1974 about how to make unreliable IP packets feel like reliable streams shape every API latency, every connection limit, every cascading failure you've ever debugged. The fact that most engineers don't think about TCP is a testament to how well it works — until the day it's the bottleneck."*
 
+## 🎯 Start Here — Intuition
+
+> **In one line:** the internet only knows how to fling tiny packets that can get lost, duplicated, or arrive out of order — TCP is the machinery that turns that mess into a reliable, in-order stream of bytes your app can just read and write.
+>
+> **Analogy:** mailing a long book one postcard at a time. Postcards get lost, arrive jumbled, sometimes show up twice. So you number each card, the reader says "got 1–5, send me 6," you re-mail anything they never confirmed, and you slow down if the post office looks swamped. The reader ends up with the whole book, in order — that bookkeeping is TCP.
+>
+> **New to this?** Build the basics first in [`learn/foundations/networking/tcp-udp.md`](../../learn/foundations/networking/tcp-udp.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡/🔴 overall. The handshake and the postcard intuition are approachable; congestion-control algorithms, connection state machines, and kernel tuning are senior-level. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
 ---
 
-## Topic Overview
+## Topic Overview 🟢
 
 TCP (Transmission Control Protocol) is the layer that turns the internet's lossy, reordering, packet-dropping reality into the smooth byte streams your application code reads from. HTTP, gRPC, databases, message queues — almost every connection your service makes is TCP underneath. The protocol is half a century old; its core ideas have aged remarkably well; its quirks shape modern system design in ways most engineers don't notice until something breaks.
 
@@ -14,7 +24,7 @@ This is the topic where the abstraction leaks. When your service is slow under l
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine sending a long letter to someone, but only being allowed to use postcards.
 
@@ -33,7 +43,7 @@ That's TCP. The network is the postal system; postcards are packets; TCP turns t
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — ARPANET protocols.**
 1970s. NCP and others. Cerf and Kahn publish TCP/IP design (1974). Implementation deployed on ARPANET.
@@ -57,7 +67,9 @@ The pattern: TCP is a half-century-old protocol still used unchanged for most tr
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid — handshake, ACKs, and the postcard intuition.
 
 ### The three-way handshake
 
@@ -215,7 +227,7 @@ This causes "first request after idle is slow." Long-lived HTTP connections used
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The reliable letter exchange.**
 Two scribes corresponding via unreliable mail. They number letters; acknowledge by number; resend missing ones; pace based on perceived congestion. Same protocol; the "letter" is the byte; the "post office" is the IP layer.
@@ -225,7 +237,7 @@ A factory ships products to a warehouse via trucks. Trucks sometimes break down 
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -239,7 +251,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The TIME_WAIT epidemic.**
 Web service hits backend with new connection per request. Backend's port range fills with TIME_WAIT. Connection failures cascade. Recovery: connection pooling deployed.
@@ -258,7 +270,7 @@ Service used CUBIC; mobile users had poor performance. Switching to BBR: 5× thr
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **TCP handshake**: 1 RTT.
 - **TLS 1.2 handshake**: 2 RTTs additional.
@@ -269,7 +281,7 @@ Service used CUBIC; mobile users had poor performance. Switching to BBR: 5× thr
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Per-process connections**: tens of thousands easy; millions with tuning (epoll/kqueue/IOCP).
 - **Per-host**: limited by ports, file descriptors, memory.
@@ -278,7 +290,7 @@ Service used CUBIC; mobile users had poor performance. Switching to BBR: 5× thr
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Backpressure**: TCP's flow control is the original backpressure. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Cascading failures**: connection-pool exhaustion is a TCP-level cascade. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
@@ -291,7 +303,7 @@ The unifying observation: **TCP is the layer between every application and the n
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Google's BBR rollout**: documented engineering posts on the design and benefits.
 - **Cloudflare's TCP tuning**: extensive public posts on kernel parameters.

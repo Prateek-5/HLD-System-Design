@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a database finds the exact rows you asked for without reading the whole table, and how it physically arranges data on disk so that finding and updating it stay fast.
+>
+> **Analogy:** the index at the back of a textbook. To find every page that mentions "photosynthesis," you don't read all 800 pages — you flip to the alphabetized index, jump straight to the entry, and it tells you the exact pages. A database index is that back-of-book index, kept sorted and updated every time a page (row) changes.
+>
+> **New to this?** Build the basics first in [`learn/data/indexes.md`](../../learn/data/indexes.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡/🔴 overall — it starts with friendly analogies but quickly goes into storage-engine internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Every database is, at heart, two things stacked on top of each other: a *storage engine* that decides how bytes are laid out on disk and how to find them again, and a *query layer* that decides what to ask the storage engine for. Most performance conversations are about query layers. Most performance *problems* are about storage engines.
 
@@ -14,7 +26,7 @@ The two dominant storage engine families — **B+ tree based** (Postgres, InnoDB
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a phone book.
 
@@ -32,7 +44,7 @@ Indexes are sub-instances of the same idea. A secondary index is a smaller, sepa
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Heap files and sequential scans.**
 Early databases stored rows in arrival order. Finding anything specific meant scanning. This was fine when datasets fit in core memory and "big" meant a megabyte.
@@ -56,7 +68,9 @@ The pattern across eras: **the disk's physics shaped the data structures, and as
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### B+ trees in detail
 
@@ -135,7 +149,7 @@ The right question is never "should I add an index?" — it's "which index *type
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The library card catalog.**
 A B+ tree is a card catalog: cards alphabetized in drawers, drawers labeled with ranges, drawers grouped by floor. To find a book, you walk down the hierarchy. The cards (leaves) are linked alphabetically so you can browse "all books starting with 'P'." Adding a new book means inserting a card — possibly splitting a drawer if it overflows. Periodically, librarians rebalance the catalog.
@@ -147,7 +161,7 @@ That mailroom is RocksDB.
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 Things that actually matter at 3am:
 
@@ -163,7 +177,7 @@ The senior engineer's habit: **periodically audit indexes**. `pg_stat_user_index
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The 100-index table.**
 A reporting database accreted indexes over years. Every analyst added "just one more" for their dashboard. Now the table has 47 indexes. INSERTs take 800ms. Bulk loads time out. Migration to a slimmer index set takes a week of coordination because nobody knows which indexes are still used.
@@ -182,7 +196,7 @@ An LSM cluster's bloom filters were sized for an older dataset. Data grew 10×. 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Cache locality wins everything.** A 10GB index that fits in RAM is *thousands of times* faster than a 10GB index that doesn't. Whatever you do, fight for the working set to fit in cache.
 - **Sequential vs random I/O still matters on SSDs.** Less than on HDDs, but enough that LSM's append-only writes still beat B-tree's random updates for write-heavy workloads.
@@ -191,7 +205,7 @@ An LSM cluster's bloom filters were sized for an older dataset. Data grew 10×. 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical:** B-trees scale beautifully on a single machine into the multi-TB range as long as RAM keeps pace with the working set.
 - **Horizontal reads:** straightforward via replication. Indexes are replicated alongside data.
@@ -201,7 +215,7 @@ An LSM cluster's bloom filters were sized for an older dataset. Data grew 10×. 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **MVCC**: every index entry needs visibility info; bloated indexes from MVCC churn are the silent killer of B-tree performance. (See [mvcc-and-isolation-levels.md](mvcc-and-isolation-levels.md).)
 - **Distributed systems:** consistent hashing in distributed caches and partitioning is, structurally, a hash index across machines. Range partitioning is a B-tree at the cluster level.
@@ -214,7 +228,7 @@ The unifying insight: **fast lookup over large data is always a tree, and fast u
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Discord's switch from MongoDB to Cassandra (2017)**, and later to ScyllaDB. Driven entirely by storage engine fit: write-skewed workload, MMAP-based MongoDB hitting working-set limits, LSM-based Cassandra winning until coordinator overhead became the bottleneck.
 - **GitHub's MySQL operations**: famous engineering posts on how they manage online schema migrations and index rebuilds at scale, with `gh-ost` orchestrating the InnoDB realities.
@@ -224,7 +238,7 @@ The unifying insight: **fast lookup over large data is always a tree, and fast u
 
 ---
 
-## Worked Example — Choosing Indexes for a Real Schema
+## Worked Example — Choosing Indexes for a Real Schema 🟡
 
 A `tickets` table in a multi-tenant ticketing system. ~100M rows. Several common queries.
 
@@ -392,7 +406,7 @@ Indexes with `idx_scan = 0` after a week have no usage. Drop them. Each drop acc
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🔴
 
 - **Postgres 16's improvements to parallel index builds**: faster CREATE INDEX CONCURRENTLY.
 - **MySQL 8's invisible indexes**: test index removal without dropping. Operational discipline tool.
@@ -422,7 +436,7 @@ Indexes with `idx_scan = 0` after a week have no usage. Drop them. Each drop acc
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What interviewers are testing:
 

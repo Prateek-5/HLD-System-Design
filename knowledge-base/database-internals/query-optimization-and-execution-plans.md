@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** you tell the database *what* rows you want; this is how the database figures out the fastest *way* to actually go get them — and why the same query is sometimes instant and sometimes painfully slow.
+>
+> **Analogy:** it's like a GPS planning your drive. You only say "take me home"; the GPS decides the route — highway vs. side streets — based on its guess about current traffic. When its traffic estimate is right, you get the fast route; when its guess is stale or wrong, it confidently sends you into a jam. The database's "traffic estimate" is its statistics about your data.
+>
+> **New to this?** Build the basics first in [`learn/data/sql-databases.md`](../../learn/data/sql-databases.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A SQL query is a question; an execution plan is the answer to *how* the database is going to compute it. The same query — `SELECT * FROM orders WHERE customer_id = ? AND status = 'paid'` — can take 1ms or 1000ms depending on which indexes the planner uses, what join order it picks, whether it streams or buffers, whether it estimates 10 rows or 10 million.
 
@@ -14,7 +26,7 @@ This is the topic where indexes, MVCC, and storage internals come together in th
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine asking a librarian: "find all books written by authors born in France between 1850 and 1900, that were bestsellers, in the romance genre."
 
@@ -34,7 +46,7 @@ The cleverness — and the failure modes — both live in the planner's estimate
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Heuristic optimizers.**
 Early relational databases (System R, Ingres in the 1970s) used rule-based optimization: a fixed sequence of plan transformations. Predictable. Fragile. Could not adapt to data.
@@ -58,7 +70,9 @@ The pattern: each generation pushed the optimizer to do more — more transforma
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Reading an execution plan
 
@@ -213,7 +227,7 @@ This is mostly an OLAP innovation; OLTP databases process individual queries tha
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟡
 
 **The freight forwarder.**
 Shipping a container from Shanghai to Cleveland involves: ocean freight, port handling, customs, rail or truck, last-mile delivery. A naive shipper books each leg individually. A freight forwarder *plans* the route — choosing modes, stops, transfers — to minimize cost and time, given current conditions (port congestion, fuel prices, customs delays).
@@ -229,7 +243,7 @@ A query planner explores plan space similarly: enumerate, score, prune, return t
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The catastrophic plan flip.**
 A query that ran in 50ms suddenly takes 5 minutes. No code change. Investigation: statistics on a key column drifted; planner now estimates 10 rows instead of 100K. Chose nested loop join. Each "fast" iteration is a full table scan. Recovery: ANALYZE; plan returns to normal.
@@ -248,7 +262,7 @@ Engineer adds `/*+ USE_INDEX(idx_status) */` to fix a slow query. It works. Six 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Plan time matters for OLTP**, where queries are short. Postgres's plan time of 1-5ms is a real cost for sub-ms queries.
 - **Prepared statements** amortize plan time across executions.
@@ -258,7 +272,7 @@ Engineer adds `/*+ USE_INDEX(idx_status) */` to fix a slow query. It works. Six 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical**: more memory enables hash joins over nested loops; more CPU enables parallel query.
 - **Parallel query**: modern databases parallelize scans, sorts, and aggregates. Postgres parallel workers, Spark partitions, MPP databases.
@@ -268,7 +282,7 @@ Engineer adds `/*+ USE_INDEX(idx_status) */` to fix a slow query. It works. Six 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Indexing**: the planner's most powerful lever. Wrong index = wrong plan. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
 - **MVCC**: plans must consider visibility checks; bloated tables (high dead-tuple ratio) inflate estimated costs. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
@@ -281,7 +295,7 @@ The unifying observation: **the query planner is a small compiler whose output i
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Postgres's planner evolution**: ongoing improvements to multi-column statistics, partition-aware planning, parallel query. Public mailing lists track every change.
 - **MySQL's optimizer hints culture**: heavier reliance on hints than Postgres; community practice diverges.
@@ -292,7 +306,7 @@ The unifying observation: **the query planner is a small compiler whose output i
 
 ---
 
-## Key Takeaways
+## Key Takeaways 🟢
 
 **Mental models:**
 - A SQL query is a goal; the execution plan is the strategy. Between them sits a small compiler making decisions you didn't write — driven by statistics that may be stale, cost models that may misestimate, and a search space too large to fully explore. **Most query performance problems are statistics problems wearing a costume.**
@@ -313,7 +327,7 @@ The unifying observation: **the query planner is a small compiler whose output i
 - Watch out for **over-indexing**: many indexes on a heavy-write table slow INSERTs; audit and drop unused ones.
 - **Monitor plan changes** in production as a first-class signal (a plan flip after deploy is a classic regression).
 
-## Interview angle
+## Interview angle 🟡
 
 Common questions:
 1. **"Walk through this EXPLAIN output."** Fluency test — junior reads it, senior interprets it.

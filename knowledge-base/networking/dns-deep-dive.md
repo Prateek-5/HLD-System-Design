@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** computers find each other by number, but humans remember names — DNS is the system that looks up the number for a name so you can type "example.com" instead of "203.0.113.10".
+>
+> **Analogy:** it's the internet's phone book. You know a person's name but not their number, so you ask directory assistance, who looks it up through a chain of regional and local books — and everyone keeps a sticky note of recent answers (the cache) so they don't have to ask again every time.
+>
+> **New to this?** Build the basics first in [`learn/foundations/networking/dns.md`](../../learn/foundations/networking/dns.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall — a friendly mental model up front, but the failover, DNSSEC, and caching-pathology sections get genuinely senior. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 DNS (Domain Name System) translates human-friendly names ("example.com") into machine-friendly IP addresses (e.g., "203.0.113.10"). It's a hierarchical, distributed, caching system designed in 1983 and still running. Every browser request, every API call, every email starts with a DNS lookup.
 
@@ -16,7 +28,7 @@ This is the topic where naming, distribution, and caching collide. DNS is so fou
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a global phone book where every entry has multiple copies, scattered around the world.
 
@@ -30,7 +42,7 @@ The brilliant part: this scales globally with no central authority. The problema
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — HOSTS.TXT.**
 Early ARPANET: a single file `hosts.txt` listed all machines. Distributed manually. Worked for hundreds of hosts.
@@ -54,7 +66,9 @@ The pattern: DNS's basic design is unchanged; modern usage layers operational so
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### The hierarchy
 
@@ -226,7 +240,7 @@ Production: monitoring DNS resolution from many points (synthetic monitoring); a
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The phone book hierarchy.**
 National phone book → city phone books → individual entries. Each level points to the next. You don't carry the national book; you have a local one.
@@ -236,7 +250,7 @@ Local library doesn't have the book; asks regional library; regional asks nation
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The TTL trap.**
 TTL set to 86400s. IP change required. Users on cache for 24 hours. Recovery: educate; lower TTL for future.
@@ -255,7 +269,7 @@ Internal services use DNS for service discovery. DNS server fails. Services can'
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Cache hit**: microseconds (in browser/OS).
 - **Cache miss**: milliseconds (recursive lookup).
@@ -265,7 +279,7 @@ Internal services use DNS for service discovery. DNS server fails. Services can'
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Authoritative server**: handle millions of queries/sec at the largest providers.
 - **Recursive resolver**: similar at scale.
@@ -274,7 +288,7 @@ Internal services use DNS for service discovery. DNS server fails. Services can'
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Caching**: DNS is a cache hierarchy. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **Load balancing**: DNS-based load balancing. (See [load-balancing-strategies.md](../scalability/load-balancing-strategies.md).)
@@ -286,7 +300,7 @@ The unifying observation: **DNS is the layer everything depends on; its failures
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Dyn DNS attack (2016)**: massive DDoS against authoritative DNS provider; took down many sites including Twitter.
 - **AWS Route 53**: hyperscale managed DNS.

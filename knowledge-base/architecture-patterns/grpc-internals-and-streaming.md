@@ -2,9 +2,19 @@
 
 > *"gRPC took the best ideas from Google's internal Stubby — binary serialization, code generation, streaming, deadlines — and shipped them as the open-source default for service-to-service RPC. Where REST is a convention layered over HTTP, gRPC is an opinionated framework with the wire format, the runtime, and the API contract all carefully co-designed."*
 
+## 🎯 Start Here — Intuition
+
+> **In one line:** how services talk to each other fast and reliably by agreeing on a shared, compact "form" instead of sending wordy text messages back and forth.
+>
+> **Analogy:** ordering at a restaurant with a pre-printed code menu. Instead of explaining "I'd like a burger, medium, with fries" in plain words every time, you and the kitchen share a menu and you just say "B-2-M-F." Shorter, fewer mistakes, no language barrier — but if the menu changes, both sides have to reprint it.
+>
+> **New to this?** Build the basics first in [`learn/architecture/rest-graphql-grpc.md`](../../learn/architecture/rest-graphql-grpc.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡/🔴 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
 ---
 
-## Topic Overview
+## Topic Overview 🟢
 
 gRPC is a high-performance RPC framework. The pieces: **Protocol Buffers** for schema and serialization; **HTTP/2** as transport; **code generation** for client/server stubs; **streaming** as a first-class primitive (server-side, client-side, bidirectional). Used internally at Google for years; open-sourced 2015; now standard for modern microservice communication.
 
@@ -16,7 +26,7 @@ This is the topic that explains why "gRPC for internal, REST for external" is th
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine two ways for a customer to order from a restaurant.
 
@@ -30,7 +40,7 @@ That's gRPC vs REST. Schema (the menu); binary encoding (the codes); code genera
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Stubby (Google internal, 2001+).**
 Google's internal RPC framework. Polyglot, performant, used everywhere. Inaccessible to the outside.
@@ -54,7 +64,9 @@ The pattern: gRPC won the internal-RPC race. The combination of protobuf + HTTP/
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Protocol Buffers
 
@@ -304,7 +316,7 @@ Connect (by Buf) is an alternative that simplifies this further.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The pre-printed restaurant ticket.**
 Servers and cooks share a pre-printed menu. Server fills out a ticket (just numbers); cook reads the codes. Faster than handwritten orders; less ambiguity. Cost: menu changes require reprinting.
@@ -314,7 +326,7 @@ Old buildings used tubes for binary signals between rooms. Concise; pre-defined 
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -335,7 +347,7 @@ The senior gRPC engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The infinite deadline.**
 Service A calls Service B without a deadline. B's database is slow; calls take 30s. A's threads pile up; A becomes slow. Cascade. Recovery: enforce deadlines; emergency timeout in service mesh.
@@ -354,7 +366,7 @@ Engineering picks gRPC for a service used by browser. Discovers no native browse
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Wire size**: protobuf payloads are typically substantially smaller than equivalent JSON (varies widely with the data — most for numeric/structured payloads, less for string-heavy ones).
 - **Serialization cost**: protobuf encode/decode is generally faster than JSON parsing. Note this is *serialization* overhead, not end-to-end request latency — over a network, latency is usually dominated by network round-trips, TLS, and downstream work, so the protobuf advantage is a fraction of total latency, not a 5-10× speedup of the whole request.
@@ -363,7 +375,7 @@ Engineering picks gRPC for a service used by browser. Discovers no native browse
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Per-service**: handles tens of thousands of requests/sec on commodity hardware.
 - **Cross-region**: HTTP/2 + TLS handshake costs amortize over multiplexed calls.
@@ -372,7 +384,7 @@ Engineering picks gRPC for a service used by browser. Discovers no native browse
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **API Design**: gRPC is one of three primary API styles. (See [api-design-rest-vs-grpc.md](./api-design-rest-vs-grpc.md).)
 - **HTTP/2**: gRPC's transport. (See [http-2-and-http-3.md](../networking/http-2-and-http-3.md).)
@@ -385,7 +397,7 @@ The unifying observation: **gRPC is what happens when you take the cost of inter
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Google's Stubby and gRPC migration**: documented design.
 - **Lyft's Envoy + gRPC**: extensively documented service mesh.

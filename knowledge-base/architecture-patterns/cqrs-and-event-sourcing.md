@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** Instead of storing only *where things are now* (overwriting the old value each time), store the *full list of things that happened* — and use separate, purpose-built models for writing changes vs. reading answers.
+>
+> **Analogy:** A bank statement. The bank never stores just "your balance is $1,000" and erases the rest — it keeps every deposit and withdrawal, and your balance is just the running total. You can always ask "what was my balance on March 15th?" because the whole story is still there. CQRS adds a second twist: the teller window that *accepts* your deposit is run separately from the printed statement you *read* — same money, two purpose-built views.
+>
+> **New to this?** Build the basics first in [`learn/architecture/event-sourcing.md`](../../learn/architecture/event-sourcing.md) (and its companion [`learn/architecture/cqrs.md`](../../learn/architecture/cqrs.md)) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 CQRS (Command Query Responsibility Segregation) and Event Sourcing are usually mentioned together — sometimes as if they're the same thing — but they're separate ideas that compose. CQRS says: *"the model you use for writing should not be the same as the model you use for reading."* Event Sourcing says: *"don't store the current state of things; store the sequence of events that produced it, and derive state by replaying the events."*
 
@@ -16,7 +28,7 @@ This is the topic where MVCC's "log of versions" idea, distributed systems' "con
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Picture two ways to keep a bank account balance.
 
@@ -36,7 +48,7 @@ That's the entire idea. The interesting parts are everything that happens when y
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Banking and finance, forever.**
 Double-entry bookkeeping is event sourcing in disguise. You don't erase a debit; you record a corresponding credit. The ledger *is* the audit log. This pattern is centuries old.
@@ -60,7 +72,9 @@ The pattern: *event sourcing is finance's pattern, periodically rediscovered by 
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### CQRS without event sourcing
 
@@ -213,7 +227,7 @@ The system has two paths:
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The accountant's ledger.**
 A traditional ledger (event sourcing): every transaction is a new line; corrections are *new* lines (a credit to reverse a debit); the current balance is computed by summing. You can audit any moment in history. You can produce any view (annual statement, by-account, by-payee) by reading the same ledger differently. You don't *update* old lines — that would be falsifying records.
@@ -229,7 +243,7 @@ If software state were git, you'd never lose data, you'd always know who changed
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What event-sourced systems look like at 3am:
 
@@ -243,7 +257,7 @@ What event-sourced systems look like at 3am:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The projection that ate the database.**
 A projection emits 1 row to the read model per event. After 6 months and 100M events, the read model has 100M rows, half of which are obsolete states overridden by later events. Disk full. Realization: projections must produce *current state*, not historical state — that's what the event log is for.
@@ -262,7 +276,7 @@ Early decision: emit events for every "atomic" state change at the field level. 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Append-only writes are fast.** Event stores are essentially log-structured. Throughput is high.
 - **Replays are linear.** O(events). Projections must be efficient, idempotent, and parallelizable when possible.
@@ -273,7 +287,7 @@ Early decision: emit events for every "atomic" state change at the field level. 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical:** event store throughput is bounded by the disk's append rate. Tens of thousands of events per second on a single node easily.
 - **Horizontal:** partition the event log by aggregate ID. Each partition is an ordered log; cross-partition is unordered.
@@ -283,7 +297,7 @@ Early decision: emit events for every "atomic" state change at the field level. 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **MVCC**: event sourcing is MVCC promoted to the application layer. Both keep history; both derive state from versions. The vacuum/compaction problem is the snapshot problem. (See [mvcc-and-isolation-levels.md](../database-internals/mvcc-and-isolation-levels.md).)
 - **Distributed systems**: cross-aggregate consistency is the same as distributed consistency. Sagas, event-driven microservices, eventual consistency — all the same theory. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
@@ -296,7 +310,7 @@ The deep insight: **event sourcing is the architectural expression of "state is 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Stripe's ledger.** Stripe's internal financial ledger is event-sourced (publicly described in their engineering blog). The motivations are obvious: regulatory compliance, audit, correctness across currencies and time zones. They have an entire team building tools for projection management.
 - **Walmart's order management.** Public talks describe an event-sourced approach to order state machines, with explicit events for each transition. The audit and history requirements made it obvious.
@@ -339,7 +353,7 @@ The deep insight: **event sourcing is the architectural expression of "state is 
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

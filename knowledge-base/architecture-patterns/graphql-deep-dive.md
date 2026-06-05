@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** instead of the server deciding what each API endpoint returns, let the client ask for exactly the fields it wants — no more, no less — in a single request.
+>
+> **Analogy:** a buffet with a custom order builder. At a fixed-menu restaurant (REST) you pick a preset combo and take whatever comes with it; at the buffet (GraphQL) you tell the chef the exact items you want on your plate. More flexible for you, but the kitchen has to handle any combination you dream up.
+>
+> **New to this?** Build the basics first in [`learn/architecture/rest-graphql-grpc.md`](../../learn/architecture/rest-graphql-grpc.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, climbing to 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 GraphQL is a query language and runtime for APIs. Where REST has many endpoints each returning fixed shapes, GraphQL has one endpoint where the client *queries* for exactly the data it wants. Servers expose a schema (types, queries, mutations, subscriptions); clients write queries against it; the server resolves and returns precisely the requested shape.
 
@@ -16,7 +28,7 @@ This is the topic where API design meets backend complexity. Used well at GitHub
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine three ways to order from a restaurant menu.
 
@@ -30,7 +42,7 @@ That's GraphQL. Customer-driven shape, with server complexity as the price.
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Facebook's mobile pain (2012).**
 Facebook's mobile apps needed flexible queries; REST endpoints didn't scale. Internal solution: GraphQL.
@@ -54,7 +66,9 @@ The pattern: GraphQL solved a specific problem; was over-applied; settled into a
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### The schema
 
@@ -337,7 +351,7 @@ Or middleware patterns. Easy to get wrong; auth bugs in GraphQL are common.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The buffet vs the menu.**
 (Already used.) Custom selection vs preset combos. Buffet is more flexible but requires more kitchen orchestration.
@@ -347,7 +361,7 @@ A car dealership where you can specify exact options. The factory must support a
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The DoS via query.**
 Public GraphQL API with no complexity limits. Attacker sends a deeply-nested query. Server fans out 1M DB calls. Database melts; service down. Recovery: add complexity scoring; persisted queries.
@@ -366,7 +380,7 @@ Federated query across 5 services. One service slow. Whole query slow. No circui
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Query parsing**: <1ms typically.
 - **Resolver overhead**: depends on N+1 handling.
@@ -376,7 +390,7 @@ Federated query across 5 services. One service slow. Whole query slow. No circui
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: Apollo Server scales reasonably.
 - **Horizontal**: standard HTTP scaling.
@@ -385,7 +399,7 @@ Federated query across 5 services. One service slow. Whole query slow. No circui
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **API Design**: one of three primary styles. (See [api-design-rest-vs-grpc.md](./api-design-rest-vs-grpc.md).)
 - **HTTP/2**: GraphQL over HTTP. (See [http-2-and-http-3.md](../networking/http-2-and-http-3.md).)
@@ -398,7 +412,7 @@ The unifying observation: **GraphQL is client-power and server-complexity. Where
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **GitHub's GraphQL API v4**: full-featured public API.
 - **Shopify's GraphQL Admin API**: rich; documented at scale.

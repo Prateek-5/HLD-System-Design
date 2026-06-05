@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how to replace an old, critical system that's still in daily use — without a scary "big bang" rewrite that risks breaking everything at once.
+>
+> **Analogy:** renovating a house while you still live in it. You don't demolish the whole place and move into a hotel for two years; you redo one room at a time, keep using the rest, and only knock down the old part once the new part works.
+>
+> **New to this?** Build the basics first in [`learn/architecture/monolith-vs-microservices.md`](../../learn/architecture/monolith-vs-microservices.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the database and validation sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 The "Big Rewrite" is the classic engineering disaster. A team decides the legacy system is unfixable; they'll write a clean replacement; in 18 months, they'll switch over. Two years later, the rewrite is 60% done, the legacy system has continued evolving with new features the rewrite doesn't have, and the team is exhausted. This story has played out at thousands of companies — Netscape, Microsoft, countless less-famous teams — almost always with the same ending.
 
@@ -14,7 +26,7 @@ This is the topic where engineering humility meets organizational strategy. Most
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine you must replace the engine of a moving car.
 
@@ -28,7 +40,7 @@ That's the strangler fig pattern. Each migration is small and reversible. The le
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Big rewrites and their failures.**
 1990s, 2000s. Famous failures: Netscape's Mozilla rewrite (Joel Spolsky's "Things You Should Never Do" essay, 2000); Microsoft's countless code-base rewrites; thousands of un-named startup catastrophes. The pattern is well-documented; the failures keep recurring.
@@ -49,7 +61,9 @@ The pattern: each generation produced more sophisticated migration techniques, o
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The strangler fig pattern
 
@@ -197,7 +211,7 @@ Many proposed migrations don't survive cost-benefit analysis. Saying no is somet
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The hospital renovation.**
 A hospital can't close for a year while it renovates. Instead, they renovate one wing while patients use other wings. Slowly the new wings replace old ones. Patients are gradually moved. Eventually, the original building is demolished — but only after every function has been moved.
@@ -211,7 +225,7 @@ This is the long-tail outcome: the new system handles current load; the old syst
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The two-year migration that never finished.**
 Started as "rewrite in microservices." Two years in: 60% migrated. New features go to old system because that's faster. Migration never catches up. Eventually project is killed; some pieces stay migrated, most don't. Mixed-architecture mess.
@@ -230,7 +244,7 @@ New system migrated 95% of features. Last 5% is "we don't think anyone uses thes
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Migration cost**: significant engineering investment over months/years.
 - **Parallel run cost**: doubled compute during validation phases.
@@ -239,7 +253,7 @@ New system migrated 95% of features. Last 5% is "we don't think anyone uses thes
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Small monoliths**: strangler is straightforward; one team can manage.
 - **Large monoliths**: multi-team coordination; long timelines (years).
@@ -248,7 +262,7 @@ New system migrated 95% of features. Last 5% is "we don't think anyone uses thes
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Microservices vs monolith**: extracting services from a monolith is the canonical strangler use case. (See [microservices-vs-monolith.md](./microservices-vs-monolith.md).)
 - **Feature flags**: strangler routes are typically flag-controlled. (See [feature-flags-and-progressive-delivery.md](../system-failures/feature-flags-and-progressive-delivery.md).)
@@ -261,7 +275,7 @@ The unifying observation: **legacy migration is engineering's hardest problem, n
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Shopify's monolith preservation**: extensive public engineering on extracting bounded contexts from a Rails monolith over a decade.
 - **Stripe's API migrations**: documented patterns for evolving APIs with thousands of customers.

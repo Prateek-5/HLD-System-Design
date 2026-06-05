@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** big systems get messy because different teams use the same word ("order", "customer", "patient") to mean different things — this is about drawing clear boundaries so each part keeps its own meaning and outside systems can't pollute it.
+>
+> **Analogy:** a country's border checkpoint. Inside your country you use your own language, currency, and rules. When goods cross from a neighbor, customs translates the paperwork, swaps the currency, and checks the rules — so foreign quirks stop at the border instead of leaking in. The anti-corruption layer is that checkpoint between two systems.
+>
+> **New to this?** Build the basics first in [`learn/architecture/monolith-vs-microservices.md`](../../learn/architecture/monolith-vs-microservices.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🟢 at the top. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Domain-Driven Design (DDD), Eric Evans's 2003 book, is one of the most influential — and most uneven-adopted — works in software architecture. Its insight: software complexity is dominated by *domain complexity*, not technical complexity. The job of a software architect is to model the domain accurately, with rigorous vocabulary that matches how the business actually thinks.
 
@@ -16,7 +28,7 @@ This is the topic where software architecture becomes about *language* and *conc
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a hospital with three departments: emergency, surgery, billing.
 
@@ -36,7 +48,7 @@ That's bounded contexts. That's the insight DDD makes formal: don't merge concep
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Eric Evans's book (2003).**
 "Domain-Driven Design: Tackling Complexity in the Heart of Software." Defines the vocabulary, the patterns, the philosophy. Influential but adoption uneven.
@@ -60,7 +72,9 @@ The pattern: DDD's insights are now widespread; the explicit practice remains sp
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Bounded contexts
 
@@ -241,7 +255,7 @@ DDD shines for systems with rich, evolving business logic. Don't impose it every
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The legal system's specialized courts.**
 Family court, criminal court, tax court, traffic court. Each has its own procedures, vocabulary, judges. They share a person ("the defendant") but treat them with different concerns. The court structure is a real-world bounded-context architecture.
@@ -251,7 +265,7 @@ Family court, criminal court, tax court, traffic court. Each has its own procedu
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -270,7 +284,7 @@ The senior architect's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The shared-customer disaster.**
 One Customer class used across order, billing, support, marketing. Each team adds fields. After 5 years: 200-field class; tests slow; changes risky. Migration to bounded contexts: 18 months.
@@ -289,7 +303,7 @@ Team adopts entities, value objects; doesn't define bounded contexts. Code is "D
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **DDD has no inherent performance cost.**
 - **Aggregates** as transaction boundaries align with database performance.
@@ -298,7 +312,7 @@ Team adopts entities, value objects; doesn't define bounded contexts. Code is "D
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Bounded contexts → microservices**: natural alignment.
 - **Aggregates → shard keys**: aggregates are natural units of partitioning.
@@ -307,7 +321,7 @@ Team adopts entities, value objects; doesn't define bounded contexts. Code is "D
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Microservices vs monolith**: bounded contexts inform service boundaries. (See [microservices-vs-monolith.md](./microservices-vs-monolith.md).)
 - **Event-driven architecture**: domain events fit naturally. (See [event-driven-architecture.md](./event-driven-architecture.md).)
@@ -319,7 +333,7 @@ The unifying observation: **DDD is the discipline of taking domain vocabulary se
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Eric Evans's book examples**: shipping, banking.
 - **Vaughn Vernon's "Implementing DDD"**: practical case studies.
@@ -344,7 +358,7 @@ The unifying observation: **DDD is the discipline of taking domain vocabulary se
 
 ---
 
-## Interview angle
+## Interview angle 🟢
 
 What gets tested:
 

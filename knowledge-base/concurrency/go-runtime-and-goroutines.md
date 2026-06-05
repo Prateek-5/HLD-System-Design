@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how to run thousands of things "at the same time" cheaply, by giving each task its own tiny worker and letting a smart manager juggle them onto a handful of real CPU threads — so you write simple step-by-step code that still scales.
+>
+> **Analogy:** a busy restaurant kitchen with three chefs and a flood of orders. Each order (goroutine) is handled step by step, but while one dish bakes the chef starts another. A manager (the scheduler) keeps every chef busy, and orders coordinate through written tickets (channels) instead of shouting across the room.
+>
+> **Assumes you already know:** what an OS process/thread is and why threads are relatively heavyweight — build that in [`learn/reliability/vms-and-containers.md`](../../learn/reliability/vms-and-containers.md). It also helps to have a feel for how systems scale across cores/machines: [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md). *(This is a knowledge-base-only deep dive — the beginner learning path has no Go/concurrency topic, so start with those OS fundamentals.)*
+>
+> **Level:** this file is 🟡/🔴 overall — the mental models are approachable, but the scheduler internals, syscall handling, and GC are genuinely senior material. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 The Go runtime is what makes goroutines work. A goroutine is a lightweight execution context — much cheaper than an OS thread, but with similar programming semantics. The Go scheduler multiplexes millions of goroutines onto a small number of OS threads, with work-stealing for load balance and integrated I/O for non-blocking semantics that look blocking.
 
@@ -14,7 +26,7 @@ This is the topic that explains why "rewriting in Go" has been a recurring engin
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a kitchen with three chefs and unlimited orders.
 
@@ -30,7 +42,7 @@ That's Go's runtime. Many concurrent activities; few execution threads; a smart 
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Go's design (2009).**
 Pike, Griesemer, Thompson at Google. Goroutines and channels as first-class. Inspired by CSP (Tony Hoare).
@@ -51,7 +63,7 @@ The pattern: Go's runtime has steadily evolved. The fundamental design stays; th
 
 ---
 
-## Core Mental Models
+## Core Mental Models 🟡
 
 **1. Goroutines are M:N multiplexed onto OS threads.**
 Many goroutines (M) share a fewer OS threads (N). Scheduler handles assignment.
@@ -70,7 +82,9 @@ Each P (processor context) has a local queue. Idle Ps steal from busy ones.
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest of this section assumes the basics above are solid — G/M/P scheduling, syscall handling, the network poller, preemption, and GC are senior-level internals.
 
 ### G, M, P — the Go scheduler
 
@@ -269,7 +283,7 @@ Each stage is a goroutine reading from its input channel and writing to its outp
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The kitchen brigade.**
 Head chef directs; line cooks specialize; runners deliver; communication via order tickets. Many concurrent activities; few people; clear roles. Goroutines and channels are the engineered version.
@@ -279,7 +293,7 @@ Workers move between stations as demand varies. The supervisor (scheduler) reass
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -300,7 +314,7 @@ The senior Go engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The goroutine leak.**
 HTTP handler launches goroutine; never returns. After million requests: million goroutines. Memory exhausted. Fix: bounded lifetimes via context.
@@ -319,7 +333,7 @@ High allocation rate; GC overhead 30%. Reduced via pooling; CPU recovered.
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Goroutine creation**: microseconds.
 - **Goroutine switch**: nanoseconds (cooperative).
@@ -329,7 +343,7 @@ High allocation rate; GC overhead 30%. Reduced via pooling; CPU recovered.
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Single process**: millions of goroutines.
 - **Multi-core**: GOMAXPROCS scales to CPUs.
@@ -338,7 +352,7 @@ High allocation rate; GC overhead 30%. Reduced via pooling; CPU recovered.
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Coroutines**: goroutines are coroutines. (See [coroutines-and-green-threads.md](./coroutines-and-green-threads.md).)
 - **Backpressure**: bounded channels are backpressure. (See [backpressure-and-queues.md](./backpressure-and-queues.md).)
@@ -350,7 +364,7 @@ The unifying observation: **Go's runtime is what makes Go's concurrency story wo
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Discord's voice servers**: documented Go usage.
 - **Cloudflare's Go services**: extensive public engineering.

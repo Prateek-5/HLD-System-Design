@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** Instead of making every user wait for a round-trip to one faraway server, keep copies of your content — and even run your code — in hundreds of locations close to users, so responses arrive in milliseconds instead of hundreds of milliseconds.
+>
+> **Analogy:** A global pizza chain. One kitchen in Chicago means cold pizza shipped worldwide. A CDN is 200 local branches each stocking ready-made pizzas (cached files). Edge computing is those same branches actually *making* pizzas to order from a small set of local ingredients — fast and custom, but they can't cook every dish, and rare ingredients still come from headquarters.
+>
+> **New to this?** Build the basics first in [`learn/foundations/scaling/cdn.md`](../../learn/foundations/scaling/cdn.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. The CDN basics are approachable; edge runtimes, anycast, and state-at-the-edge are senior-level. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A CDN (Content Delivery Network) moves static content close to users. Edge computing extends the idea: run *application logic* close to users, not just serve files. Cloudflare Workers, AWS Lambda@Edge, Vercel Edge Functions, Fastly Compute@Edge — each is a different take on "execute code at hundreds of locations worldwide, milliseconds from any user."
 
@@ -14,7 +26,7 @@ This is the topic that bridges networking, distributed systems, and architecture
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a global pizza chain.
 
@@ -30,7 +42,7 @@ That's edge computing. The kitchens are edge nodes. The recipe is your code. The
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Akamai and the CDN birth.**
 1998. Akamai pioneers CDN. Static asset caching at edge. Massive performance wins for media-heavy sites. Industry-changing.
@@ -54,7 +66,9 @@ The pattern: each generation moved more capability to the edge. Static → dynam
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### CDN basics
 
@@ -183,7 +197,7 @@ A CDN PoP in Sydney: maybe 5-10ms RTT. The same request: tens of ms total. The u
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The library system.**
 Public libraries don't keep one giant collection — they have branch libraries with the most-popular books, and the central library for everything else. Books popular at one branch are stocked there; rare books are requested from central. The hierarchy is exactly CDN architecture.
@@ -193,7 +207,7 @@ McDonald's doesn't ship every burger from one kitchen. Every restaurant is an "e
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -207,7 +221,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The cache poisoning.**
 Cache key didn't include `Accept-Language`. User in France requested page; got German version cached. All subsequent users hit that PoP got German content. Recovery: purge; add `Vary: Accept-Language`.
@@ -226,7 +240,7 @@ Team moves CPU-heavy logic to edge for latency. Bill triples — edge compute is
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **CDN cache hit**: 5-50ms (PoP to user); zero origin work.
 - **CDN cache miss + origin trip**: 100-300ms typical.
@@ -236,7 +250,7 @@ Team moves CPU-heavy logic to edge for latency. Bill triples — edge compute is
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical (per PoP)**: limited; PoPs are small relative to origin.
 - **Horizontal (PoPs)**: hundreds to thousands of PoPs globally; auto-scales with provider.
@@ -245,7 +259,7 @@ Team moves CPU-heavy logic to edge for latency. Bill triples — edge compute is
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Caching hierarchy**: CDN is the topmost layer of the cache hierarchy. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **Load balancing**: Anycast routes users to PoPs; PoPs load-balance to origins. (See [load-balancing-strategies.md](./load-balancing-strategies.md).)
@@ -258,7 +272,7 @@ The unifying observation: **edge computing is the geographic dimension of distri
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Cloudflare's global network**: 300+ PoPs; canonical reference for CDN at scale.
 - **Netflix Open Connect**: their custom CDN appliances co-located with ISPs. Massive bandwidth savings.

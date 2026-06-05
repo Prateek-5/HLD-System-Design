@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a huge group of servers keeps a shared, up-to-date list of who's alive, who's dead, and who just joined — without anyone being in charge of the list.
+>
+> **Analogy:** office gossip. Nobody emails a company-wide memo every time someone is out sick. Instead, each person tells a couple of coworkers what they heard; those coworkers tell a couple more; within a day the whole office knows — and no single person had to track everyone.
+>
+> **New to this?** Build the basics first in [`learn/foundations/scaling/clustering.md`](../../learn/foundations/scaling/clustering.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the protocol internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A cluster of computers needs to know which members are alive, which are dead, and which have just joined. At small scale, a central registry works (ZooKeeper, etcd). At large scale, the central registry becomes a bottleneck — and worse, a single point of failure for the cluster's *self-knowledge*.
 
@@ -14,7 +26,7 @@ This is the topic where probabilistic algorithms shine. No node knows the full t
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a rumor spreading through a town of 10,000 people.
 
@@ -32,7 +44,7 @@ The cost: the system never has a single source of truth. The benefit: no single 
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Centralized membership.**
 1990s, 2000s. ZooKeeper-style central registries. Excellent at small scale; bottleneck and SPOF at large scale.
@@ -56,7 +68,9 @@ The pattern: gossip protocols evolved from theoretical curiosity to production-e
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Anti-entropy vs rumor-mongering
 
@@ -188,7 +202,7 @@ This is a *content* gossip — the goal is data convergence, not just membership
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The disease epidemic.**
 A virus spreads in `O(log N)` time through a population, regardless of population size. No central authority distributes the virus. Yet within days, large fractions are infected. Public health uses this model to predict and contain epidemics — and the same math underpins gossip protocols.
@@ -201,7 +215,7 @@ A small business doesn't advertise; satisfied customers tell friends. Each custo
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -214,7 +228,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The Cassandra cluster's gossip storm.**
 A large rolling restart causes many state changes. Gossip volume spikes 10×. Network saturated. Other inter-node traffic delayed. Service appears slow. Recovery: throttle gossip rate; resume after dust settles.
@@ -233,7 +247,7 @@ Security update blocks gossip ports between zones. Each zone thinks others are d
 
 ---
 
-## Performance & Scaling
+## Performance & Scaling 🟡
 
 - **Per-node bandwidth**: constant (a few messages/second); aggregate scales with N but is sub-linear per node and bounded by gossip frequency.
 - **Convergence time**: `log(N) × interval` — logarithmic, seconds in practice.
@@ -244,7 +258,7 @@ Security update blocks gossip ports between zones. Each zone thinks others are d
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **CAP**: gossip is the "AP" choice for cluster state. (See [cap-consistency-and-replication.md](./cap-consistency-and-replication.md).)
 - **Consensus**: complementary; consensus for what must be authoritative, gossip for what must scale. (See [leader-election-and-consensus.md](./leader-election-and-consensus.md).)
@@ -257,7 +271,7 @@ The unifying observation: **gossip is the protocol that enables decentralized co
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Cassandra's gossip**: production-tested at thousands of nodes.
 - **Consul/Serf**: HashiCorp's SWIM-based protocol. Documented design.
@@ -287,7 +301,7 @@ The unifying observation: **gossip is the protocol that enables decentralized co
 
 ---
 
-## Interview Angle
+## Interview Angle 🟡
 
 What gets tested:
 

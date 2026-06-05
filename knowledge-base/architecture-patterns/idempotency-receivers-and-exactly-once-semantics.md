@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when a message might get delivered twice (because retries happen), this is how you make sure the *result* still happens only once — the customer is charged once, the email is sent once.
+>
+> **Analogy:** a hotel front desk that writes down your confirmation number. If a dropped phone call makes you call back and re-book with the same number, the agent says "already booked, here's your confirmation" instead of reserving a second room. One number, one reservation — no matter how many times you call.
+>
+> **Assumes you already know:** message queues and at-least-once delivery (build it in [`message-queues`](../../learn/architecture/message-queues.md) and [`event-driven-architecture`](../../learn/architecture/event-driven-architecture.md)), and ideally [`distributed-transactions`](../../learn/data/distributed-transactions.md) for the outbox/saga sections.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the deep sections (Kafka EOS, CRDTs, outbox). Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 "Exactly-once" is the holy grail of message-based systems and distributed transactions. The customer gets charged once. The email is sent once. The order is fulfilled once. Anything else is broken.
 
@@ -16,7 +28,7 @@ This is the topic that transforms the impossible into the practical. Idempotency
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a hotel taking room reservations.
 
@@ -32,7 +44,7 @@ Exactly-once delivery would have meant the call never dropped, the customer neve
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — At-most-once.**
 Early systems didn't retry. Lost messages were lost. Acceptable for some use cases (telemetry, logs); unacceptable for state changes (payments, orders).
@@ -56,7 +68,9 @@ The pattern: each generation made effectively-once easier. The impossibility of 
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest of this section assumes the basics above are solid — at-least-once delivery, idempotency keys, and why retries happen.
 
 ### The impossibility theorem (informal)
 
@@ -232,7 +246,7 @@ For at-least-once, idempotency is sufficient. For out-of-order delivery, commuta
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The check with a memo number.**
 You write a check with a memo number. The bank deposits it. If you accidentally write a duplicate check (same memo), the bank's system detects the duplicate and rejects. The check itself has the idempotency key. The bank is the idempotent receiver.
@@ -242,7 +256,7 @@ A shipping company gives each package a tracking number. If you (or the sender) 
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -263,7 +277,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The double-charge incident.**
 A flaky network during payment. Client retries without idempotency key (legacy code). Two charges. Customer complains. Refund issued; customer churns. Lesson: enforce idempotency keys.
@@ -282,7 +296,7 @@ TTL set to 5 minutes. Customer retries after 10 minutes (slow connectivity). Key
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Dedup lookup**: typically a fast in-memory or Redis lookup. Microseconds.
 - **Persistent dedup**: DB row with unique constraint. Millisecond-class.
@@ -291,7 +305,7 @@ TTL set to 5 minutes. Customer retries after 10 minutes (slow connectivity). Key
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Idempotency store**: scales horizontally (sharded by key).
 - **Outbox**: per-service; scales with service.
@@ -300,7 +314,7 @@ TTL set to 5 minutes. Customer retries after 10 minutes (slow connectivity). Key
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Timeouts/retries**: idempotency makes retries safe. (See [timeouts-retries-and-idempotency.md](../system-failures/timeouts-retries-and-idempotency.md).)
 - **Sagas**: each saga step is idempotent. (See [saga-pattern-and-distributed-transactions.md](./saga-pattern-and-distributed-transactions.md).)
@@ -312,7 +326,7 @@ The unifying observation: **idempotency is the application-layer compensation fo
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Stripe's idempotency-key documentation**: industry-shaping reference.
 - **AWS SDK retry patterns**: idempotency hints throughout.

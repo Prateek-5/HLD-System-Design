@@ -4,7 +4,17 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** A database built for data that's constantly being recorded over time (sensor readings, server metrics, stock ticks) — so you can store huge volumes cheaply and answer "what happened between 2pm and 3pm?" fast.
+>
+> **Analogy:** A grocery store's security camera footage. New frames are added every second and never edited; old footage is compressed and eventually auto-deleted; and you almost never ask "show me frame #4,812,003" — you ask "show me the last 20 minutes." A time-series database stores data the same way the camera stores video: append-only, compressed, and organized by time.
+>
+> **Assumes you already know:** what a database is ([`learn/data/db-and-dbms.md`](../../learn/data/db-and-dbms.md)) and the basics of how data gets stored on disk ([`learn/foundations/scaling/storage.md`](../../learn/foundations/scaling/storage.md)). Familiarity with NoSQL ([`learn/data/nosql-databases.md`](../../learn/data/nosql-databases.md)) helps but isn't required.
+>
+> **Level:** this file is 🟡 overall, ramping to 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+## 🟢 Topic Overview
 
 Time-series data is data indexed by time: server metrics, IoT sensor readings, financial ticks, user events, application logs (sometimes). The defining characteristics: high write rate (often millions of points/sec); append-only (data isn't updated, only added); queries are time-range based ("last hour," "last day"); aggregation is the dominant query pattern (averages, percentiles, downsampling).
 
@@ -14,7 +24,7 @@ This is the topic that explains why Prometheus exists alongside Postgres; why Da
 
 ---
 
-## Intuition Before Definitions
+## 🟢 Intuition Before Definitions
 
 Imagine a weather station recording temperature every minute, year-round.
 
@@ -28,7 +38,7 @@ That's a TSDB. Same data; storage shaped for the access pattern. The benefit com
 
 ---
 
-## Historical Evolution
+## 🟢 Historical Evolution
 
 **Era 1 — RRDtool.**
 1999. Round-robin database for monitoring. Fixed-size circular buffers. Limited but efficient for the era.
@@ -52,7 +62,7 @@ The pattern: time-series became its own category, then converged with columnar O
 
 ---
 
-## Core Mental Models
+## 🟡 Core Mental Models
 
 **1. Time is the primary index.**
 Most queries filter by time range. Storage is partitioned by time.
@@ -71,7 +81,9 @@ Time series with high-cardinality labels (user_id) explode. (See [cardinality-an
 
 ---
 
-## Deep Technical Explanation
+## 🔴 Deep Technical Explanation
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Data model
 
@@ -230,7 +242,7 @@ Tuning compaction is real work in production TSDBs.
 
 ---
 
-## Real Engineering Analogies
+## 🟡 Real Engineering Analogies
 
 **The flight data recorder.**
 Captures every cockpit input every fraction of a second. Stores compactly because it's all similar data. Records overwrite when full (ring buffer). Query is "what happened in the last 30 minutes?" — exactly time-range.
@@ -240,7 +252,7 @@ Records ground motion continuously. Aggregates for daily reports. Drills into sp
 
 ---
 
-## Production Engineering Perspective
+## 🔴 Production Engineering Perspective
 
 What goes wrong:
 
@@ -260,7 +272,7 @@ The senior TSDB operator's habits:
 
 ---
 
-## Failure Scenarios
+## 🔴 Failure Scenarios
 
 **Scenario 1 — The cardinality explosion.**
 Engineer adds `request_id` (unbounded) as label. TSDB OOMs. Recovery: revert; rebuild storage.
@@ -279,7 +291,7 @@ Cardinality even except for one customer with 80% of metrics. That shard hot. Mi
 
 ---
 
-## Performance Perspective
+## 🟡 Performance Perspective
 
 - **Write rate**: millions/sec on dedicated TSDBs.
 - **Query rate**: thousands/sec; varies by complexity.
@@ -289,7 +301,7 @@ Cardinality even except for one customer with 80% of metrics. That shard hot. Mi
 
 ---
 
-## Scaling Perspective
+## 🔴 Scaling Perspective
 
 - **Vertical**: bigger nodes; tens of millions of series.
 - **Horizontal**: shard by series or tenant.
@@ -298,7 +310,7 @@ Cardinality even except for one customer with 80% of metrics. That shard hot. Mi
 
 ---
 
-## Cross-Domain Connections
+## 🟡 Cross-Domain Connections
 
 - **OLTP vs OLAP**: time-series is closer to OLAP. (See [oltp-vs-olap-and-columnar-storage.md](./oltp-vs-olap-and-columnar-storage.md).)
 - **Cardinality**: the critical economics. (See [cardinality-and-the-economics-of-monitoring.md](../observability/cardinality-and-the-economics-of-monitoring.md).)
@@ -310,7 +322,7 @@ The unifying observation: **time-series databases are storage and query engines 
 
 ---
 
-## Real Production Scenarios
+## 🔴 Real Production Scenarios
 
 - **Cloudflare's ClickHouse usage**: petabyte-scale time-series.
 - **Datadog's TSDB**: extensive public engineering.

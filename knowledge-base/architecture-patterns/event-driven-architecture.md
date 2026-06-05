@@ -2,9 +2,19 @@
 
 > *"Events are statements about the past. Commands are requests about the future. Architecting around events instead of commands is a way of saying: 'I trust the past more than I trust the request that just arrived.' Done right, this produces systems with looser coupling, better history, and more reliability. Done wrong, it produces a distributed mess where nobody knows what's happening."*
 
+## 🎯 Start Here — Intuition
+
+> **In one line:** instead of services phoning each other and waiting on the line, they announce "this just happened" and anyone who cares reacts on their own time.
+>
+> **Analogy:** a community bulletin board. You pin a notice — "Garage sale Saturday" — and walk away. You don't know or care who reads it. Interested neighbors see it whenever they pass by and act on it; uninterested ones ignore it. The board (the broker) decouples the person posting from the people reading.
+>
+> **New to this?** Build the basics first in [`learn/architecture/event-driven-architecture.md`](../../learn/architecture/event-driven-architecture.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, climbing to 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
 ---
 
-## Topic Overview
+## Topic Overview 🟢
 
 Event-driven architecture (EDA) is the pattern where services communicate by emitting and consuming *events* — facts about things that happened — rather than calling each other directly. "Order placed." "Payment received." "Inventory reserved." Each event is a message published to a broker; interested services consume it asynchronously.
 
@@ -16,7 +26,7 @@ This is the topic where Kafka, queues, sagas, CQRS, and event sourcing meet. Don
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine running a magazine subscription service.
 
@@ -30,7 +40,7 @@ That's event-driven architecture. The flow is the same; the coupling is differen
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Pub/sub on message brokers.**
 1990s, 2000s. JMS, MQ, RabbitMQ. Publisher-subscriber decoupling. Used in enterprise; less in web.
@@ -54,7 +64,9 @@ The pattern: each generation made event-driven easier and more reliable. The fun
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Events vs commands vs messages
 
@@ -206,7 +218,7 @@ The discipline: events are a contract with downstream services. Treat schema cha
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The newspaper subscription.**
 Newspapers publish; subscribers read at their own pace. Publishers don't know individual readers; readers don't talk back. New publications start; subscribers add them. Old publications cease; subscribers unsubscribe. The decoupling is total.
@@ -220,7 +232,7 @@ A radio dispatcher (event-driven): events broadcast on the radio. Maintenance he
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -244,7 +256,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The poison pill cascade.**
 Producer ships malformed events. Consumer fails on each. Retries; no progress. Lag grows. Other (valid) events also blocked because they're behind the poison pill in the queue. Mitigation: skip-on-failure with DLQ.
@@ -263,7 +275,7 @@ Consumer down for maintenance. Topic retention is 7 days. Maintenance takes 8 da
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Producer latency**: ~milliseconds for Kafka; ~tens of microseconds for in-memory brokers.
 - **End-to-end latency** in event flows: dominated by consumer processing time + lag.
@@ -273,7 +285,7 @@ Consumer down for maintenance. Topic retention is 7 days. Maintenance takes 8 da
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: bigger brokers; more partitions per broker.
 - **Horizontal**: more brokers; more partitions; more consumers.
@@ -282,7 +294,7 @@ Consumer down for maintenance. Topic retention is 7 days. Maintenance takes 8 da
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Sagas**: sagas built on events. (See [saga-pattern-and-distributed-transactions.md](./saga-pattern-and-distributed-transactions.md).)
 - **CQRS / event sourcing**: event-driven naturally. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
@@ -295,7 +307,7 @@ The unifying observation: **event-driven architecture is loose coupling realized
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **LinkedIn's Kafka origin**: built for activity stream events; spawned the company.
 - **Netflix's event-driven architecture**: extensive public engineering.

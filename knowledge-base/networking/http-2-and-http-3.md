@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** newer versions of HTTP let a browser fetch all the pieces of a web page over one connection at once, instead of waiting in line for each one — so pages load faster, especially on slow or mobile networks.
+>
+> **Analogy:** ordering at a restaurant. HTTP/1.1 is one waiter who takes one dish order, walks to the kitchen, brings it back, and only then takes your next order. HTTP/2 is one waiter who takes your whole order at once and brings dishes as they're ready — but if a tray gets dropped in the kitchen, the whole order waits. HTTP/3 gives each dish its own runner, so a dropped tray only delays that one dish.
+>
+> **Assumes you already know:** TCP vs UDP and the TCP handshake (see [`learn/foundations/networking/tcp-udp.md`](../../learn/foundations/networking/tcp-udp.md)) and TLS/SSL basics (see [`learn/reliability/ssl-tls-mtls.md`](../../learn/reliability/ssl-tls-mtls.md)). This is a KB-only deep dive with no beginner learn/ counterpart — build those fundamentals first.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the QUIC/QPACK/handshake internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 HTTP, the protocol that defines the web, has gone through three major versions. **HTTP/1.1** (1997) is the textual, human-readable protocol most engineers learned. **HTTP/2** (2015) added binary framing, multiplexing, header compression, and server push — major performance improvements while running on TCP. **HTTP/3** (2022) replaces TCP with **QUIC** (over UDP), eliminating head-of-line blocking and reducing connection-establishment latency.
 
@@ -14,7 +26,7 @@ This is the topic where networking, web architecture, and protocol design meet. 
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine fetching a webpage with 100 resources.
 
@@ -28,7 +40,7 @@ Each generation reduced the number of round-trips required to deliver content. F
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — HTTP/0.9 and 1.0.**
 1990s. Simple text protocols. New connection per request.
@@ -52,7 +64,9 @@ The pattern: each version reduced round-trips and head-of-line blocking. Adoptio
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest of this section assumes the basics above are solid.
 
 ### HTTP/1.1 limitations
 
@@ -197,7 +211,7 @@ Debugging encrypted protocols is harder than HTTP/1.1; logs and instrumentation 
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The single-lane bridge vs the multi-lane highway.**
 HTTP/1.1: one lane; one car at a time. Slow car blocks everyone.
@@ -211,7 +225,7 @@ HTTP/3: video call with breakout rooms; each subtopic is independent; one person
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -224,7 +238,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The connection-coalescing outage.**
 Two services share `*.example.com` cert; HTTP/2 coalesces connections. Service A has issue; HTTP/2 connection is reused for service B; B fails too despite being healthy. Recovery: split certs.
@@ -243,7 +257,7 @@ TLS 1.3 0-RTT data is replayable by attackers. Application must ensure idempoten
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **HTTP/1.1**: slowest; multiple connections required for parallelism.
 - **HTTP/2**: 1 connection multiplexes many streams; significant improvement.
@@ -253,7 +267,7 @@ TLS 1.3 0-RTT data is replayable by attackers. Application must ensure idempoten
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Connection count**: HTTP/2 reduces connections by 6×; HTTP/3 similar.
 - **Bandwidth**: header compression saves bytes; major win at scale.
@@ -262,7 +276,7 @@ TLS 1.3 0-RTT data is replayable by attackers. Application must ensure idempoten
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **TCP**: HTTP/2 over TCP; HTTP/3 over UDP/QUIC. (See [tcp-and-network-fundamentals.md](./tcp-and-network-fundamentals.md).)
 - **API design**: gRPC uses HTTP/2; HTTP/3 emerging. (See [api-design-rest-vs-grpc.md](../architecture-patterns/api-design-rest-vs-grpc.md).)
@@ -274,7 +288,7 @@ The unifying observation: **HTTP's evolution is a story of removing round-trips.
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Cloudflare's HTTP/3 deployment**: extensive public engineering on QUIC implementation.
 - **Google's QUIC origin**: papers and design docs.
@@ -300,7 +314,7 @@ The unifying observation: **HTTP's evolution is a story of removing round-trips.
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

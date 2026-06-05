@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a team should act *while* something is on fire (stop the damage fast, with clear roles) and *afterward* (calmly figure out why, fix the real cause, and not blame anyone).
+>
+> **Analogy:** a house fire with a fire drill and a follow-up. During the fire, one person calls 911, one uses the extinguisher, one gets the kids out — nobody screams because everyone knows their job. A week later you sit down calmly: why was the stove unattended? Why was the smoke detector dead? You fix the *system* (new timers, battery checks) instead of arguing about whose fault it was.
+>
+> **Assumes you already know:** what "availability" / uptime means (see [`learn/foundations/scaling/availability.md`](../../learn/foundations/scaling/availability.md)), and SLAs/SLOs/SLIs (see [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md)). Disaster recovery is a useful neighbor (see [`learn/reliability/disaster-recovery.md`](../../learn/reliability/disaster-recovery.md)).
+>
+> **Level:** this file is 🟡 overall — it is process/culture, not deep code, so most of it is reachable. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Incident response and postmortems are the operational disciplines that turn outages from disasters into education. The first half — incident response — is the structured, time-pressured work of mitigating customer impact when something is broken. The second half — postmortems — is the reflective, time-deferred work of understanding *why* it broke and what should change.
 
@@ -14,7 +26,7 @@ This is the topic where reliability transitions from a technical concern to an o
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine your kitchen catches fire.
 
@@ -30,7 +42,7 @@ That's the entire framework. Speed and clarity during the incident; calm and str
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — The hero culture.**
 Pre-2000s. "We had an outage; Bob was up all night fixing it; everyone celebrate Bob." Incidents are individual, dramatic events. Lessons rarely captured. The same problems recur.
@@ -54,7 +66,9 @@ The pattern: incident response evolved from heroic to structured to tool-support
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Incident severity levels
 
@@ -178,7 +192,7 @@ The ratio MTTR / MTBF gives a rough availability number. 1 hour MTTR with 1 mont
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The hospital ER.**
 A patient arrives critical. The ER team has a structured response: triage assesses severity; resuscitation team stabilizes; specialists called as needed; one attending is in command. After: morbidity and mortality conferences (M&M) review what went wrong, blame-free, with action items for the hospital's protocols.
@@ -192,7 +206,7 @@ The aviation industry's safety record (now astonishing) is a result of decades o
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -216,7 +230,7 @@ The senior SRE/operator's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The unstructured response.**
 Major outage. 8 engineers in a Slack channel. Some are trying to roll back; others are debugging the new code; others are restarting services. Conflicting actions. Customer impact extends an extra 45 minutes due to coordination chaos. Lesson: ICS structure with one IC.
@@ -235,7 +249,7 @@ One senior engineer is the de facto incident commander for every Sev-1. They bur
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **MTTD optimization**: invest in monitoring and alerting. Faster detection compounds.
 - **MTTR optimization**: practiced runbooks; automated recovery; clear roles.
@@ -244,7 +258,7 @@ One senior engineer is the de facto incident commander for every Sev-1. They bur
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Small teams (<20 engineers)**: lightweight process. One on-call rotation. Templated postmortems. Quarterly review.
 - **Medium teams (20-200 engineers)**: dedicated IC training. Multiple on-call rotations. Centralized postmortem repository. Regular reviews.
@@ -253,7 +267,7 @@ One senior engineer is the de facto incident commander for every Sev-1. They bur
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Cascading failures**: incidents are often cascades; understanding the cascade is the postmortem's analysis. (See [cascading-failures-and-circuit-breakers.md](./cascading-failures-and-circuit-breakers.md).)
 - **Chaos engineering**: prevents the incidents you'd otherwise have postmortems about. The two are complementary disciplines. (See [chaos-engineering-and-game-days.md](./chaos-engineering-and-game-days.md).)
@@ -267,7 +281,7 @@ The unifying observation: **postmortems are the feedback loop that improves all 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Google's SRE postmortem culture**: extensively documented in the SRE book. Templated, blameless, action-item-tracked. Reference for the industry.
 - **AWS public postmortems**: the S3 outage of 2017, the DynamoDB outage of 2015, others. Public, detailed, instructional.
@@ -296,7 +310,7 @@ The unifying observation: **postmortems are the feedback loop that improves all 
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 Commonly tested questions:
 

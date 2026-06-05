@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** decide up front exactly how reliable a service has to be, measure it honestly, and use the gap between "perfect" and "good enough" to decide when to ship features versus when to stop and fix things.
+>
+> **Analogy:** it's a monthly spending budget for failure. You're allowed to be down for, say, 40 minutes a month. While there's money left in the account, spend freely — ship, experiment, take risks. When the account runs dry, you stop discretionary spending and fix the leaks. No more arguing about whether reliability is "important enough"; the balance tells you.
+>
+> **New to this?** Build the basics first in [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the alerting math and dependency-composition sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Service Level Objectives (SLOs) are the formal contract about how reliable a service must be. Service Level Indicators (SLIs) are the metrics that measure that. Error budgets are the *operational consequence* — the difference between perfect and required, measured in how many failures you can afford before you must stop shipping new features and focus on reliability.
 
@@ -16,7 +28,7 @@ This is the topic where reliability becomes math. "We have good monitoring" beco
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine you run a chain of coffee shops.
 
@@ -32,7 +44,7 @@ That's SLOs. That's error budgets. The math turns vague debate into concrete dec
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — SLAs as marketing.**
 1990s, 2000s. Service Level Agreements existed as customer-facing contracts ("99.9% uptime"), often without serious internal measurement. Often missed; rarely enforced.
@@ -56,7 +68,9 @@ The pattern: reliability moved from vibes to measurements to operational decisio
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### SLI selection
 
@@ -202,7 +216,7 @@ The right SLO reflects what *users actually need*. Users probably don't need 99.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The hospital admission triage.**
 Hospitals don't promise to see every patient instantly. They have triage levels with target wait times: critical = immediate; serious = within 15 minutes; minor = within 4 hours. If they're meeting these targets, things are fine. If wait times are exceeding targets, the hospital is in distress and triage decisions get made.
@@ -216,7 +230,7 @@ The same metric drives external trust (passengers choose airlines partly on this
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -239,7 +253,7 @@ The senior SRE's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The 99.99% delusion.**
 Team commits to 99.99% availability without analyzing dependencies. Three downstream services are 99.9%. Compound availability is 99.7% — already failing the SLO before the team's own reliability matters. Six months of "the SLO is wrong" before adjustment to 99.5% (more realistic).
@@ -258,7 +272,7 @@ Service is degraded; burn rate hits 14× (will burn budget in 1 day). Page fires
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **SLI computation cost**: per-request metric extraction is microseconds.
 - **SLO calculation**: rolling-window aggregations; cheap if pre-aggregated.
@@ -267,7 +281,7 @@ Service is degraded; burn rate hits 14× (will burn budget in 1 day). Page fires
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Per-service SLOs**: each service team owns theirs.
 - **User-journey SLOs**: cross-team coordination required.
@@ -276,7 +290,7 @@ Service is degraded; burn rate hits 14× (will burn budget in 1 day). Page fires
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Observability**: SLIs are derived from metrics, logs, traces. (See [metrics-logs-traces.md](./metrics-logs-traces.md).)
 - **Cascading failures**: SLO breaches often start as small failures cascading. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
@@ -289,7 +303,7 @@ The unifying observation: **SLOs are the bridge between engineering metrics and 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟢
 
 - **Google SRE's framework**: foundational. The SRE book and SRE workbook are the canonical references.
 - **Netflix's SLOs and chaos**: combines SLOs with chaos engineering for reliability validation.
@@ -300,7 +314,7 @@ The unifying observation: **SLOs are the bridge between engineering metrics and 
 
 ---
 
-## Worked Example — Designing SLOs for a Checkout Service
+## Worked Example — Designing SLOs for a Checkout Service 🔴
 
 You own checkout for an e-commerce site. Need to define SLOs that drive engineering priorities.
 
@@ -475,7 +489,7 @@ The framework's value isn't the math. It's the *aligned conversation* between en
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Sloth and Pyrra**: open-source SLO-computation tooling. Production use documented.
 - **Google's SRE Workbook (continuing reference)**: still the foundational text.

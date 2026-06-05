@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** why adding more threads to a Python program often makes CPU-heavy work no faster — and what to use instead when you actually need more cores.
+>
+> **Analogy:** a kitchen with many chefs but a single stove. While one chef cooks, the others wait their turn. If a chef is just waiting for water to boil they step aside and let someone else cook (that's I/O) — but two chefs can never both cook at once. To cook two meals in parallel you need a second kitchen (a second process).
+>
+> **Assumes you already know:** how a process differs from a thread, and the difference between scaling up (one bigger machine) and scaling out (more machines) — see [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md) and [`learn/reliability/vms-and-containers.md`](../../learn/reliability/vms-and-containers.md).
+>
+> **Level:** this file is 🟡 overall, climbing to 🔴 in the interpreter internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 The Global Interpreter Lock (GIL) is CPython's mechanism for ensuring that exactly one thread executes Python bytecode at a time. Multiple threads can exist; multiple threads can be runnable; but only one runs Python code at any given moment. C extensions can release the GIL during compute or I/O, but pure-Python code is fundamentally serial.
 
@@ -16,7 +28,7 @@ This is the topic where Python's design choices, the C extension ecosystem, and 
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a kitchen with multiple chefs (threads), but only one stove (the GIL). Only one chef can cook at a time. The others wait their turn.
 
@@ -30,7 +42,7 @@ The escape: hire separate kitchens (processes). Each kitchen has its own stove. 
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — CPython's birth (1990s).**
 Guido van Rossum implements CPython. GIL is part of the design — simplicity, single-threaded reference counting.
@@ -54,7 +66,9 @@ The pattern: the GIL has been Python's longest-running engineering debate. Remov
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Why the GIL exists
 
@@ -229,7 +243,7 @@ Diagnosis:
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The single-counter coffee shop.**
 One counter; one barista. Multiple servers can take orders, but only the barista uses the counter. Servers can prep ingredients (I/O wait) while the barista pours; that's parallelism. But two servers can't both pour.
@@ -239,7 +253,7 @@ Many workers; one programmable machine. Workers can prep parts in parallel. Mach
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The threaded compute disaster.**
 Service uses threading for CPU-heavy work. Production load: threads contend on GIL. CPU usage 30%; throughput half of expected. Recovery: switch to multiprocessing.
@@ -258,7 +272,7 @@ Service slow under load. Investigation with py-spy: 60% time waiting on GIL. Sol
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **GIL acquisition**: on the order of nanoseconds when uncontended (varies by hardware; measure on yours).
 - **Switch interval**: 5ms typical.
@@ -268,7 +282,7 @@ Service slow under load. Investigation with py-spy: 60% time waiting on GIL. Sol
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Single process**: limited to one core for CPU.
 - **multiprocessing**: scales to N cores; IPC cost.
@@ -278,7 +292,7 @@ Service slow under load. Investigation with py-spy: 60% time waiting on GIL. Sol
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Parallelism vs concurrency**: GIL is the foundational example. (See [parallelism-vs-concurrency.md](./parallelism-vs-concurrency.md).)
 - **Locks**: GIL is a giant mutex. (See [locks-mutexes-and-lock-free.md](./locks-mutexes-and-lock-free.md).)
@@ -290,7 +304,7 @@ The unifying observation: **the GIL is Python's defining concurrency constraint.
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Instagram's Python at scale**: documented multi-process architectures.
 - **Dropbox's Python services**: similar patterns.

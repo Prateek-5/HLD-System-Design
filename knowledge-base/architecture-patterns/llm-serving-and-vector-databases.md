@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how to run an AI model as a real production service — answering quickly and affordably — and how to feed it the *right* background facts so it answers about *your* data instead of making things up.
+>
+> **Analogy:** a research librarian with a fast archive. You ask a question; the librarian doesn't answer from memory alone — they pull the few most *relevant* passages from the archive and lay them on the desk, *then* write your answer from those passages. The archive that finds passages "by meaning" is the **vector database**; the librarian who writes the answer is the **LLM**.
+>
+> **Assumes you already know:** what a web API and request/response look like, and the basics of caching. Build those first in [`learn/architecture/rest-graphql-grpc.md`](../../learn/architecture/rest-graphql-grpc.md) and [`learn/foundations/scaling/caching.md`](../../learn/foundations/scaling/caching.md) — *then* come back for the depth. (This is a KB-only senior/staff topic with no beginner learning-path counterpart.)
+>
+> **Level:** this file is 🟡/🔴 overall — the intuition and RAG flow are approachable, but the serving internals (KV cache, batching, ANN algorithms) are genuinely advanced. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 The deployment of large language models has created an entirely new infrastructure category. Traditional web services serve sub-millisecond responses from megabytes of state. LLM serving systems handle requests that take seconds, run on multi-GPU hardware, generate output token-by-token, and cost dollars per query. The constraints are different; the architecture is different; the operations are different.
 
@@ -16,7 +28,7 @@ This is the topic for the AI era. Not the model training (that's research-grade)
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine running a research library where every book is indexed by *meaning* rather than keyword.
 
@@ -30,7 +42,7 @@ That's RAG. Vector database for semantic retrieval; LLM for generation. The comb
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Word embeddings.**
 2013. Word2Vec demonstrates that words can be represented as vectors capturing semantic relationships.
@@ -54,7 +66,9 @@ The pattern: an entirely new infrastructure category, evolving rapidly. Standard
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest of this section assumes the basics above are solid — it dives into GPU memory, KV cache, batching, and ANN internals.
 
 ### LLM inference fundamentals
 
@@ -219,7 +233,7 @@ Chunking quality dramatically affects retrieval quality.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The research librarian with relevant excerpts.**
 You ask a question. The librarian doesn't just answer from memory. They first consult the archive, find relevant excerpts, lay them in front of you, and *then* synthesize an answer. The archive is the vector database; the librarian's synthesis is the LLM.
@@ -229,7 +243,7 @@ The doctor has expertise but doesn't know specific patients. They consult charts
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The cost shock.**
 Product launches with LLM features. Token usage 10× expected. Bill in first month: $200K. Recovery: prompt optimization; cheaper model for simple queries; cap usage per tier.
@@ -248,7 +262,7 @@ Embeddings of customer data sent to third-party API. GDPR concerns. Mitigation: 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Inference latency**: hundreds of ms to seconds.
 - **Throughput**: tokens per second; varies by model.
@@ -257,7 +271,7 @@ Embeddings of customer data sent to third-party API. GDPR concerns. Mitigation: 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: bigger GPUs; H100s, B100s.
 - **Horizontal**: many GPUs serving in parallel.
@@ -267,7 +281,7 @@ Embeddings of customer data sent to third-party API. GDPR concerns. Mitigation: 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Caching**: LLM responses cached aggressively. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **API design**: LLM APIs have streaming, special semantics. (See [api-design-rest-vs-grpc.md](./api-design-rest-vs-grpc.md).)
@@ -280,7 +294,7 @@ The unifying observation: **LLM serving and vector databases are the new infrast
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **OpenAI's serving infrastructure**: extensively documented.
 - **Anthropic's Claude serving**: similar scale.
@@ -291,7 +305,7 @@ The unifying observation: **LLM serving and vector databases are the new infrast
 
 ---
 
-## Key Takeaways
+## Key Takeaways 🟢
 
 - **LLM inference is GPU-bound, latency-variable, and expensive** — different constraints and optimizations than traditional web serving.
 - **Token-by-token generation is the dominant pattern.** Latency splits into time-to-first-token (TTFT, prefill before the first token) and inter-token latency (TPOT, per-token streaming rate); total response ≈ TTFT + (output tokens × TPOT). Which matters depends on the use case.
@@ -306,7 +320,7 @@ The unifying observation: **LLM serving and vector databases are the new infrast
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

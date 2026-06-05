@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how to keep copies of your data on more than one machine, so that if one dies your service keeps running and doesn't lose what people just saved.
+>
+> **Analogy:** like keeping a backup of important photos on your phone *and* in the cloud — if your phone is lost you still have them, but the cloud copy might be a few minutes behind the very last photo you took. Replication is choosing how many copies, how spread out, and how up-to-date each one is.
+>
+> **New to this?** Build the basics first in [`learn/data/database-replication.md`](../../learn/data/database-replication.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, with 🔴 deep-internals sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Database replication is how copies of data live on multiple machines, kept in sync to varying degrees. It's the foundation of every reliable production database — single-instance databases are toys; production runs on replicas. The choice of replication strategy shapes everything: read scalability, failover speed, consistency guarantees, write latency, operational complexity.
 
@@ -14,7 +26,7 @@ This is the topic that operationalizes CAP theorem, MVCC, and consensus into act
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a corporate ledger maintained by multiple secretaries.
 
@@ -30,7 +42,7 @@ Each model has pros and cons. The right choice depends on what you need: low wri
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Single-master.**
 1990s, early 2000s. Postgres, MySQL, Oracle. One primary; periodic backups; no online replicas. Failure recovery was hours of restore.
@@ -54,7 +66,9 @@ The pattern: each generation pushed replication deeper into the database design 
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Single-leader replication
 
@@ -215,7 +229,7 @@ Properties:
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The newspaper editions.**
 A newspaper has a master copy at HQ. Regional offices receive printed editions, slightly delayed. Subscribers in remote regions read yesterday's news. If HQ burns down, regional copies are slightly out of date.
@@ -229,7 +243,7 @@ Modern banking has moved to real-time replication (sync) for fraud reasons, but 
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -243,7 +257,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The async data loss.**
 Primary crashes; failover to replica. Replica was 30 seconds behind. 30 seconds of writes lost. Customer support: "I made a payment but it doesn't show up." Investigation; reconciliation. Lesson: sync or semi-sync for critical data.
@@ -262,7 +276,7 @@ CDC consumer (Debezium) pauses for maintenance. Postgres retains all WAL the con
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Async replication**: minimal write latency overhead; replica processing is asynchronous.
 - **Sync replication**: latency = primary commit + slowest sync replica RTT.
@@ -271,7 +285,7 @@ CDC consumer (Debezium) pauses for maintenance. Postgres retains all WAL the con
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: bigger primary handles more writes.
 - **Read scaling**: add replicas; trivial.
@@ -281,7 +295,7 @@ CDC consumer (Debezium) pauses for maintenance. Postgres retains all WAL the con
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **CAP**: replication strategy determines CAP position. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **WAL**: physical replication is WAL streaming. (See [wal-and-crash-recovery.md](./wal-and-crash-recovery.md).)
@@ -294,7 +308,7 @@ The unifying observation: **replication is the bridge between durability (one ma
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Postgres streaming replication**: industry standard for HA Postgres. Documented operational practices.
 - **MySQL group replication**: more recent multi-leader. Public adoption stories.
@@ -322,7 +336,7 @@ The unifying observation: **replication is the bridge between durability (one ma
 
 ---
 
-## Interview Angle
+## Interview Angle 🟡
 
 What gets tested:
 

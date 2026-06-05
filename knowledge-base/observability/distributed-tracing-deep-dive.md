@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when a single user request bounces through a dozen services and comes back slow, distributed tracing shows you the full step-by-step journey so you can see exactly which step was slow — instead of guessing.
+>
+> **Analogy:** like the tracking page for a parcel. Every facility it passes through scans the same tracking number, so you can pull up one timeline showing pickup → sorting → flight → delivery and spot precisely where it sat for two days. A trace is that timeline for a request; the trace ID is the tracking number; each scan is a span.
+>
+> **Assumes you already know:** what microservices are and why a request spans many of them (see [`learn/architecture/monolith-vs-microservices.md`](../../learn/architecture/monolith-vs-microservices.md)), and the basics of observability goals (see [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md)).
+>
+> **Level:** this file is 🟡→🔴 overall — the concept is approachable, but propagation, sampling, and async tracing get deep. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Distributed tracing answers a question that nothing else in your observability stack can: *for this specific request, what happened across every service it touched, in what order, and how long did each step take?* Without it, debugging "why was that request slow?" in a microservices architecture is archaeology — piecing together logs from 12 services, hoping the timestamps line up, hoping you can identify the customer's request in each.
 
@@ -14,7 +26,7 @@ This is the topic where instrumentation becomes architecture. Distributed tracin
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine following a single package through a global shipping network.
 
@@ -28,7 +40,7 @@ Distributed tracing is exactly this for software requests. Each service is a "fa
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Logs and grep.**
 Engineers tailed logs across servers. "Did request X reach service Y?" Search the logs. Slow, error-prone, didn't scale past a few services.
@@ -52,7 +64,9 @@ The pattern: each generation extended what could be observed and made it cheaper
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Span anatomy
 
@@ -227,7 +241,7 @@ Coverage matters: if even one service in a request path is uninstrumented, the t
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The hospital chart for one patient.**
 A patient goes through admission, triage, doctor visit, lab tests, imaging, prescription, discharge. Each step is performed by a different department. Without a chart that follows the patient and accumulates findings, no one can answer "why has this patient been here for 6 hours?"
@@ -239,7 +253,7 @@ Multiple officers investigate different aspects of a case — interviews, forens
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -263,7 +277,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The trace gap mystery.**
 A user-reported slow request: 800ms. Trace shows 200ms in service A, then a gap of 600ms before service A returns. No spans in the gap. The team spends 2 hours guessing. Discovery: a third-party SDK was making outbound HTTP calls without OTel auto-instrumentation. Fix: explicit instrumentation of the SDK; trace shows the actual culprit (external API timeout).
@@ -282,7 +296,7 @@ A bug causes a service to retry infinitely on a specific failure. Each retry cre
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Span creation** is microseconds at full fidelity.
 - **Context propagation** is essentially free at runtime (header read/write).
@@ -292,7 +306,7 @@ A bug causes a service to retry infinitely on a specific failure. Each retry cre
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical**: trace backends scale to thousands of services.
 - **Horizontal**: distributed trace storage (Tempo, Jaeger w/ Cassandra). High-cardinality columnar stores increasingly preferred.
@@ -301,7 +315,7 @@ A bug causes a service to retry infinitely on a specific failure. Each retry cre
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Observability metrics, logs, traces**: tracing is one of three pillars; integration with the others is essential. (See [metrics-logs-traces.md](./metrics-logs-traces.md).)
 - **API design**: trace context propagation is part of every API contract. (See [api-design-rest-vs-grpc.md](../architecture-patterns/api-design-rest-vs-grpc.md).)
@@ -314,7 +328,7 @@ The unifying observation: **distributed tracing is the *only* observability tool
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Google's Dapper paper (2010)**: foundational reference. Sampling, span aggregation, low-overhead instrumentation.
 - **Uber's Jaeger**: born from operational pain. Public engineering posts on instrumentation discipline at microservice scale.
@@ -325,7 +339,7 @@ The unifying observation: **distributed tracing is the *only* observability tool
 
 ---
 
-## Worked Example — Debugging a Slow Customer Request
+## Worked Example — Debugging a Slow Customer Request 🟡
 
 A customer reports: "Yesterday at 14:23 UTC, my checkout was slow." Walk through using traces to find the cause.
 
@@ -486,7 +500,7 @@ This is the killer feature. Tracing exists for exactly this debugging session.
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **OpenTelemetry's continuing maturation (2023-2024)**: most major vendors have OTel-compatible ingest. Vendor lock-in reduced.
 - **Tempo (Grafana)** for trace storage: documented scaling at petabyte-scale.
@@ -518,7 +532,7 @@ This is the killer feature. Tracing exists for exactly this debugging session.
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

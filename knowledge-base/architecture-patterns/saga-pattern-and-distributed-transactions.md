@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when one business action spans several separate systems that can't share a single all-or-nothing transaction, a saga lets you do it step by step and cleanly undo the earlier steps if a later one fails.
+>
+> **Analogy:** booking a vacation across separate airline, hotel, and car-rental websites. You book each one in turn; if the car rental falls through, you don't have a magic "cancel everything" button — you phone the hotel and the airline and cancel those bookings yourself. Each "cancel" is a compensation for a step you already committed.
+>
+> **New to this?** Build the basics first in [`learn/data/distributed-transactions.md`](../../learn/data/distributed-transactions.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡/🔴 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A transaction, in a single database, is a beautiful thing. ACID guarantees you a clean abstraction: a unit of work that either fully succeeds or fully reverses, with no in-between states visible. Two-decade-old SQL syntax — `BEGIN; …; COMMIT;` — gives you a primitive that's mathematically rigorous and operationally robust.
 
@@ -16,7 +28,7 @@ This is the topic where distributed systems theory, transaction semantics, and b
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine booking a vacation: flight, hotel, rental car, all from different providers.
 
@@ -33,7 +45,7 @@ That's a saga. A sequence of local commitments, each with a way to back out sema
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Single-database transactions.**
 ACID transactions on a single RDBMS. Beautiful, well-understood. Solved most application needs through the 1990s.
@@ -57,7 +69,9 @@ The pattern: each generation realized that ACID guarantees across distrust bound
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Two-Phase Commit (2PC) — for context
 
@@ -200,7 +214,7 @@ This guarantees at-least-once delivery without requiring distributed transaction
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The travel agent.**
 Booking a multi-leg trip: flight, hotel, car rental. The travel agent doesn't expect everyone to coordinate atomically. They book each leg, knowing that if a later leg falls through, they'll call earlier providers and cancel — usually with a fee. That fee is the compensation cost.
@@ -212,7 +226,7 @@ You don't pour the foundation atomically with the walls and the roof. Each phase
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong in distributed transactions:
 
@@ -234,7 +248,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The 2PC hang at scale.**
 A team uses XA transactions across two SQL databases. Under load, network blips cause coordinator timeouts. Prepared transactions accumulate. Each holds locks. Throughput plummets. Within hours, both databases are nearly unusable. Recovery: manually `ROLLBACK PREPARED` for thousands of stuck transactions. Migration to a saga-based design takes 6 months.
@@ -253,7 +267,7 @@ Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sag
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Sagas have higher latency than 2PC** for the happy path — each step is a separate transaction, with separate latency.
 - **Sagas have lower latency variance** — no waiting for slow participants in a prepare phase.
@@ -263,7 +277,7 @@ Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sag
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: orchestrator and event bus capacity bound the saga rate.
 - **Horizontal**: sagas scale by partition (per-customer, per-order). Dedicated workflow engines (Temporal, Cadence) handle horizontal scaling natively.
@@ -272,7 +286,7 @@ Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sag
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **CAP**: sagas are the practical answer to "we need cross-shard semantics, but partitions exist." Eventual consistency with explicit recovery. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Event sourcing**: orchestrator state is naturally event-sourced; choreography uses events as the saga's coordination medium. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
@@ -285,7 +299,7 @@ The unifying observation: **sagas are how systems handle change across boundarie
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Stripe's payment infrastructure**: extensive use of idempotency keys and what amounts to sagas for payment flows. Public engineering posts describe the patterns in detail.
 - **Uber's Cadence (now Temporal)**: born from operational pain managing complex workflows at Uber's scale. Used for ride matching, dispatch, financial flows. Open-sourced; widely adopted.
@@ -296,7 +310,7 @@ The unifying observation: **sagas are how systems handle change across boundarie
 
 ---
 
-## Worked Example — Travel Booking Saga
+## Worked Example — Travel Booking Saga 🔴
 
 A real-shaped saga: book flight + hotel + car rental for a trip. Each is a separate service. Each can fail. Money is involved.
 
@@ -492,7 +506,7 @@ Hand-rolling is educational; production usually warrants a framework.
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Stripe's payment-saga patterns**: extensive public engineering on saga-based payment flows.
 - **Temporal's adoption (2023-2024)**: documented case studies at Coinbase, Snapchat, Box. Workflow engine has matured.
@@ -503,7 +517,7 @@ Hand-rolling is educational; production usually warrants a framework.
 
 ---
 
-## Reference Architecture
+## Reference Architecture 🔴
 
 ```
                        ┌──────────────────────────┐
@@ -560,7 +574,7 @@ Each service owns its database. Coordination is via the orchestrator's message-p
 
 > Mental model: a distributed transaction is a comforting lie; a saga is the engineering work of telling the truth — "things happen in steps; sometimes steps fail; here's how we recover" — with that recovery written as code. ACID across a single database is a gift; ACID across services is a fantasy. The result isn't worse than ACID — it's *honest* about the realities of distribution.
 
-## Interview angle
+## Interview angle 🟡
 
 Commonly tested questions:
 

@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** two words people use as synonyms but that mean different things — *handling* many tasks by switching between them (concurrency) vs *actually running* many tasks at the same instant on separate hardware (parallelism) — and getting them confused leads to code that's slower, not faster.
+>
+> **Analogy:** one barista juggling several orders — starting a machine, taking the next order while it brews, coming back when it's ready — is *concurrency*: many things in flight, one pair of hands. Hire a second barista and now two drinks are genuinely being made at the same moment — that's *parallelism*: more hands. A busy shop is both.
+>
+> **Assumes you already know:** what a *process* and a *thread* are, and that a CPU has a fixed number of *cores*. This is a KB-only deep-dive — there's no beginner learning-path counterpart; if those three terms are unfamiliar, get comfortable with them first (a primer like [`reliability/vms-and-containers.md`](../../learn/reliability/vms-and-containers.md) gives the OS-level context), *then* come back.
+>
+> **Level:** this file is 🟡→🔴 overall — the opening intuition is approachable, but the internals (Amdahl's Law, false sharing, NUMA, work stealing) are senior-level. Sections below are tagged. If a tag feels over your head, that's the signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Few distinctions in computer science are more constantly conflated — and more consequential — than concurrency vs parallelism. The terms are used interchangeably in casual conversation, in interview answers, in technical documentation. They're not the same thing. Concurrency is *structure*: writing programs as multiple cooperating activities. Parallelism is *execution*: running computations simultaneously on multiple hardware units.
 
@@ -14,7 +26,7 @@ The distinction matters because the *bugs* differ, the *speedups* differ, and th
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a coffee shop with one barista.
 
@@ -28,7 +40,7 @@ The same is true of programs. Concurrency is a structure ("write this as coopera
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Single-CPU concurrency.**
 1960s-70s. Time-sharing operating systems (Multics, Unix). Multiple processes appear to run simultaneously by switching the CPU among them. Concurrent in structure; not parallel.
@@ -52,7 +64,7 @@ The pattern: hardware shaped the abstractions. As parallelism became free (multi
 
 ---
 
-## Core Mental Models
+## Core Mental Models 🟡
 
 **1. Concurrency is structure; parallelism is execution.**
 A program structured concurrently *can* be executed in parallel if hardware allows. But you can have one without the other.
@@ -71,7 +83,9 @@ Threads must synchronize to share data. Cores must coordinate caches. The more t
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The taxonomy
 
@@ -178,7 +192,7 @@ Production high-performance code is NUMA-aware: pin threads, allocate memory loc
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The kitchen with one chef vs many chefs.**
 One chef multitasking is concurrency. Many chefs is parallelism. A kitchen with one fast chef juggling tasks can serve a lot of customers — until they hit a "parallel" workload (chopping 100 onions). Then no amount of multitasking helps; they need *another chef*.
@@ -192,7 +206,7 @@ The "hole" is your data structure or task. Some computations parallelize beautif
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -214,7 +228,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The single-core deployment.**
 A team builds a multi-threaded service. Deploys to a 1-core container in production. Performance is identical to single-threaded. Threads add overhead without parallelism. Fix: appropriate container sizing.
@@ -233,7 +247,7 @@ A team uses `concurrent.futures.ThreadPoolExecutor` for compute work. Sees no sp
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Concurrency adds throughput** when waiting dominates (I/O).
 - **Parallelism adds throughput** when compute dominates and work can be partitioned.
@@ -243,7 +257,7 @@ A team uses `concurrent.futures.ThreadPoolExecutor` for compute work. Sees no sp
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical (more cores per machine)**: works to dozens of cores; coordination eventually limits.
 - **Vertical (more sockets, NUMA)**: requires NUMA-awareness for full benefit.
@@ -253,7 +267,7 @@ A team uses `concurrent.futures.ThreadPoolExecutor` for compute work. Sees no sp
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Locks**: parallelism's primary coordination mechanism; concurrency's bug source. (See [locks-mutexes-and-lock-free.md](./locks-mutexes-and-lock-free.md).)
 - **Event loop**: pure concurrency, no parallelism within one loop. (See [event-loop-and-async-runtime.md](../js-runtime/event-loop-and-async-runtime.md).)
@@ -266,7 +280,7 @@ The unifying observation: **concurrency is a programming model; parallelism is a
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Node.js cluster mode**: multiple Node processes for parallelism, each running its own event loop for concurrency.
 - **Python's NumPy/Pandas**: release the GIL during computation; threads provide real parallelism.
@@ -295,7 +309,7 @@ The unifying observation: **concurrency is a programming model; parallelism is a
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 Frequently tested questions:
 

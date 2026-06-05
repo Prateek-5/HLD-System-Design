@@ -4,7 +4,17 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** the engine that runs your JavaScript watches how your code behaves and rewrites it into fast machine code — but only if you feed it predictable, consistently-shaped data; surprise it and it throws the fast version away.
+>
+> **Analogy:** a barista who memorizes your usual order. Order the same thing every morning and they start it the moment you walk in — instant. Suddenly change to a complicated custom drink and they have to stop, re-learn, and go slow again. V8 does this with the *shape* of your objects and the *types* of your variables.
+>
+> **Assumes you already know:** solid JavaScript fundamentals (objects, functions, prototypes) and *why* performance matters at scale — for the latter, see [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md). This is a 🔴 runtime-internals deep dive with no beginner learning-path counterpart; it's an optional senior/specialist extra, not a first-pass system-design topic.
+>
+> **Level:** this file is 🔴 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+## Topic Overview 🟢
 
 V8 is the JavaScript engine in Chrome, Node.js, Deno, Edge, and Cloudflare Workers. It's the most-deployed runtime in computing history. And yet, most engineers writing JavaScript professionally know almost nothing about how it actually executes their code.
 
@@ -14,7 +24,7 @@ This isn't trivia. The performance difference between "hot loop runs in TurboFan
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a translator at the UN.
 
@@ -28,7 +38,7 @@ The entire performance story of V8 is "the JIT learns from runtime behavior, and
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Pure interpreters.**
 Early JavaScript engines (Mozilla's SpiderMonkey 1.0, IE's JScript) interpreted the AST node-by-node. Slow, but simple. JavaScript on the web was a toy.
@@ -52,7 +62,7 @@ The pattern across eras: **V8 spends compute to make later compute faster, and t
 
 ---
 
-## Core Mental Models
+## Core Mental Models 🟡
 
 **1. JavaScript is dynamic at the language level, monomorphic in practice.**
 The language allows any property to be added or removed from any object. In *practice*, most code uses objects in stable, type-stable shapes. V8 bets aggressively on that practice. When the bet wins, code is fast. When it loses, code is slow.
@@ -71,7 +81,9 @@ Most allocations die young. V8's GC reflects this: a small "young generation" co
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Hidden classes (a.k.a. shapes, maps)
 
@@ -206,7 +218,7 @@ String operations *flatten* lazily. A loop that builds a string with `+=` may pr
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The custom-built shop floor.**
 Imagine a factory where every machine is custom-built for the specific product it produces. As long as you keep producing the same product, output is incredibly fast — every motion is optimized. The moment you change products, the machinery has to be rebuilt. Most teams change products constantly without realizing it, and the factory spends most of its time rebuilding instead of producing.
@@ -218,7 +230,7 @@ The simultaneous interpreter at the UN listens to a few seconds of speech, predi
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What V8-related issues look like in production:
 
@@ -257,7 +269,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The optional-field hidden-class explosion.**
 A user-record builder creates objects with 12 optional fields. Each combination produces a different hidden class. The application hits 4096 hidden classes for a single object type. Property access throughout the application falls into megamorphic mode. Latency mystery for weeks. Fix: initialize all fields uniformly with defaults.
@@ -276,7 +288,7 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Hot paths must have monomorphic call sites.** This is the single biggest lever.
 - **Object shape consistency** is non-negotiable in hot code.
@@ -288,7 +300,7 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Per-process memory ceiling.** The old-space limit is not a flat 2GB: the historical fixed default was ~1.5GB, but modern Node (since ~v12) derives `--max-old-space-size` from available physical memory (roughly half of RAM, up to a cap, raised for large-memory machines). For Node servers, explicitly setting 4–8GB is common. Beyond that, GC costs grow superlinearly.
 - **Many small Node processes** often beat one big one — smaller heaps, faster GCs, simpler isolation.
@@ -297,7 +309,7 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **CPU caches.** Hidden classes are L1/L2-cache-friendly because they're small and frequently accessed. Inline caches are *literally* caches, with similar hit/miss dynamics.
 - **Database query plans.** V8's IC states (mono → poly → mega) mirror database query planners' decisions about cached vs replanned execution. Same theory: speculate based on observed types, fall back when speculation fails.
@@ -308,7 +320,7 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Bun's V8-vs-JavaScriptCore choice.** Bun chose JSC in part because of startup time differences. The tradeoff: JSC's tiered system has different characteristics than V8's, particularly for short-lived processes.
 - **Node.js worker threads' adoption.** Driven partly by V8 heap-size limits — multiple worker threads scale better than one giant heap.
@@ -318,7 +330,7 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## Worked Example — Optimizing a Hot Path
+## Worked Example — Optimizing a Hot Path 🔴
 
 A Node.js service computes invoices. After tracing, the team identifies `calculateInvoice()` as the bottleneck — called 10K times/sec; takes 2ms each. Walk through V8-aware optimization.
 
@@ -523,7 +535,7 @@ function getStatus(order) {
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **V8's Maglev tier (2023)**: middle-tier compiler between Sparkplug and TurboFan; faster warm-up.
 - **Bun's JavaScriptCore choice (2023)**: alternative engine with different performance characteristics.
@@ -552,7 +564,7 @@ function getStatus(order) {
 - **Distinguish startup performance from steady-state performance** — different optimization tiers, different concerns.
 - **Profile before optimizing.** Use CPU and heap profilers; read `--trace-opt`/`--trace-deopt`/`--trace-ic` output; use heap snapshots (and the three-snapshot technique) to find retainers. Guesses are usually wrong. Then keep shapes uniform, prefer monomorphic call sites (split overloaded functions if needed), and reuse buffers/objects in hot loops.
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

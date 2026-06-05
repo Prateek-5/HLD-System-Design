@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** ship new code to production but keep it hidden behind an on/off switch, so you can turn it on for a few users first and instantly turn it back off if it breaks — without redeploying.
+>
+> **Analogy:** a dimmer switch instead of a light switch. Rather than flipping a new feature fully ON for everyone at once, you slowly turn the dial up — 1% of users, then 10%, then everyone — and if the room looks wrong, you dim it straight back to zero in a second.
+>
+> **Assumes you already know:** what "availability" and rollback mean ([`learn/foundations/scaling/availability.md`](../../learn/foundations/scaling/availability.md)), and the kill-switch idea behind circuit breakers ([`learn/reliability/circuit-breaker.md`](../../learn/reliability/circuit-breaker.md)). This is a KB-only ops topic — there is no learning-path file for feature flags themselves.
+>
+> **Level:** this file is 🟡 overall — the core idea is simple, but the lifecycle discipline, targeting math, and failure modes are senior-level. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A feature flag (or feature toggle) is a runtime switch that controls whether a piece of code is active. Wrapping new functionality in a flag means you can deploy the code to production but keep it *off* — turning it on for some users, then more, then everyone. The deploy and the release are now two different events.
 
@@ -16,7 +28,7 @@ This is the topic where deployment practices become engineering tools. Mature te
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine renovating a hotel while guests are staying.
 
@@ -30,7 +42,7 @@ The catch: you now have two versions of the hotel coexisting. Plumbing must work
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Big-bang releases.**
 1990s, early 2000s. Quarterly or yearly releases. Long QA cycles. Deploy = release. Failures meant full rollback. Teams shipped infrequently because shipping was scary.
@@ -54,7 +66,9 @@ The pattern: each generation reduced the unit of risk. From "the whole release" 
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Types of feature flags
 
@@ -201,7 +215,7 @@ Modern flag platforms automate much of this. Custom systems must build it.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The retail "soft launch."**
 A retailer opens a new product line in one store first. If it sells, they expand to a region. If it does well, nationally. Bad reception in the test store? Pull the line; reformulate. Far cheaper than launching nationally and discovering the same thing.
@@ -215,7 +229,7 @@ Software's progressive delivery is the same risk-management strategy. The cost o
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -229,7 +243,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The flag-controlled outage.**
 Engineer toggles flag "ENABLE_NEW_AUTH_FLOW" to 100%. New auth flow has bug; all login attempts fail. Toggle back: outage lasted 4 minutes. Without the flag, would have been a deploy + rollback: 30 minutes. The flag system worked as designed.
@@ -248,7 +262,7 @@ Codebase has 4000 flags. 80% are stale (rolled out years ago, never removed). Ne
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Flag evaluation**: typically microseconds with cached rules.
 - **SDK overhead**: small per-request; rules cached locally.
@@ -257,7 +271,7 @@ Codebase has 4000 flags. 80% are stale (rolled out years ago, never removed). Ne
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Flag count**: hundreds to thousands at large companies.
 - **Evaluation rate**: scales with request rate; SDK caches handle it.
@@ -267,7 +281,7 @@ Codebase has 4000 flags. 80% are stale (rolled out years ago, never removed). Ne
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Cascading failures**: flags are the kill switches that prevent cascades. (See [cascading-failures-and-circuit-breakers.md](./cascading-failures-and-circuit-breakers.md).)
 - **Postmortems**: many incidents are mitigated by flag toggles; flag system effectiveness is itself a postmortem topic. (See [postmortems-and-incident-response.md](./postmortems-and-incident-response.md).)
@@ -280,7 +294,7 @@ The unifying observation: **feature flags decouple risk from deploy by making re
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Facebook's gatekeeper system**: pioneered large-scale feature gating. Internal system; no public open-source.
 - **Google's experiment infrastructure**: extensive A/B testing; documented in research papers.

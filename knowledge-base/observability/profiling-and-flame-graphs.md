@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** Profiling measures *where* your program actually spends its time and memory, so you fix the real slow part instead of the part you guessed was slow.
+>
+> **Analogy:** It's a fitness tracker for your code. Instead of guessing why your run was slow, it logs every segment — "you spent 40 minutes stuck at one hill" — so you know exactly where to train, not where you assumed the problem was.
+>
+> **Assumes you already know:** what makes a system slow (latency, throughput, bottlenecks) — see [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md); and how performance ties to reliability targets — see [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md). This is a senior/staff observability extra with no beginner learning-path counterpart.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Profiling is the systematic measurement of where a program spends its time, memory, and other resources. Where logs tell you what happened and metrics tell you trends, profiles tell you *where the cost is*. CPU profiles show which functions consumed the most cycles. Memory profiles show which allocations dominate. Lock contention profiles show where threads are waiting.
 
@@ -14,7 +26,7 @@ This is the topic where engineering moves from "the service feels slow" to "the 
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine you're trying to figure out why a road trip is slow.
 
@@ -30,7 +42,7 @@ Once you can read a flame graph, you can diagnose performance in seconds. Before
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — gprof and basic profilers.**
 1980s onward. gprof for C; instrumentation-heavy. Slowed programs significantly during profiling.
@@ -54,7 +66,9 @@ The pattern: each generation made profiling cheaper, more automated, and more us
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Sampling profilers
 
@@ -179,7 +193,7 @@ Some teams gate deployments on profile differentials. Conservative; effective.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The factory time-and-motion study.**
 Industrial engineers observe a factory floor; record what each worker does in 5-second intervals. Aggregate: where does production time go? Cutting takes 30%, assembly 50%, QC 20%. Optimizations in cutting affect 30%; optimizations in QC affect 20%. Decisions follow data.
@@ -193,7 +207,7 @@ Profiling is the same: sample the running program; identify the symptoms; diagno
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -207,7 +221,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The wasted week.**
 Engineer optimizes "obvious" slow path: a database query. After a week, latency unchanged. Profile reveals: 60% of time was in JSON serialization; the DB query was 5%. Lesson: profile first.
@@ -226,7 +240,7 @@ Profile under "max throughput" tests. Optimizations target that. Production has 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Sampling overhead**: ~1-3% in production.
 - **Continuous profiling**: small persistent overhead; well-worth it.
@@ -235,7 +249,7 @@ Profile under "max throughput" tests. Optimizations target that. Production has 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Per-service profiling**: standard.
 - **Cluster-wide aggregation**: profiles aggregated across instances.
@@ -244,7 +258,7 @@ Profile under "max throughput" tests. Optimizations target that. Production has 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Observability**: profiling complements metrics, logs, traces. (See [metrics-logs-traces.md](./metrics-logs-traces.md).)
 - **V8 internals**: profiling Node code reveals V8-specific issues. (See [v8-internals-and-hidden-classes.md](../js-runtime/v8-internals-and-hidden-classes.md).)
@@ -256,7 +270,7 @@ The unifying observation: **profiling closes the gap between intuition and reali
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Brendan Gregg's flame graph posts**: foundational and widely-cited.
 - **Pyroscope**: open-source continuous profiling; case studies in production.
@@ -283,7 +297,7 @@ The unifying observation: **profiling closes the gap between intuition and reali
 
 ---
 
-## Interview Angle
+## Interview Angle 🟡
 
 - **"How do you find performance bottlenecks?"** — methodology: profile first, read by width, fix the dominant cost, re-profile to verify.
 - **"What's a flame graph?"** — sampled stacks rendered as a hierarchy where width = time; read width-first.

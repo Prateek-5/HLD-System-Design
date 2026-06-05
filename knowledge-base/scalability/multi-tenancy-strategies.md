@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how to serve many separate customers from the same software and hardware without their data, performance, or failures bleeding into each other.
+>
+> **Analogy:** an apartment building. Everyone shares the walls, plumbing, and lobby (cheap, efficient), but each tenant has their own locked unit. You can go cheaper (one big shared dorm room) or more private (separate houses) — the trade-off is always cost vs. isolation.
+>
+> **Assumes you already know:** sharding/partitioning (see [`learn/data/sharding.md`](../../learn/data/sharding.md)), load balancing & request routing (see [`learn/foundations/scaling/load-balancing.md`](../../learn/foundations/scaling/load-balancing.md)), and general scalability trade-offs (see [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md)).
+>
+> **Level:** this file is 🟡 overall, climbing to 🔴 in the cell-based and isolation internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Multi-tenancy is the practice of serving multiple customers (tenants) from shared infrastructure. The "tenant" is a business unit (a company subscribing to a SaaS); each tenant has its own users, data, and configurations. The fundamental question: *how much do tenants share?*
 
@@ -20,7 +32,7 @@ This is the topic where SaaS architecture meets sharding meets compliance. Multi
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine running an apartment building.
 
@@ -36,7 +48,7 @@ The choice depends on tenant needs (privacy, performance, compliance) and operat
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Single-tenant (the original SaaS).**
 1990s-2000s. Each customer ran their own instance. Operationally heavy.
@@ -60,7 +72,9 @@ The pattern: each generation refined the cost-isolation tradeoff. Modern SaaS us
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The pool model
 
@@ -221,7 +235,7 @@ Critical for shared environments. Without these, one tenant can starve others.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The university dorm vs apartment vs single-family home.**
 - **Dorm (pool)**: cheap; shared everything; noise problems.
@@ -236,7 +250,7 @@ A hotel chain: shared property, shared staff, individual rooms. Customers within
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -250,7 +264,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The cross-tenant cache leak.**
 Cache key didn't include tenant_id. Tenant A's response cached. Tenant B's request hits the same key; gets A's data. Discovered: customer support call. Mitigation: tenant_id in every cache key; incident review.
@@ -269,7 +283,7 @@ Customer departed; data deleted from primary; logs and analytics still contain. 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Pool**: best resource utilization.
 - **Silo**: per-tenant overhead; lower utilization.
@@ -279,7 +293,7 @@ Customer departed; data deleted from primary; logs and analytics still contain. 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Pool**: scales until single-database limits.
 - **Silo**: scales linearly with tenants and cost.
@@ -289,7 +303,7 @@ Customer departed; data deleted from primary; logs and analytics still contain. 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Sharding**: cells are a form of sharding. (See [sharding-and-partitioning-strategies.md](./sharding-and-partitioning-strategies.md).)
 - **Cascading failures**: cell isolation prevents cross-tenant cascades. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
@@ -302,7 +316,7 @@ The unifying observation: **multi-tenancy is the lens through which most distrib
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Stripe's cell-based architecture**: documented public.
 - **Slack's tenant model**: workspace-based.

@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how to make sure you always have *enough* servers to handle the traffic you get — without paying for a mountain of idle servers you don't need.
+>
+> **Analogy:** a coffee shop staffing its baristas. You keep a fixed crew on every shift (that's your planned baseline), you call in extra hands when a rush hits (that's auto-scaling), and before a known big day you schedule more people in advance (that's pre-warming for a launch). Reactive hiring alone fails because new baristas can't appear the instant a queue forms.
+>
+> **New to this?** Build the basics first in [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the failure-math and cost sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Capacity planning is the engineering discipline of figuring out how much hardware (CPU, memory, network, storage, IOPS, database connections) your system needs to handle expected workloads — under normal load, under peak, under failure conditions. Auto-scaling is the operational mechanism for adjusting capacity dynamically as load changes.
 
@@ -14,7 +26,7 @@ This is the topic where the "cloud is infinitely elastic" marketing meets the op
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine running a delivery service.
 
@@ -28,7 +40,7 @@ That's how production systems actually run. Auto-scaling for the noise. Static c
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Manual provisioning.**
 1990s, 2000s. Servers ordered weeks in advance. Capacity planned for peak — months of estimates and procurement. Underutilized most of the time; overwhelmed during unexpected spikes.
@@ -52,7 +64,9 @@ The pattern: scaling has gotten faster (weeks → minutes → seconds), more gra
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Capacity planning — the methodology
 
@@ -206,7 +220,7 @@ A team that's "always on demand" is paying 30-50% premium for flexibility they m
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The restaurant on a Friday night.**
 A restaurant doesn't hire chefs reactively as customers walk in. They forecast: Friday night, 200 diners expected, 1 chef per 30 diners, so 7 chefs. They hire 8 (buffer). They cross-train 2 servers as backup chefs (failure tolerance). A surprise reservation of 50? They fast-track a part-time chef on standby.
@@ -220,7 +234,7 @@ Software systems should mirror this: baseline reserved capacity, mid-tier on-dem
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -234,7 +248,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The launch-day meltdown.**
 Product launch at 10am. Traffic 50× normal. Auto-scaling can't keep up; cold-start adds 2-minute delay. Site is partially degraded for 30 minutes. Postmortem: pre-warm capacity ahead of known events; load shed at edge during launch.
@@ -253,7 +267,7 @@ A regional AZ failure removes ⅓ of capacity. Remaining 2 AZs are at 100% load 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Cold-start latency** matters for serverless and rapid-scale workloads.
 - **Connection pool sizing** is often the underrated bottleneck.
@@ -263,7 +277,7 @@ A regional AZ failure removes ⅓ of capacity. Remaining 2 AZs are at 100% load 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical**: limited by largest instance.
 - **Horizontal**: limited by bottleneck resources downstream.
@@ -273,7 +287,7 @@ A regional AZ failure removes ⅓ of capacity. Remaining 2 AZs are at 100% load 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Sharding**: scaling limits manifest as need for sharding when single-instance ceilings are hit. (See [sharding-and-partitioning-strategies.md](./sharding-and-partitioning-strategies.md).)
 - **Load balancing**: capacity is meaningless without effective distribution. (See [load-balancing-strategies.md](./load-balancing-strategies.md).)
@@ -286,7 +300,7 @@ The unifying observation: **capacity planning is a forecast about the future; au
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Netflix's predictive autoscaling**: documented machine-learning-driven approach to predicting evening traffic spikes.
 - **AWS Black Friday playbooks**: extensive public guidance on pre-warming, scaling capacity, and handling launches.

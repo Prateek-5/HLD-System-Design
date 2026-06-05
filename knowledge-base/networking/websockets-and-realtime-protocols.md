@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a web page and a server can keep an always-open line so either side can speak the instant something happens — instead of the page nagging "anything new yet?" over and over.
+>
+> **Analogy:** ordinary HTTP is mailing letters back and forth — you only learn news when you send a new letter and wait for the reply. A WebSocket is a phone call: you dial once, the line stays open, and either person can talk the moment they have something to say.
+>
+> **New to this?** Build the basics first in [`learn/architecture/long-polling-websockets-sse.md`](../../learn/architecture/long-polling-websockets-sse.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, sliding to 🔴 in the scaling and protocol-internals sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Real-time communication on the web — chat, live updates, collaborative editing, multiplayer games, financial tickers — needs persistent bidirectional connections, not request-response. **WebSockets** (RFC 6455, 2011) provide this: after an HTTP upgrade handshake, the connection becomes a persistent full-duplex channel.
 
@@ -14,7 +26,7 @@ This is the topic where networking, browser APIs, and scaling realities meet. Re
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine the difference between mailing letters and a phone call.
 
@@ -28,7 +40,7 @@ The cost: the phone line is open even when nothing's being said. Servers must ho
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Polling.**
 Pre-2010. Client polls server every few seconds. Wasteful; high latency.
@@ -52,7 +64,9 @@ The pattern: web protocols evolved from "request-response only" to first-class p
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### WebSocket protocol
 
@@ -239,7 +253,7 @@ Browser support growing; may replace WebSocket for new applications.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The phone call vs email.**
 WebSocket is the phone; HTTP is email. Different patterns; different operational concerns.
@@ -249,7 +263,7 @@ WebSocket: bidirectional like a phone (cinema's two-way doors). SSE: one-way lik
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -271,7 +285,7 @@ The senior real-time engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The reconnection storm.**
 Service restart; 1M clients reconnect simultaneously. CPU melts handling handshakes. Recovery: stagger reconnects; rate limit.
@@ -290,7 +304,7 @@ Long-lived connection; token expires mid-session; messages start failing. Mitiga
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Connection setup**: 1 RTT (TCP) + 1 RTT (TLS) + 1 RTT (WebSocket upgrade).
 - **Message overhead**: small (frame header is 2-14 bytes).
@@ -299,7 +313,7 @@ Long-lived connection; token expires mid-session; messages start failing. Mitiga
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Single server**: 100K-1M connections.
 - **Cluster**: shard by user; fan-out via pub/sub.
@@ -308,7 +322,7 @@ Long-lived connection; token expires mid-session; messages start failing. Mitiga
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **TCP**: WebSockets are TCP. (See [tcp-and-network-fundamentals.md](./tcp-and-network-fundamentals.md).)
 - **HTTP/2 and HTTP/3**: relevant for upgrade and modern alternatives. (See [http-2-and-http-3.md](./http-2-and-http-3.md).)
@@ -321,7 +335,7 @@ The unifying observation: **real-time protocols turn the web from request-respon
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Discord's real-time architecture**: Elixir-based; documented.
 - **Slack's WebSockets**: at scale.

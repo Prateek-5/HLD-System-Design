@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when your data no longer fits on one machine, you split it across many — and the whole game is *choosing how to split it* so the queries you run most stay fast.
+>
+> **Analogy:** a single library that's overflowing opens branch locations. The crucial question isn't "do we split?" — it's "what rule decides which book goes to which branch?" Split alphabetically and one branch drowns in popular authors; split by neighborhood and most reads stay local but national bestsellers cause chaos. Same data, very different outcomes depending on the rule.
+>
+> **New to this?** Build the basics first in [`learn/data/sharding.md`](../../learn/data/sharding.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Every system that exceeds the capacity of a single machine eventually faces the same question: how do we split the data — and the work — across multiple machines? The answer is *partitioning* (also called *sharding*, depending on dialect): a strategy for dividing data so that each partition fits on one machine, can be queried locally, and can scale by adding more partitions.
 
@@ -14,7 +26,7 @@ This is the topic where database internals, distributed systems, and product req
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a city library with 50 million books, all in one building. The building is full. You can't add more shelves. Performance is degrading — there are too many people in the aisles.
 
@@ -34,7 +46,7 @@ That's the entire field. Choose the right partitioning key for your access patte
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — The single big database.**
 1990s and early 2000s. Scale up: bigger boxes, more RAM, faster disks. Worked beautifully until it didn't. Mainframes set the upper bound; "downsizing to commodity hardware" started bumping into single-node limits.
@@ -58,7 +70,9 @@ The pattern: each generation pushed sharding from application code, into middlew
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Partitioning strategies
 
@@ -178,7 +192,7 @@ The pragmatic alternative: **design the schema as if it were sharded from day on
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The post office sorting hierarchy.**
 National post offices route mail by ZIP code prefixes. Mail to 02xxx goes to one regional center; 90xxx to another. Each regional center subdivides by full ZIP code. Each local office subdivides by street. Multiple levels of partitioning, each based on a different aspect of the address.
@@ -192,7 +206,7 @@ This is consistent hashing with regional hierarchy. Adding a region (a node) doe
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong with sharding in production:
 
@@ -206,7 +220,7 @@ What goes wrong with sharding in production:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The celebrity account.**
 A social platform shards user data by user ID. A new celebrity user accumulates 50M followers. Their feed reads dominate one shard. p99 latency on that shard is 10× others. Mitigation: replicate the celebrity's writes to multiple read replicas; cache hot follower lists; eventually, treat as a special case in the routing layer.
@@ -225,7 +239,7 @@ A team adds a "transfer balance between users" feature. Implements as 2PC across
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Single-shard query latency** ≈ unsharded latency. Sharding doesn't help individual queries; it scales aggregate throughput.
 - **Cross-shard fan-out latency** = max(individual shard latencies) + coordination overhead. Tail latency is amplified.
@@ -235,7 +249,7 @@ A team adds a "transfer balance between users" feature. Implements as 2PC across
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical:** larger nodes per shard delays the need for more shards but eventually hits limits.
 - **Horizontal:** add shards. Application must accommodate new partitions.
@@ -245,7 +259,7 @@ A team adds a "transfer balance between users" feature. Implements as 2PC across
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **CAP**: sharding is a flavor of partitioning that interacts with consistency. Cross-shard transactions are distributed transactions. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Indexing**: each shard has its own indexes. Cross-shard queries must consult multiple indexes. (See [indexing-and-storage-engines.md](../database-internals/indexing-and-storage-engines.md).)
@@ -258,7 +272,7 @@ The unifying observation: **sharding is divide-and-conquer applied to data, with
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **YouTube's Vitess origin**: MySQL sharding at YouTube scale, abstracted into a routing layer. Open-sourced; used by Slack, GitHub, Square, others.
 - **Discord's Cassandra → ScyllaDB migration**: documented case of dealing with hot partitions at billions of messages scale. Architectural insights about partition key choice (per-channel) and bucketing.
@@ -269,7 +283,7 @@ The unifying observation: **sharding is divide-and-conquer applied to data, with
 
 ---
 
-## Worked Example — Sharding a Multi-Tenant SaaS
+## Worked Example — Sharding a Multi-Tenant SaaS 🔴
 
 A multi-tenant SaaS app. Currently 100GB Postgres; growing fast. 50K tenants, varying sizes (a few enterprise tenants are 1000× larger than the median).
 
@@ -425,7 +439,7 @@ Cross-shard analytics goes to a warehouse (BigQuery / Snowflake). Not the OLTP s
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Notion's 2023 sharding migration**: documented public engineering. Sharded a single Postgres DB to a sharded architecture. Used Citus.
 - **Figma's database migration (2023)**: documented case of sharding their giant Postgres.
@@ -437,7 +451,7 @@ Cross-shard analytics goes to a warehouse (BigQuery / Snowflake). Not the OLTP s
 
 ---
 
-## Reference Architecture
+## Reference Architecture 🔴
 
 ```
                    ┌─────────────────────────────────┐

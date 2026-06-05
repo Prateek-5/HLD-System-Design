@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how Rust lets you juggle thousands of paused-and-resumed tasks at once while *proving at compile time* that none of them will ever touch memory that's been freed or changed out from under them.
+>
+> **Analogy:** a restaurant where one waiter serves many tables by stepping away whenever a table is "thinking" (waiting on the kitchen) and coming back when it's ready — except a strict health inspector stands at the door and refuses to let service begin until you've proven that no two waiters can ever grab the same plate at the same time, and no plate gets cleared while a guest is still eating from it.
+>
+> **Assumes you already know:** synchronous Rust ownership, borrowing, and lifetimes; what threads are; and the basic idea of concurrency vs parallelism. (This is a runtime-engineering deep-dive with no beginner counterpart in `learn/` — there is no learning-path topic for it; the cross-ref lists the whole `concurrency/` directory as a senior/staff extra.)
+>
+> **Level:** this file is 🔴 overall — genuinely advanced. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.** Even experienced Rust developers call this "the second compile-time war."
+
+---
+
+## Topic Overview 🟢
 
 Async Rust is a different beast from async in other languages. Where JavaScript's `async/await` is a small layer over Promises, where Python's asyncio is a runtime with sometimes-surprising semantics, Rust's async is *deeply integrated with the language's ownership system*. The borrow checker, which already enforces memory safety in synchronous Rust, has to reason about futures that pause and resume, that hold references across `await` points, that may be polled from any thread.
 
@@ -14,7 +26,7 @@ This is the topic where the academic ambition of Rust's safety guarantees meets 
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine writing instructions for someone to do many tasks, where they can pause any task at any moment and resume later.
 
@@ -28,7 +40,7 @@ The good news: when you get it right, the result is beautifully predictable. No 
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Pre-async Rust.**
 Pre-2018. Rust had concurrency primitives (threads, channels) but no async. People used `mio` (low-level I/O) or just blocking with thread pools.
@@ -52,7 +64,9 @@ The pattern: each generation reduced friction. The model is sound; the ergonomic
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Futures as state machines
 
@@ -227,7 +241,7 @@ The cost: compile times (futures have complex types); learning curve; ecosystem 
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The Swiss watch with safety inspectors.**
 A complex mechanical watch (your code) has many gears (tasks). Inspectors (the borrow checker) verify, before the watch runs, that no gear can ever be in a position that breaks another. Once it runs, you have certainty: no jamming, no crashes. The cost: many inspections; some require you to redesign gears the inspectors don't approve.
@@ -237,7 +251,7 @@ An OR scheduler (runtime) assigns surgeries (tasks) to surgeons (threads). Surge
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -250,7 +264,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The accidental blocker.**
 Engineer adds a "quick" call to a sync DB driver in an async handler. Under load, the worker thread blocks; tokio's scheduler can't reuse it. Throughput collapses. Fix: async DB driver.
@@ -269,7 +283,7 @@ Async function with generic types and many awaits compiles for 5 minutes. CI tim
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Per-future overhead**: hundreds of bytes; nanoseconds to poll.
 - **Context switch**: microseconds (cooperative; just function returns).
@@ -279,7 +293,7 @@ Async function with generic types and many awaits compiles for 5 minutes. CI tim
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Single process**: millions of tasks possible.
 - **Multi-core**: tokio's multi-threaded runtime parallelizes.
@@ -287,7 +301,7 @@ Async function with generic types and many awaits compiles for 5 minutes. CI tim
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Coroutines / green threads**: async Rust is in this family. (See [coroutines-and-green-threads.md](./coroutines-and-green-threads.md).)
 - **Locks**: async-aware mutexes differ from std mutex. (See [locks-mutexes-and-lock-free.md](./locks-mutexes-and-lock-free.md).)
@@ -299,7 +313,7 @@ The unifying observation: **async Rust pushes safety guarantees into concurrency
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Discord's Rust services**: documented migration from Go and Elixir for some services; tokio-based.
 - **Cloudflare's pingora**: production Rust server platform.
@@ -333,7 +347,7 @@ The unifying observation: **async Rust pushes safety guarantees into concurrency
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

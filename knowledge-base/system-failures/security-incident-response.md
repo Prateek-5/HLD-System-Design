@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** what to do, in what order, when someone breaks into your systems — so you actually evict them, know what they took, and stay on the right side of the law.
+>
+> **Analogy:** discovering a burglar in your house. The amateur move is to yell and scare them off — but now you don't know what they took, whether they copied a key, or if they'll be back. The disciplined move is to quietly call the police, watch without tipping the burglar off, block the exits, evict them, check for hidden ways back in, and preserve evidence for court.
+>
+> **Assumes you already know:** the basics of incident response and recovery. Build those first in [`learn/reliability/disaster-recovery.md`](../../learn/reliability/disaster-recovery.md) and [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md) — *then* come back for the security-specific constraints (evidence, attackers watching, disclosure law).
+>
+> **Level:** this file is 🟡 overall — the lifecycle is teachable to anyone, but the forensics and disclosure-law sections are 🔴 senior territory. If a section feels heavy, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A security incident is a confirmed or suspected compromise: an account takeover, a data breach, a malware infection, a leaked secret, an unauthorized access event. The response combines the operational discipline of incident response with the additional constraints of security: evidence preservation, attacker awareness, regulatory notification, legal coordination.
 
@@ -14,7 +26,7 @@ This is the topic where engineering meets security meets law meets PR. Teams tha
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine discovering a burglar in your house.
 
@@ -26,7 +38,7 @@ That's security incident response. The work isn't done when the immediate threat
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Ad-hoc response.**
 1990s, 2000s. Most companies had no formal security incident process. IT handled it; sometimes well, often badly.
@@ -50,7 +62,9 @@ The pattern: each generation formalized response. The methodology is well-docume
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The phases
 
@@ -219,7 +233,7 @@ Different from an incident affecting your own systems.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The hospital infection control.**
 A hospital with an infectious disease outbreak: identify (test); isolate (quarantine); trace (who else was exposed); decontaminate (clean rooms); notify (public health authorities). Same phases, different domain.
@@ -229,7 +243,7 @@ After a robbery: secure the scene; preserve evidence; interview witnesses; inves
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -252,7 +266,7 @@ The senior security engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The early reveal.**
 Detection occurred at 3am. Engineering started fixing immediately; visible to monitoring. Attacker noticed; pivoted; entrenched further. Recovery took 3× longer. Mitigation: coordinated, not ad-hoc, response.
@@ -271,7 +285,7 @@ Ransomware encrypted production. Backups: same network; also encrypted. Recovery
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Detection latency**: ideally minutes; reality often days/weeks.
 - **Containment time**: hours to days for sophisticated attacks.
@@ -281,7 +295,7 @@ Ransomware encrypted production. Backups: same network; also encrypted. Recovery
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Small companies**: outsource to MSSP; have IR retainer.
 - **Medium**: dedicated security team; SOC.
@@ -290,7 +304,7 @@ Ransomware encrypted production. Backups: same network; also encrypted. Recovery
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Postmortems**: security incidents end with a postmortem. (See [postmortems-and-incident-response.md](./postmortems-and-incident-response.md).)
 - **Disaster recovery**: backups for ransomware. (See [disaster-recovery-and-rto-rpo.md](./disaster-recovery-and-rto-rpo.md).)
@@ -302,7 +316,7 @@ The unifying observation: **security incidents are operational incidents with ad
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **The Equifax breach (2017)**: extensively documented; case study in poor IR.
 - **SolarWinds (2020)**: supply chain compromise; far-reaching.

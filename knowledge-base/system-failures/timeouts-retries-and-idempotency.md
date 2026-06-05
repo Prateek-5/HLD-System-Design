@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when you call another service over a network and don't hear back, you can't tell if it worked — this is how you handle that uncertainty without losing data or charging someone twice.
+>
+> **Analogy:** mailing a check. If no thank-you note arrives, you can't tell whether the check was lost, the note was lost, or your friend just forgot. So you write an ID on the memo line (idempotency), decide how long to wait before acting (timeout), and if needed mail another check with the *same* ID so the bank never double-cashes it (safe retry).
+>
+> **New to this?** Build the basics first in [`learn/reliability/circuit-breaker.md`](../../learn/reliability/circuit-breaker.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the deep sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 The three primitives — timeouts, retries, idempotency — are often discussed in isolation. They shouldn't be. Together they form the *minimum viable contract* for any service that talks to another service across a network. Get any one wrong and the others become weapons against you. Get all three right and most of distributed systems' nastiest bugs cease to exist.
 
@@ -14,7 +26,7 @@ This is the topic where every microservices war story converges. The retry storm
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 You send your friend a check for $100 in the mail. A week passes. No acknowledgment.
 
@@ -42,7 +54,7 @@ That's the entire pattern. The "uncertain" outcome is built into every external 
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — RPC's "let's pretend the network isn't there."**
 1980s and 90s. CORBA, DCOM, early SOAP. The premise: remote calls should look like local calls. The reality: they didn't fail like local calls. Catastrophic in production. Spawned Peter Deutsch's "Eight Fallacies of Distributed Computing" (1994), still required reading.
@@ -66,7 +78,9 @@ The arc: each generation rediscovered that the network can fail in ways the appl
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Timeouts — the most important number
 
@@ -243,7 +257,7 @@ Kafka's "exactly-once semantics" is at-least-once delivery + transactional consu
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The certified mail receipt.**
 Send a check by certified mail with return receipt. The receipt is the success acknowledgment. If you don't get the receipt, you can:
@@ -258,7 +272,7 @@ The waiter writes the order on a ticket with a unique number. The kitchen sees t
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The double-charged customer.**
 Customer clicks "buy." Network blip during checkout. Client retries. Server processes the second request — same operation, no idempotency key. Two charges. Customer finds out the next day. Refund issued; goodwill lost. Cause: missing idempotency key.
@@ -277,7 +291,7 @@ A bug in ID generation produces collisions in idempotency keys (e.g., based on `
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Timeouts have negligible runtime cost** but bound resource holding. Cheap insurance.
 - **Retries with backoff add latency** to the failure path. Acceptable; the alternative is the user seeing the failure faster.
@@ -287,7 +301,7 @@ A bug in ID generation produces collisions in idempotency keys (e.g., based on `
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Timeouts must be tuned per dependency** as the system grows. Latencies change; static timeouts age badly.
 - **Idempotency stores must scale** with request volume. Sharded by key; high QPS workloads use Redis cluster or DynamoDB.
@@ -297,7 +311,7 @@ A bug in ID generation produces collisions in idempotency keys (e.g., based on `
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Sagas:** every saga step is a retry-with-idempotency operation. The triple is fundamental to saga design. (See [saga-pattern-and-distributed-transactions.md](../architecture-patterns/saga-pattern-and-distributed-transactions.md).)
 - **Cascading failures:** timeouts and circuit breakers are the same family of pattern; retries without budgets are the cascade-amplifier. (See [cascading-failures-and-circuit-breakers.md](./cascading-failures-and-circuit-breakers.md).)
@@ -310,7 +324,7 @@ The unifying observation: **the network's "uncertain" outcome is the foundation 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Stripe's idempotency key documentation**: arguably the canonical public reference. Their API design has shaped how the industry thinks about safe POSTs.
 - **AWS SDK adaptive retries**: documented behavior includes exponential backoff with jitter, retry budgets, and integration with throttling signals.
@@ -321,7 +335,7 @@ The unifying observation: **the network's "uncertain" outcome is the foundation 
 
 ---
 
-## Worked Example — Designing the Timeout Chain for a Request
+## Worked Example — Designing the Timeout Chain for a Request 🔴
 
 A user-facing checkout request flows through 4 services. Designing timeouts that compose correctly.
 
@@ -496,7 +510,7 @@ Each retry uses the same idempotency key. The server's first call processes; sub
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **AWS SDKs' adaptive retry mode (2023+)**: documented; combines retry budgets with jitter.
 - **gRPC's deadline propagation**: deeply integrated; recent improvements to client libraries.

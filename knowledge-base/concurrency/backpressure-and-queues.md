@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when work arrives faster than you can handle it, you need a way to hold it temporarily (a queue) and a way to say "stop sending, I'm full" before things break (backpressure).
+>
+> **Analogy:** a sink with a slow drain. Water (work) pours in from the tap; the basin (queue) holds the overflow. If the tap keeps running faster than the drain clears it, the basin fills and floods the floor. Backpressure is turning the tap down before it overflows — not buying a bigger basin.
+>
+> **New to this?** Build the basics first in [`learn/architecture/message-queues.md`](../../learn/architecture/message-queues.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡/🔴 overall — the intuition and history are approachable, but queueing theory, adaptive concurrency, and the layered worked example are senior material. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Every system that processes work at a different rate than it receives it has a queue. Sometimes the queue is named — Kafka, RabbitMQ, SQS, Redis lists. Sometimes it's hidden — a TCP receive buffer, a Node.js stream's internal buffer, a thread pool's work queue, a database connection pool's wait list. The named queues get the conference talks. The hidden queues take down production at 3am.
 
@@ -14,7 +26,7 @@ This is the topic where queueing theory, distributed systems, and operational re
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Picture a kitchen during dinner rush.
 
@@ -32,7 +44,7 @@ Backpressure is just the engineering discipline of building systems that *say no
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Threads and unbounded queues.**
 Early servers accepted whatever came in, queued it for thread pools to process, and prayed memory held. Memory often didn't. Out-of-memory crashes were the stress test of the 90s.
@@ -56,7 +68,9 @@ The pattern across eras: every generation rediscovers that **buffering without l
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Queueing theory in five minutes
 
@@ -149,7 +163,7 @@ Netflix's open-source `concurrency-limits` library implements this. Envoy and ot
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The highway and the on-ramp meter.**
 Heavily congested highways install ramp meters — traffic lights at the on-ramp that release one car every 5 seconds. Counterintuitively, *slowing down the entry rate increases highway throughput* because it prevents the highway from collapsing into stop-and-go. That's backpressure as a system property: explicit pacing at the input keeps the throughput maximum.
@@ -161,7 +175,7 @@ An ER overwhelmed by patients doesn't process them in arrival order. A triage nu
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong when backpressure is missing or misconfigured:
 
@@ -175,7 +189,7 @@ What goes wrong when backpressure is missing or misconfigured:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The retry storm during a partial outage.**
 Service B's database hits a slow query. Latency jumps from 50ms to 5s. Service A's clients have 1s timeouts and aggressive retry (3 retries, no backoff). Each user-initiated request now generates 3+ requests to B. B's effective load triples. B's queue depth explodes. B falls over completely. Now zero requests succeed.
@@ -194,7 +208,7 @@ A team builds adaptive concurrency limiting based on response time. The downstre
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Throughput vs latency vs queue depth: pick two, sometimes one.** At the saturation point, you can't have all three.
 - **Tail latency is a queue depth signal.** When p99 is 10× p50, the system is queueing somewhere.
@@ -204,7 +218,7 @@ A team builds adaptive concurrency limiting based on response time. The downstre
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical:** more workers = higher consumption rate. But there's always a downstream bottleneck (database, external API). Adding workers past that point just grows the queue.
 - **Horizontal:** partition the queue. Kafka partitions, RabbitMQ sharding, SQS as inherently sharded. Each partition is processed by one consumer (or one consumer per consumer group).
@@ -214,7 +228,7 @@ A team builds adaptive concurrency limiting based on response time. The downstre
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Event loop:** Node's task queue and microtask queue are queues with cooperative scheduling. The same backpressure principles apply (see [event-loop-and-async-runtime.md](../js-runtime/event-loop-and-async-runtime.md)).
 - **TCP flow control:** the original backpressure mechanism. Every modern system reinvents it at the application layer.
@@ -228,7 +242,7 @@ The unifying observation: **every system that processes work asynchronously is a
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **AWS Lambda's concurrency limits and SQS dead-letter queues:** entire chapters of AWS docs are about backpressure between Lambda and event sources. Throttling, DLQs, and reserved concurrency are all expressions of this.
 - **GitHub's webhook delivery:** documented engineering posts on processing webhooks at scale, including handling slow customer endpoints without letting them stall the system. Per-customer queues and circuit breakers per endpoint.
@@ -239,7 +253,7 @@ The unifying observation: **every system that processes work asynchronously is a
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 
@@ -258,7 +272,7 @@ Common traps:
 
 ---
 
-## Worked Example — A Queue System with Layered Backpressure
+## Worked Example — A Queue System with Layered Backpressure 🔴
 
 A service ingests events from clients, enriches them, writes to a database. Walk through layered backpressure design.
 
@@ -427,7 +441,7 @@ Each arrow has a bound. Each bound has a behavior at the limit (reject, retry, f
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Discord's queue migrations**: from RabbitMQ to NSQ to Kafka; documented backpressure considerations.
 - **Cloudflare's rate-limiting infrastructure**: documented architecture at edge scale.

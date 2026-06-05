@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** JavaScript can only do one thing at a time, so a heavy computation freezes the whole page — workers let you push that heavy work onto a separate helper so the page stays responsive.
+>
+> **Analogy:** A single cashier serving a long queue. If one customer needs a 20-minute price check, everyone behind them waits. Hire a back-office clerk (a worker) to do the slow lookup; the cashier keeps serving the queue and the clerk passes the answer back through a hatch. They never share the same till — they just hand notes back and forth.
+>
+> **Assumes you already know:** what it means to run work in parallel and add capacity (build that intuition in [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md) and [`learn/foundations/scaling/clustering.md`](../../learn/foundations/scaling/clustering.md)), plus basic async JavaScript (callbacks / promises).
+>
+> **Level:** this file is 🟡 overall, with a 🔴 tail (shared memory + Atomics). The first few sections are approachable; the SharedArrayBuffer/Atomics material is genuinely advanced. If that part feels shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 JavaScript's single-threaded model is a feature, not a bug. The simplicity — no race conditions, no locks, no shared mutable state across threads — is what made it the most-deployed programming language in history. But "single-threaded" is increasingly a constraint, not a property. CPU-heavy work blocks the UI; ML inference can't run on the main thread; large data processing crawls.
 
@@ -16,7 +28,7 @@ This is the topic where JavaScript reluctantly admits parallelism. The model is 
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine your web app is a single chef in a kitchen, taking orders one at a time.
 
@@ -34,7 +46,7 @@ That's Web Workers, Worker Threads, and shared memory. JavaScript's reluctant pa
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Single-threaded everything.**
 1990s-2000s. JavaScript ran on one thread; long-running scripts froze the browser. Acceptable when JS was used lightly.
@@ -58,7 +70,9 @@ The pattern: each generation expanded JavaScript's parallelism options conservat
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest of this section assumes the basics above are solid — the SharedArrayBuffer and Atomics subsections are the deepest material in the file.
 
 ### Web Workers
 
@@ -268,7 +282,7 @@ A specialized worker that intercepts network requests for offline-first PWAs. No
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The kitchen with prep cooks.**
 The head chef (main thread) plates and serves. Prep cooks (workers) chop, blend, prepare in the back. They communicate via order tickets and a pickup window. The chef stays focused on customer-facing work; the cooks handle long tasks.
@@ -278,7 +292,7 @@ The reporter (main thread) writes the story; the photo editor (worker) processes
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The serialization cost.**
 Engineer offloads JSON parsing to a worker. JSON is 50MB; postMessage takes 200ms to clone before the worker even starts. Net result: worker is slower than main-thread parsing. Mitigation: transferable ArrayBuffer; or stream parsing with workers receiving chunks.
@@ -297,7 +311,7 @@ Engineer thinks "we have a worker"; uses it for one task; main thread still has 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Worker startup**: ~5-50ms in browsers; ~10-50ms in Node.
 - **postMessage with structured clone**: scales with data size; memory copy.
@@ -307,7 +321,7 @@ Engineer thinks "we have a worker"; uses it for one task; main thread still has 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Browser**: typically 4-16 workers practical; one per CPU core.
 - **Node**: similar; tune to CPU count.
@@ -315,7 +329,7 @@ Engineer thinks "we have a worker"; uses it for one task; main thread still has 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Event loop**: each worker has its own. (See [event-loop-and-async-runtime.md](./event-loop-and-async-runtime.md).)
 - **V8 internals**: each worker is a separate isolate. (See [v8-internals-and-hidden-classes.md](./v8-internals-and-hidden-classes.md).)
@@ -327,7 +341,7 @@ The unifying observation: **Web Workers and Worker Threads are JavaScript's cont
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Figma's collaborative editor**: extensive worker use for rendering, collaboration sync, etc. Public engineering posts.
 - **Google Docs**: heavy use of workers for spreadsheet calculations.

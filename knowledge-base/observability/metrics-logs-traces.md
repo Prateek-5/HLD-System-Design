@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when your software misbehaves in production, these are the three kinds of clues it leaves behind so you can figure out *what broke, why, and where* — without redeploying to add print statements.
+>
+> **Analogy:** running a busy restaurant. **Metrics** are the dashboard on the wall: tables seated, average wait time, dishes sent back. **Logs** are the printed ticket history: every order, every time, in detail. **Traces** follow one specific customer's whole evening — door to dessert — so you can see exactly where their meal got stuck. You need all three to run the place well.
+>
+> **Assumes you already know:** what a service / request is, and the basics of reliability targets. Build those first in [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md) (SLA/SLO/SLI) and [`learn/architecture/monolith-vs-microservices.md`](../../learn/architecture/monolith-vs-microservices.md) (why requests span many services) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, climbing to 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Observability is the practice of asking arbitrary questions about your system's behavior *without* deploying new code. Monitoring is what you set up before the incident. Observability is what saves you during it. The difference is everything.
 
@@ -14,7 +26,7 @@ This is the topic where most engineering teams underinvest until their first maj
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine running an airline.
 
@@ -33,7 +45,7 @@ The mature operator uses all three together. Metrics tell you something is wrong
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Print statements and tail -f.**
 Logs were files on disk. Operators SSHed in and read them. Worked at one-server scale; collapsed at ten.
@@ -57,7 +69,9 @@ The pattern across eras: each generation of tooling answered a question the prev
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Metrics
 
@@ -187,7 +201,7 @@ Alert fatigue is a primary source of incident response failure. Teams that page 
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The hospital analogy.**
 - **Vitals monitor (metrics)** — heart rate, blood pressure, oxygen saturation, updated continuously. You glance, you know if the patient is in trouble.
@@ -205,7 +219,7 @@ You can't navigate without the charts. You can't audit without the log. You can'
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong in real observability:
 
@@ -229,7 +243,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The cardinality bomb.**
 A new feature added `user_id` as a label on the request count metric. Within hours, Prometheus is OOM. The metric store has 50M time series. Recovery: identify the offending metric, remove the label, restart the metric backend, accept ~6 hours of historical data loss.
@@ -248,7 +262,7 @@ SLO-based alert was set on "error rate > 1% for 5 minutes." A subtle bug caused 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Instrumentation has runtime cost.** Metrics: ~100ns per increment. Logs: a microsecond of work, more if synchronous I/O. Traces: span creation is expensive (tens of microseconds at full fidelity).
 - **In-process buffering** is critical. Synchronous logging blocks the request path. Asynchronous logging with bounded buffers and overflow policies is the standard.
@@ -257,7 +271,7 @@ SLO-based alert was set on "error rate > 1% for 5 minutes." A subtle bug caused 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical:** monitoring backends scale to thousands of services on dedicated hardware.
 - **Horizontal:** Prometheus federates; Grafana Mimir, Cortex, Thanos shard for high-volume use cases.
@@ -267,7 +281,7 @@ SLO-based alert was set on "error rate > 1% for 5 minutes." A subtle bug caused 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Cascading failures**: observability is the diagnostic layer for failure. Without it, you can't tell *why* a cascade started. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
 - **Backpressure**: queue depth is a saturation metric; consumer lag is the canonical event-driven SLI. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
@@ -281,7 +295,7 @@ The unifying observation: **observability is the meta-discipline for everything 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Google SRE's error budget framework**: documented in the SRE book; widely adopted across industry.
 - **Netflix's tracing infrastructure**: open-sourced parts of it, with publicly described patterns for sampling, retention, and integration with deploys.
@@ -309,7 +323,7 @@ The unifying observation: **observability is the meta-discipline for everything 
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested (and the senior-level answer):
 

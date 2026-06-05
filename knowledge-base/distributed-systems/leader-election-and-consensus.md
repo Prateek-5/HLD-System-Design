@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how do you get a group of computers to agree on one answer — and pick one "boss" to make decisions — even when some of them crash, the network drops messages, and nobody can fully trust the clock?
+>
+> **Analogy:** a group chat deciding on a restaurant over flaky cell service. Messages get dropped, arrive out of order, or reach only some people. To avoid two friends each insisting on a different place, the group picks *one* person to call the vote and announce the result. If that person's phone dies, the rest must agree on a new caller before anyone can decide again. Getting that handoff right, in every awkward corner case, *is* consensus.
+>
+> **Assumes you already know:** what a cluster is and why nodes fail ([`learn/foundations/scaling/clustering.md`](../../learn/foundations/scaling/clustering.md)), and the consistency-vs-availability tradeoff during a network partition ([`learn/data/cap-theorem.md`](../../learn/data/cap-theorem.md)). Database replication ([`learn/data/database-replication.md`](../../learn/data/database-replication.md)) helps too — a Raft log is replication done right.
+>
+> **Level:** this file is 🔴 overall — it's a senior/staff deep-dive with no beginner counterpart in the learning path. The intuition and the consensus problem itself are approachable; Paxos, safety invariants, joint consensus, and clock-bound leases are genuinely hard. Sections below are tagged. If a 🔴 tag stops you cold, that's expected — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Consensus is the foundation primitive of distributed systems. Every system that needs to make a binding decision across multiple nodes — who's the leader? what's the order of operations? did this transaction commit? — eventually reduces to a consensus problem. Without it, "distributed" is just "multiple computers that disagree about reality."
 
@@ -14,7 +26,7 @@ This is the topic that powers leader election in Kubernetes, the durability of e
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a group of friends trying to agree on a restaurant for dinner — by text message, on a flaky group chat where messages occasionally get dropped, delivered out of order, or reach only some recipients.
 
@@ -35,7 +47,7 @@ Solving this — *correctly*, in all corner cases — is consensus. The remarkab
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — The dream of synchronization.**
 1970s. Lamport's "Time, Clocks, and the Ordering of Events" (1978) establishes logical clocks. The realization: total ordering of events in a distributed system is the prerequisite to any agreement.
@@ -59,7 +71,9 @@ The pattern: consensus moved from theoretical curiosity (Paxos, hard to understa
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest of this section assumes the intuition and the consensus problem above are solid. Paxos, the Raft safety invariants, joint consensus, and clock-bound leases are the hard core — take them slowly.
 
 ### The consensus problem
 
@@ -182,7 +196,7 @@ This is where consensus meets the clock problem from the [CAP file](./cap-consis
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The corporate board vote.**
 A board of directors decides whether to acquire a company. With 7 directors, 4 must agree. If 3 disagree but 4 don't, the motion passes. If the chairperson resigns mid-meeting, the remaining members must elect a new chair before continuing. If the meeting is interrupted (network partition), no decision can be made — but a partial group of 4 can continue if connected. A group of 3 cannot pass anything without the others.
@@ -194,7 +208,7 @@ Procedural rules ensure that a small minority cannot block decisions while prese
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong with consensus in production:
 
@@ -217,7 +231,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The 4-node etcd cluster.**
 Team adds a 4th node to "balance load." 2 nodes go offline (one for maintenance, one crashes). Remaining 2 nodes don't form quorum. Kubernetes API stops responding. Cluster is "down" until a node is restored.
@@ -236,7 +250,7 @@ A leader's clock is 500ms ahead of true time. Its lease appears to be valid for 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Per-operation latency** ≈ 1 RTT to majority. Geographically distributed clusters: 50–200ms.
 - **Throughput** of a single Raft group: thousands of operations per second on commodity hardware.
@@ -246,7 +260,7 @@ A leader's clock is 500ms ahead of true time. Its lease appears to be valid for 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: bigger nodes help log throughput and snapshot performance.
 - **Horizontal (consensus group count)**: shard with multi-Raft. Each group scales independently.
@@ -256,7 +270,7 @@ A leader's clock is 500ms ahead of true time. Its lease appears to be valid for 
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **CAP**: consensus is the *machinery* that implements consistent distributed systems. Raft is the practical "C" in CAP. (See [cap-consistency-and-replication.md](./cap-consistency-and-replication.md).)
 - **WAL**: a Raft log is exactly a WAL replicated across nodes. Recovery semantics are identical. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
@@ -269,7 +283,7 @@ The unifying observation: **consensus is the ground truth primitive for distribu
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Kubernetes etcd outages**: numerous documented cases of even-sized clusters, slow disks, or network partitions causing API server outages. Required reading for any Kubernetes operator.
 - **CockroachDB's design**: extensive public engineering posts on multi-Raft, range splits, leader leases, and the operational challenges of running consensus at scale.
@@ -305,7 +319,7 @@ The unifying observation: **consensus is the ground truth primitive for distribu
 
 ---
 
-## Interview Angle
+## Interview Angle 🟡
 
 What gets tested:
 

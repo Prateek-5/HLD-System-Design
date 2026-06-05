@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when two pieces of software need to talk over a network, they need an agreed-upon way to ask for things and send answers back — this is the menu of the main ways to do that and when to pick each.
+>
+> **Analogy:** three ways to order at a restaurant. REST is the printed menu — anyone can walk in, point at numbered dishes, and order. gRPC is being a regular who says "the usual" to a chef who already knows exactly what you mean — fast, but no good to a stranger. GraphQL is a build-your-own bowl where you specify every ingredient you want, no more and no less, in one request.
+>
+> **New to this?** Build the basics first in [`learn/architecture/rest-graphql-grpc.md`](../../learn/architecture/rest-graphql-grpc.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## 🟢 Topic Overview
 
 API design is where the abstract architecture of "services that talk to each other" meets the brutal reality of "we need to add a field and we have 47 client teams." The protocol decision — REST, gRPC, GraphQL, or some hybrid — shapes everything downstream: latency profiles, debuggability, evolution semantics, error handling, observability, the number of meetings you'll have with consumers.
 
@@ -14,7 +26,7 @@ This is the topic where the difference between "we shipped fast" and "we can kee
 
 ---
 
-## Intuition Before Definitions
+## 🟢 Intuition Before Definitions
 
 Three ways to ask a librarian for books.
 
@@ -28,7 +40,7 @@ Each style optimizes different things. REST optimizes for *shared vocabulary* (r
 
 ---
 
-## Historical Evolution
+## 🟡 Historical Evolution
 
 **Era 1 — RPC and the network-as-local fantasy.**
 1980s-90s. CORBA, DCOM, Sun RPC. The dream: remote calls look like local calls. The reality: they failed differently. Thick clients, opaque error modes, version pain. Mostly abandoned for inter-org APIs by 2005.
@@ -52,7 +64,9 @@ The pattern: each generation responded to the previous's failures. CORBA's compl
 
 ---
 
-## Deep Technical Explanation
+## 🔴 Deep Technical Explanation
+
+⚠️ The rest assumes the basics above are solid.
 
 ### REST in detail
 
@@ -247,7 +261,7 @@ The principle: **errors should be machine-actionable**. A code that the client c
 
 ---
 
-## Real Engineering Analogies
+## 🟢 Real Engineering Analogies
 
 **The restaurant menu vs the chef's table.**
 REST is the menu — explicit dishes, discoverable, with a printed price. Anyone can walk in and order. Standardized.
@@ -267,7 +281,7 @@ GraphQL: a custom helicopter route to your exact destination. Fastest for your s
 
 ---
 
-## Production Engineering Perspective
+## 🔴 Production Engineering Perspective
 
 What goes wrong in API design:
 
@@ -293,7 +307,7 @@ The senior API designer's habits:
 
 ---
 
-## Failure Scenarios
+## 🔴 Failure Scenarios
 
 **Scenario 1 — The silent breaking change.**
 A team renames `customerId` to `customer_id` "for consistency." Frontend deploys break. Mobile clients have stored the old field name. Hours of incident. Recovery: revert; add an alias for backward compatibility; coordinate a long deprecation.
@@ -312,7 +326,7 @@ Offset-based pagination over a list that changes. Client fetches pages 1, 2, 3. 
 
 ---
 
-## Performance Perspective
+## 🟡 Performance Perspective
 
 - **gRPC's serialization/transport overhead is lower** than REST/JSON-over-HTTP/1.1 (binary vs text, HTTP/2 multiplexing vs HTTP/1.1). The encode/decode and wire-size advantage can be large per call, but end-to-end request latency is usually dominated by network round-trips and downstream work, not the protocol — don't expect a uniform "5-10× faster" on real requests.
 - **JSON parsing is non-trivial CPU cost** at high QPS.
@@ -323,7 +337,7 @@ Offset-based pagination over a list that changes. Client fetches pages 1, 2, 3. 
 
 ---
 
-## Scaling Perspective
+## 🟡 Scaling Perspective
 
 - **Stateless APIs scale horizontally** by load balancing.
 - **GraphQL federation** (Apollo Federation) splits a unified schema across multiple services. Powerful and operationally complex.
@@ -334,7 +348,7 @@ Offset-based pagination over a list that changes. Client fetches pages 1, 2, 3. 
 
 ---
 
-## Cross-Domain Connections
+## 🟡 Cross-Domain Connections
 
 - **Idempotency**: every state-changing API needs idempotency keys. (See [timeouts-retries-and-idempotency.md](../system-failures/timeouts-retries-and-idempotency.md).)
 - **Caching**: REST's HTTP semantics enable edge caching; gRPC and GraphQL require application-level caching. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
@@ -347,7 +361,7 @@ The unifying observation: **APIs are where the rest of distributed systems theor
 
 ---
 
-## Real Production Scenarios
+## 🟡 Real Production Scenarios
 
 - **Stripe's API design philosophy**: extensive public engineering posts on REST, idempotency keys, error codes, deprecation strategy. Widely studied as a "how to do APIs right" reference.
 - **GitHub's REST → GraphQL evolution**: introduced GraphQL alongside REST v3; now GraphQL v4 is preferred for many use cases. Public posts describe motivations and tradeoffs.
@@ -385,7 +399,7 @@ The unifying observation: **APIs are where the rest of distributed systems theor
 
 ---
 
-## Interview angle
+## 🟢 Interview angle
 
 Common questions: *"REST vs gRPC vs GraphQL — when each?"* (public discoverability → REST; internal performance → gRPC; client-driven shape → GraphQL); *"How would you version this API?"* (articulate tradeoffs — multiple answers acceptable); *"How do you handle pagination?"* (cursor-based, explain why); *"How do you handle errors?"* (status code + structured body + machine-readable code); *"What's a breaking change?"* (anything requiring existing clients to update); *"How would you migrate clients off a deprecated endpoint?"*; *"How do you design an idempotent POST?"* (idempotency keys).
 

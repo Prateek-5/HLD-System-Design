@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a database lets many people read and write the same data at the same time without them blocking each other or seeing each other's half-finished changes.
+>
+> **Analogy:** a wiki page that keeps every revision. When you open it at 10:00, you keep reading that exact version even while someone edits it at 10:01 — you each see your own snapshot of history instead of fighting over one copy. Isolation levels are just the setting for *how much* of other people's editing you're willing to notice.
+>
+> **New to this?** Build the basics first in [`learn/data/transactions.md`](../../learn/data/transactions.md) (and [`learn/data/acid-base.md`](../../learn/data/acid-base.md)) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡/🔴 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 MVCC — Multi-Version Concurrency Control — is the answer to a question that, on the surface, looks innocent: *"What should a database do when two people try to read and write the same row at the same time?"*
 
@@ -18,7 +30,7 @@ Isolation levels are the *user-facing knobs* on top of this machinery — the co
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Forget transactions for a second. Imagine a wiki.
 
@@ -38,7 +50,7 @@ That last question is the entire field of isolation levels.
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 The path here is a story of pain.
 
@@ -61,7 +73,9 @@ The lesson: every step of this evolution was driven by *operational pain*, not t
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### How a row version is stored (Postgres flavor)
 
@@ -132,7 +146,7 @@ This is where isolation levels live. See the next section.
 
 ---
 
-## Isolation Levels — The Contract Layer
+## Isolation Levels — The Contract Layer 🟡
 
 The SQL standard defines four levels by which anomalies they forbid. The truth in real databases is messier and more interesting.
 
@@ -168,7 +182,7 @@ The takeaway: **the name of the isolation level tells you almost nothing**. You 
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The newspaper archive analogy.**
 Imagine a newspaper archive where every article is filed by date. A historian (transaction) walks in and says "I want to research Tuesday's news." The archivist hands them a sealed packet of everything published *up to and including Tuesday*. The historian can read for hours. Meanwhile, journalists keep filing new stories — Wednesday's edition, Thursday's edition. None of that touches the historian's packet. That's snapshot isolation.
@@ -180,7 +194,7 @@ A bank ledger where you never erase entries — you only append corrections. The
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 Things that break at 3am because of MVCC:
 
@@ -195,7 +209,7 @@ The single most important operational lesson: **monitor the age of your oldest s
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The vacuum apocalypse.**
 A reporting tool opens a transaction at 8am for a "long-running migration check" and gets distracted. By 8pm, every UPDATE on the primary has produced a new version that vacuum cannot reclaim because of that one open transaction. Disk fills. Database goes read-only. The team kills the connection — vacuum now has 12 hours of dead tuples to chase, which takes another 6 hours during which performance is degraded.
@@ -211,7 +225,7 @@ A high-write system runs autovacuum at default settings. Vacuum can't keep up. E
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Reads:** essentially free under MVCC. A snapshot is a few words of memory. Visibility checks are CPU-cache resident. The bottleneck moves to I/O bandwidth and index efficiency, not concurrency.
 - **Writes:** pay the version-creation cost (extra writes to the heap, extra index updates) and any conflict-detection overhead. On contended rows, this can be substantial.
@@ -220,7 +234,7 @@ A high-write system runs autovacuum at default settings. Vacuum can't keep up. E
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical:** MVCC scales beautifully on a single node up to the limit of the slowest writer or the I/O subsystem. A well-tuned Postgres on modern hardware hits hundreds of thousands of reads/sec on a single primary.
 - **Horizontal reads:** physical replicas inherit MVCC properties — readers don't block on each other. But they create a new problem: how do you reconcile snapshots across replicas? Replicas may have a slightly older view than the primary; queries with cross-replica reads see read skew.
@@ -229,7 +243,7 @@ A high-write system runs autovacuum at default settings. Vacuum can't keep up. E
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Distributed systems:** snapshot isolation is the single-node ancestor of *consistency models* in distributed databases. Linearizability is "real time + serializability"; serializability is "snapshot + cycle detection"; eventual consistency is "we gave up on snapshots." Every distributed consistency model has a single-node analog in the isolation hierarchy.
 - **Caching:** the "stale read" problem in distributed caches is exactly the same shape as non-repeatable read. Cache invalidation strategies are isolation levels in disguise.
@@ -239,7 +253,7 @@ A high-write system runs autovacuum at default settings. Vacuum can't keep up. E
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Sentry, 2015-ish:** TXID wraparound near-miss in Postgres. Forced a deep refactor of vacuum strategy. Now a textbook case for high-write Postgres operations.
 - **GitHub MySQL operations:** documented incidents around `gh-ost`-style online schema changes interacting with InnoDB's repeatable-read snapshots and producing confusing replication lag.
@@ -250,7 +264,7 @@ These aren't edge cases. They're the predictable consequences of MVCC's tradeoff
 
 ---
 
-## Worked Example — Diagnosing Write Skew
+## Worked Example — Diagnosing Write Skew 🟡
 
 A doctors-on-call schedule. Constraint: at least one doctor must always be on call. Two doctors (Alice and Bob) are both currently on call. Each independently decides to take themselves off.
 
@@ -302,7 +316,7 @@ This is the canonical write-skew example. It's not academic — variants appear 
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🔴
 
 - **Postgres 16 (2023)** added logical replication from standbys, addressing a long-standing limitation. CDC pipelines from replicas without primary load.
 - **CockroachDB's serializable-by-default** continues to drive customer education on retry handling. Their public docs include a chapter on retry patterns.

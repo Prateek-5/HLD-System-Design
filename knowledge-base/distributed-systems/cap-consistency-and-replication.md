@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when the same data lives on several machines and the network between them breaks, you have to choose: answer fast with a possibly-stale value, or refuse to answer until everyone agrees — this file is about how to make that choice on purpose.
+>
+> **Analogy:** picture a single bank account with branches in three cities, each keeping its own copy of your balance. The phone line to one branch drops. You walk in and ask "how much do I have?" The branch can either hand you the number it last heard (fast, but maybe wrong) or make you wait until it can phone the others (correct, but you're stuck at the counter). There's no third option that's both instant and guaranteed-correct while the line is down.
+>
+> **New to this?** Build the basics first in [`learn/data/cap-theorem.md`](../../learn/data/cap-theorem.md) (and its companion [`learn/data/pacelc-theorem.md`](../../learn/data/pacelc-theorem.md)) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, climbing to 🔴 in the consensus, clock, and CRDT internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 You can't talk about distributed databases for ten minutes without someone mentioning CAP. You also can't talk about CAP for ten minutes without someone misquoting it. The theorem is simple, profound, and almost always cited at the wrong moment by people who haven't internalized what it actually says.
 
@@ -14,7 +26,7 @@ This is the topic where databases, networks, and distributed systems collapse in
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Three nodes hold a copy of your bank balance. You have $100.
 
@@ -34,7 +46,7 @@ Now stretch the picture: 50 nodes, geographic distribution, varying latency, par
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Single-master replication.**
 Postgres, MySQL pre-2010: one primary, N read replicas. Writes go to the primary. Replicas trail asynchronously. Strong consistency on the primary, eventual consistency on replicas. The whole architecture is built around a single point of write coordination — and a single point of failure.
@@ -56,7 +68,9 @@ Modern architectures use multiple consistency models in one system. Consensus fo
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### CAP, precisely
 
@@ -164,7 +178,7 @@ Whoever owns the clock owns the consistency story.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The orchestra without a conductor.**
 A symphony with one conductor (single leader) — everyone plays at the same tempo, but if the conductor falls, the music stops. A jam session (multi-leader, eventual consistency) — everyone improvises and the music *mostly* works, but occasional discords need to be resolved later. A military band (consensus) — everyone watches everyone else and synchronizes through agreed-upon signals; works without a single conductor but has overhead in coordination.
@@ -180,7 +194,7 @@ This is a real pattern in financial systems. The choices have names like "synchr
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What actually breaks in distributed systems:
 
@@ -201,7 +215,7 @@ The senior operator's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — Split-brain at 3am.**
 A network partition isolates the primary in MySQL replication. Failover script promotes a replica. Network heals. Now there are two primaries with diverging data. Resolution: a 12-hour manual data reconciliation, plus a partial customer refund.
@@ -220,7 +234,7 @@ A distributed database advertises "linearizable consistency." A Jepsen test unde
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Latency is paid in round trips.** Each consistency level costs a specific number of RTTs. Linearizable read = at least 1 RTT to leader. Quorum write = 1 RTT to quorum size. Multi-region write = inter-region RTT (typically 50–150ms).
 - **Throughput is bounded by the slowest replica** in synchronous replication; the *coordinator* in single-leader; the *quorum* in Dynamo-style.
@@ -230,7 +244,7 @@ A distributed database advertises "linearizable consistency." A Jepsen test unde
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical:** add bigger nodes. Helps until coordination overhead dominates.
 - **Horizontal reads:** trivial via replicas.
@@ -242,7 +256,7 @@ The hardest scaling jump is **regional → global**. Latency goes from sub-ms to
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **MVCC:** snapshot isolation is the single-node ancestor of distributed consistency. Linearizability ≈ "real-time + serializable." The same anomalies (stale reads, write skew) generalize to distributed settings.
 - **Caching:** every cache is a small distributed system with its own consistency model. Cache invalidation is Phil Karlton's hardest problem because it's *distributed consistency in disguise*.
@@ -255,7 +269,7 @@ The unifying observation: **consistency is the price of replication, replication
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **GitHub's MySQL split-brain (2018):** a network glitch + Orchestrator failover + replication topology changes ⇒ 24 hours of data inconsistency. A textbook case of how multi-leader replication's pathologies manifest at scale.
 - **Cloudflare's Postgres replica lag during AWS region issues:** documented postmortems of read replicas falling behind under write surges, surfacing the eventual-consistency-as-bug class.
@@ -266,7 +280,7 @@ The unifying observation: **consistency is the price of replication, replication
 
 ---
 
-## Worked Example — Designing the Consistency Model for an Inventory System
+## Worked Example — Designing the Consistency Model for an Inventory System 🔴
 
 A multi-region e-commerce service tracking inventory. Multiple regions accept orders. Question: how to handle "is this item in stock?" when the answer changes constantly across regions.
 
@@ -334,7 +348,7 @@ The CAP/PACELC framework guides each decision; the system as a whole exists acro
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Cloudflare's R2 object store**: published architecture documents. Strong consistency on metadata (consensus); eventual on data replication. PACELC: PC/EC for metadata; PA/EL for content.
 - **CockroachDB Serverless (2022-2023)**: pay-per-request distributed SQL. Documented the trade-offs of multi-tenant isolation atop strongly-consistent infrastructure.
@@ -346,7 +360,7 @@ The CAP/PACELC framework guides each decision; the system as a whole exists acro
 
 ---
 
-## Reference Architecture — Tunable Consistency
+## Reference Architecture — Tunable Consistency 🔴
 
 ```
 ┌────────────────────────────────────────────────────────────────┐

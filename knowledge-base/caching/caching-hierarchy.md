@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** Keep a copy of slow-to-fetch data somewhere fast and close, so you don't pay the full cost of looking it up every single time.
+>
+> **Analogy:** Your kitchen. You don't walk to the grocery store every time you want milk — you keep some in the fridge (fast, small, nearby) and restock from the store (slow, huge, far) only when you run out. A cache is the fridge; the database is the store. The tricky part: if the store changes the price and your fridge label is old, you're now wrong without knowing it.
+>
+> **New to this?** Build the basics first in [`learn/foundations/scaling/caching.md`](../../learn/foundations/scaling/caching.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, climbing to 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Caching is the most powerful performance technique in software, and the most dangerous. Done well, it turns a 200ms database query into a 200μs in-memory lookup. Done badly, it gives you correct answers 99% of the time and a 1% chance of showing one customer another customer's billing data.
 
@@ -14,7 +26,7 @@ The senior engineer's job is not to know "how Redis works." It's to know **where
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine your desk.
 
@@ -33,7 +45,7 @@ The hard part isn't the desk. The hard part is when someone *changes the book in
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — CPU caches.**
 Mainframes had memory hierarchies before "cache" was a software word. SRAM close to the CPU, DRAM further out, disk further still. The principle: locality of reference. Programs tend to access the same memory repeatedly (temporal locality) and nearby memory next (spatial locality). The hardware exploits this with on-chip caches measured in kilobytes.
@@ -57,7 +69,9 @@ The pattern: each generation pushed the cache *closer to the consumer* of the da
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The full hierarchy (modern web app)
 
@@ -186,7 +200,7 @@ CDN caching is where "cache invalidation" becomes a distributed-systems problem 
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The grocery store back room.**
 The shelves (cache) are stocked from the back room (database). When a popular item runs out, an employee (the cache miss) goes to the back room and refills. The shelf is faster to access than the back room. If the back room is also empty, an employee drives to the warehouse (origin). The hierarchy continues all the way to the supplier.
@@ -204,7 +218,7 @@ A newspaper has a *morgue* — its archive of every published article. When jour
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong in real caching systems:
 
@@ -226,7 +240,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — Cold start cascade.**
 Black Friday morning. Cache cluster restart deployed Thursday night accidentally cleared persistence. Cache is empty when traffic ramps. Every request misses. Database CPU 100%. Latency goes from 20ms to 5s. Auto-scaler can't help — it's CPU-bound on the database. Site degrades for 90 minutes until cache warms organically.
@@ -245,7 +259,7 @@ Global purge issued. 99.9% of edge nodes purged. One node in São Paulo had a co
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Latency reduction is multiplicative through the stack.** Saving 50ms at one layer saves 50ms on every request that hits that layer.
 - **Cache hit rate compounds.** A 90% hit rate means the source sees 10% of traffic. A 99% hit rate means 1%. The capacity savings on the source are usually the biggest economic win, not the user-facing latency.
@@ -255,7 +269,7 @@ Global purge issued. 99.9% of edge nodes purged. One node in São Paulo had a co
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical:** add RAM. Redis can hold tens of GB on one node, hundreds on a beefy box.
 - **Horizontal:** Redis Cluster, partitioned across N nodes. Sharding by key hash. Cross-shard transactions become hard.
@@ -268,7 +282,7 @@ Global purge issued. 99.9% of edge nodes purged. One node in São Paulo had a co
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **MVCC:** the buffer pool is a cache. Bloated indexes lower its hit rate. The principle (keep the working set in fast storage) is identical.
 - **Distributed consistency:** cache invalidation is consistency-model design. Stale reads in a cache hierarchy are *exactly* the eventual consistency problem from distributed databases. Same theory, different name. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
@@ -281,7 +295,7 @@ The unifying observation: **caching is what every layer does when the layer belo
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Facebook/Memcached at scale:** the famous "Scaling Memcache at Facebook" paper covers thundering herds, leases, and cluster-aware caching at billion-user scale. Required reading.
 - **Netflix's EVCache:** distributed Memcached with multi-region replication. Their public engineering posts document the *operational* reality of large-scale caching.
@@ -291,7 +305,7 @@ The unifying observation: **caching is what every layer does when the layer belo
 
 ---
 
-## Worked Example — Multi-Tier Caching for a Product Page
+## Worked Example — Multi-Tier Caching for a Product Page 🔴
 
 A high-traffic e-commerce product page. Goal: low latency globally, low origin load, fresh-enough data.
 
@@ -455,7 +469,7 @@ The hierarchy collapses load by 100×; user-perceived latency is dominated by ne
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Cloudflare's tiered-cache architecture**: published documentation on edge → regional → origin cache hierarchy; reduces origin load dramatically.
 - **The 2022 Fastly outage**: a config bug took down significant fraction of internet briefly. Postmortem covers recovery and customer trust.
@@ -487,7 +501,7 @@ The senior instinct, looking at any system, is to scan the latency hierarchy and
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

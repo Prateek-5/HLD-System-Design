@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** monitoring isn't free — this is about *why* watching your system can cost more than running it, and which choices make the bill explode.
+>
+> **Analogy:** it's like a phone plan. Calling 10 friends is cheap. But the moment you log *every word* of *every call* with *every friend* forever, your "small phone bill" becomes bigger than your rent — even though you didn't make more calls. Adding one detail to track (a label) multiplies the data the same way.
+>
+> **Assumes you already know:** what an SLO / SLI is — build that first in [`learn/reliability/sla-slo-sli.md`](../../learn/reliability/sla-slo-sli.md); and basic [scalability](../../learn/foundations/scaling/scalability.md) thinking (cost growing with scale). This is a senior/staff KB-only deep-dive — there's no beginner learn/ track for cardinality itself.
+>
+> **Level:** this file is 🟡/🔴 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Observability has a cost. Every metric, every log line, every span has storage, processing, and query cost. At scale, these costs are non-trivial — many companies spend more on observability than on their compute infrastructure. The drivers of that cost are surprisingly counter-intuitive: it's not request volume that breaks the budget; it's *cardinality*. The number of unique combinations of labels, attributes, and dimensions that the observability system must track.
 
@@ -14,7 +26,7 @@ This is the topic where observability becomes a finance problem. The technical d
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine running a research library.
 
@@ -30,7 +42,7 @@ The library's solution: don't catalog everything. Sample. Pick what's worth keep
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Server logs.**
 1990s, 2000s. Logs were files. You shipped them somewhere. Cost was disk space. Cardinality wasn't a concept; you grepped what you had.
@@ -54,7 +66,7 @@ The pattern: each generation made observability more powerful and more expensive
 
 ---
 
-## Core Mental Models
+## Core Mental Models 🟡
 
 **1. Cardinality is the cost driver.**
 Number of unique combinations of dimensions. A metric with N dimensions, each with M values: M^N possible series. Each series has storage cost. Cardinality compounds; one bad label breaks the budget.
@@ -73,7 +85,9 @@ Keeping everything is fine until 10K RPS becomes 100K. Sampling — head-based o
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### The cardinality formula
 
@@ -231,7 +245,7 @@ These systems push the cardinality boundary. The cost is real but provides flexi
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The corporate accounting system.**
 A company tracks income and expenses. By department: cheap. By project within department: more storage. By individual transaction: massive. The IRS only requires aggregated reporting; managers want detail; the trade-off is real.
@@ -245,7 +259,7 @@ Modern POS systems can capture all three. The CFO uses summary; the merchandiser
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -268,7 +282,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The cardinality bomb.**
 Engineer adds `customer_email` as a label. Cardinality grows from thousands to millions. TSDB OOMs. Outage on the metrics layer; alert system blind. Fix: revert; rebuild metric storage.
@@ -287,7 +301,7 @@ Application emits 200 metrics. 195 are queried; 5 are not. The 5 cost $X/month i
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Metric ingestion**: bounded by series count and write rate.
 - **Log indexing**: typically the cost bottleneck.
@@ -297,7 +311,7 @@ Application emits 200 metrics. 195 are queried; 5 are not. The 5 cost $X/month i
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical**: bigger storage backends; hits limits.
 - **Horizontal**: shard observability backends. Most modern systems are distributed (Mimir, Cortex, Tempo, ClickHouse).
@@ -306,7 +320,7 @@ Application emits 200 metrics. 195 are queried; 5 are not. The 5 cost $X/month i
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Metrics, logs, traces**: cardinality matters differently for each. (See [metrics-logs-traces.md](./metrics-logs-traces.md).)
 - **SLOs**: SLI computation depends on metrics; cardinality affects feasibility. (See [slos-error-budgets-and-alerting.md](./slos-error-budgets-and-alerting.md).)
@@ -318,7 +332,7 @@ The unifying observation: **observability is bounded not by what you'd like to m
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **The "we spend more on Datadog than AWS" stories**: not uncommon at mid-sized companies.
 - **Honeycomb's wide-event model**: published case studies of cost vs flexibility trade-offs.

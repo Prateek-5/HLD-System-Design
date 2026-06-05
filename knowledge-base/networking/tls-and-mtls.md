@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how two computers that have never met can talk over a public network so nobody in between can read or tamper with their conversation — and so each side knows it's really talking to who it thinks.
+>
+> **Analogy:** sealing a letter in a tamper-evident envelope and sending it through a courier who has been vouched for by a notary you trust. The seal hides the contents (encryption), the broken-seal detection catches meddling (integrity), and the notary's stamp proves who the sender is (the certificate). Mutual TLS is both people showing notarized ID before they'll talk.
+>
+> **New to this?** Build the basics first in [`learn/reliability/ssl-tls-mtls.md`](../../learn/reliability/ssl-tls-mtls.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, climbing to 🔴 in the handshake/crypto internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## 🟢 Topic Overview
 
 TLS (Transport Layer Security) is the cryptographic protocol that secures most internet traffic. It does three things: **encrypts** (so eavesdroppers can't read); **authenticates** (so the client knows the server is who it claims); **integrity-checks** (so tampering is detected). TLS evolved from SSL (Netscape, 1995) through TLS 1.0, 1.1, 1.2, 1.3 (2018) — each generation faster and more secure.
 
@@ -14,7 +26,7 @@ This is the topic where cryptography meets production engineering. TLS handshake
 
 ---
 
-## Intuition Before Definitions
+## 🟢 Intuition Before Definitions
 
 Imagine sending a secret message through a public courier service.
 
@@ -32,7 +44,7 @@ That's TLS. The cryptographic plumbing under "https://" — and under the more r
 
 ---
 
-## Historical Evolution
+## 🟡 Historical Evolution
 
 **Era 1 — SSL (1995-1999).**
 SSL 2.0, 3.0. Insecure by modern standards.
@@ -56,7 +68,9 @@ The pattern: each generation removed unsafe options, simplified the protocol, ac
 
 ---
 
-## Deep Technical Explanation
+⚠️ The rest assumes the basics above are solid.
+
+## 🔴 Deep Technical Explanation
 
 ### TLS handshake (1.3, simplified)
 
@@ -236,7 +250,7 @@ Slightly different from HTTP/2 over TLS, but conceptually similar.
 
 ---
 
-## Real Engineering Analogies
+## 🟢 Real Engineering Analogies
 
 **The diplomatic pouch with seals.**
 Diplomatic pouches are sealed (encryption); they identify themselves with credentials (certificate); tampering is detectable (integrity). Embassies extend trust based on these credentials. Mutual TLS is both diplomats showing credentials.
@@ -246,7 +260,7 @@ A notary signs a document; recipients trust the notary's signature. Cert = docum
 
 ---
 
-## Production Engineering Perspective
+## 🟡 Production Engineering Perspective
 
 What goes wrong:
 
@@ -260,7 +274,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## 🔴 Failure Scenarios
 
 **Scenario 1 — The cert expiry outage.**
 Cert expires at midnight; alerts triggered too late; service down for hours. Recovery: renew; lessons: automation; better monitoring.
@@ -279,7 +293,7 @@ Application enabled 0-RTT for an idempotent endpoint, but the endpoint had hidde
 
 ---
 
-## Performance Perspective
+## 🟡 Performance Perspective
 
 - **TLS 1.3 handshake**: 1 RTT.
 - **Symmetric encryption**: ~GB/s with AES-NI.
@@ -288,7 +302,7 @@ Application enabled 0-RTT for an idempotent endpoint, but the endpoint had hidde
 
 ---
 
-## Scaling Perspective
+## 🟡 Scaling Perspective
 
 - **Edge TLS termination**: offload from origin.
 - **TLS-aware load balancers**: standard.
@@ -297,7 +311,7 @@ Application enabled 0-RTT for an idempotent endpoint, but the endpoint had hidde
 
 ---
 
-## Cross-Domain Connections
+## 🟡 Cross-Domain Connections
 
 - **TCP**: TLS over TCP. (See [tcp-and-network-fundamentals.md](./tcp-and-network-fundamentals.md).)
 - **HTTP**: TLS underlies HTTPS. (See [http-2-and-http-3.md](./http-2-and-http-3.md).)
@@ -309,7 +323,7 @@ The unifying observation: **TLS is the cryptographic foundation under most secur
 
 ---
 
-## Real Production Scenarios
+## 🟢 Real Production Scenarios
 
 - **Let's Encrypt's adoption**: HTTPS everywhere.
 - **Cloudflare's TLS deployment**: enormous scale; documented.

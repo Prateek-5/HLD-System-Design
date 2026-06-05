@@ -4,7 +4,17 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a program juggles thousands of "waiting" jobs (network calls, disk reads, timers) on a single worker without hiring a thread for each one.
+>
+> **Analogy:** one barista at a busy coffee shop. They never stand still waiting for an espresso machine — they start your drink, take the next order, start that machine too, and circle back when each machine beeps. The barista is the single thread; the beeping machines are I/O finishing in the background.
+>
+> **Assumes you already know:** what it means for a server to handle many requests at once, and the single-machine vs. add-more-machines tradeoff — build that in [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md). Threads-per-connection vs. one-process-many-connections is the contrast this whole topic lives in.
+>
+> **Level:** this file is 🔴 overall — it's Node/JS-specialist runtime depth, deliberately past what a system-design interview needs. The intuition and history below are approachable; the phases, libuv, and microtask internals are deep. If those feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+## Topic Overview 🟢
 
 The event loop is the most misunderstood mechanism in modern programming, and the most powerful. It's why Node.js can handle 50,000 concurrent connections on a single thread. It's why a misplaced `JSON.parse` of a 200MB blob freezes your entire server. It's why `setTimeout(fn, 0)` doesn't actually run `fn` in zero milliseconds. It's why every senior backend engineer who came from Java has, at some point, said "wait, *what*?"
 
@@ -16,7 +26,7 @@ The cost: every unit of work *must* yield. A single tight CPU loop blocks everyt
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Picture a coffee shop with one barista.
 
@@ -32,7 +42,7 @@ That's the entire model. Everything else is mechanics.
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Threads everywhere.**
 Apache, classic Java EE servers: one OS thread per connection. Beautiful programming model. Disastrous at scale. 10K connections = 10K threads = 80GB of stack memory + a context-switch storm. The "C10K problem" was named in 1999 and dominated server engineering for a decade.
@@ -56,7 +66,9 @@ The event loop won the *infrastructure* war (it's everywhere). The threading mod
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The browser event loop (simplified)
 
@@ -170,7 +182,7 @@ The fix categories:
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The single-lane bridge.**
 The event loop is a single-lane bridge. Cars cross one at a time. The bridge keeper (scheduler) lets each car finish crossing, then waves on the next. Some cars are tiny (a microtask). Some are huge (a CPU loop). The bridge can't be widened. The job of every developer is to keep their cars small.
@@ -180,7 +192,7 @@ ATC handles dozens of planes from one console. They never *fly* a plane — they
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The DNS thread pool starvation.**
 A service makes outbound API calls to ~10 services per request. Each call does a DNS lookup. Under traffic, all 4 libuv threads are stuck on DNS. New requests pile up. CPU is idle. The team blames "the network" for an hour before someone reads the libuv docs.
@@ -199,7 +211,7 @@ A Promise-based queue keeps references to old completed jobs because of an unint
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Event loop lag is your latency budget.** Zero blocking work = zero added latency. Every blocking ms is added to *every concurrent request's* tail.
 - **Microtasks are cheaper than macrotasks** (no phase transition cost), but they share the same blocking risk.
@@ -209,7 +221,7 @@ A Promise-based queue keeps references to old completed jobs because of an unint
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical:** a Node process uses one CPU core. Add more concurrency to that core via async I/O, but if you saturate the core, you saturate the process.
 - **Horizontal (clustered):** Run N processes on N cores using cluster, PM2, or just multiple containers behind a load balancer. Almost always preferable to manual `worker_threads` orchestration for HTTP servers.
@@ -220,7 +232,7 @@ The scaling logic mirrors distributed systems: **the bottleneck is whichever res
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Database transactions:** the "task runs to completion" rule is the application-layer analog of *serializable execution* — if no other code can interleave, you have isolation by construction.
 - **Message queues:** the event loop's task queue *is* a message queue, in miniature. Backpressure, prioritization, fairness — all the same problems.
@@ -233,7 +245,7 @@ The deep insight: **single-threaded async is a tradeoff replicated at every laye
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Walmart's Node migration (2012):** moved their mobile backend from Java to Node and watched memory drop, throughput rise — until a CPU-intensive feature surfaced the blocking problem. Postmortems became required Node training material.
 - **PayPal's Node migration:** double the requests/sec at half the response time vs. Java, on equivalent hardware. The win was almost entirely from event-driven I/O.
@@ -243,7 +255,7 @@ The deep insight: **single-threaded async is a tradeoff replicated at every laye
 
 ---
 
-## Worked Example — Diagnosing Event Loop Lag
+## Worked Example — Diagnosing Event Loop Lag 🔴
 
 Production Node service averages 30ms latency. p99 is 800ms. CPU usage is 45%. The mismatch is the giveaway: low average + high tail = event loop lag.
 
@@ -376,7 +388,7 @@ Main loop handles I/O orchestration; workers handle CPU-bound tasks.
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Bun's runtime (2023+)**: alternative JS runtime; event loop comparison with Node has been actively benchmarked. Different tradeoffs.
 - **Deno 2 (2024)**: continues to push runtime evolution; native TypeScript support changes how teams use the event loop.

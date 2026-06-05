@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how do you get your system and its data back when something huge breaks — a whole data center burns down, a region goes dark, or ransomware locks your files — and how do you decide *how fast* and *how completely* you need to recover?
+>
+> **Analogy:** a fireproof safe and a fire drill at home. You keep copies of your most important documents off-site (backups) in case the house burns down, and you practice the escape route (DR drills) so that when a real fire happens, nobody freezes. RTO is "how long until we're back in a working home?" and RPO is "how recent were the documents we managed to save?"
+>
+> **New to this?** Build the basics first in [`learn/reliability/disaster-recovery.md`](../../learn/reliability/disaster-recovery.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the failover/database internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Disaster Recovery (DR) is the practice of preparing for catastrophic failures: an entire data center going dark, a region losing connectivity, a database catastrophically corrupting, ransomware encrypting your production data. Not the small failures observability and chaos engineering catch — the big, rare, business-threatening events.
 
@@ -14,7 +26,7 @@ This is the topic where backups, replication, multi-region architecture, and ope
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine running a hospital.
 
@@ -30,7 +42,7 @@ RTO and RPO are the targets. RTO: "how long can the hospital be effectively clos
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Tape backups.**
 Decades-old practice. Nightly tape; off-site storage. Recovery time: hours to days. Acceptable when systems were small.
@@ -54,7 +66,9 @@ The pattern: each generation reduced RTO and RPO. Today's expectations (minutes 
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### RTO and RPO
 
@@ -222,7 +236,7 @@ Record results; track improvements. Each exercise reveals gaps; each gap is a fi
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The fire drill at the office building.**
 A skyscraper has fire suppression, evacuation routes, alarm systems. They drill regularly. When a real fire happens, people execute the rehearsed plan. The building survives. Compare: a building that's never drilled — chaos, injuries, possibly deaths. Same physical infrastructure; different practices; very different outcomes.
@@ -235,7 +249,7 @@ You keep important documents in an off-site safe deposit box, in case your house
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -258,7 +272,7 @@ The senior SRE/DR engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The unrestorable backup.**
 5 years of nightly backups. Disaster: production database lost. Restore from latest backup. Restore fails — backup file structure changed years ago; modern tools don't recognize it. Recovery: reconstruct from older logs and human knowledge. 4 days down. Lesson: continuous restore testing.
@@ -277,7 +291,7 @@ Pre-drill: chaos exercise simulates region failure. RTO target: 15 minutes. Dril
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Backup creation**: scales with data size; dedupe and incremental help.
 - **Backup storage**: cheap (object storage) for cold data.
@@ -287,7 +301,7 @@ Pre-drill: chaos exercise simulates region failure. RTO target: 15 minutes. Dril
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Small systems**: backup-and-restore is sufficient.
 - **Medium systems**: warm standby in another region.
@@ -296,7 +310,7 @@ Pre-drill: chaos exercise simulates region failure. RTO target: 15 minutes. Dril
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Replication**: DR depends on replication strategy. (See [replication-strategies.md](../database-internals/replication-strategies.md).)
 - **WAL**: backups and replication build on WAL. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
@@ -310,7 +324,7 @@ The unifying observation: **disaster recovery is the cumulative sum of all your 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **AWS Region outages**: documented examples; many companies' DR plans tested simultaneously.
 - **GitLab's data loss incident (2017)**: backup verification gap led to ~6 hours of data loss. Public postmortem.

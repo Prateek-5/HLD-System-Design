@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how programs juggle hundreds of thousands of "do this, then wait" tasks at once without paying for a heavyweight OS thread per task.
+>
+> **Analogy:** a single waiter serving a full restaurant. A naive plan hires one waiter per table (an OS thread per task) — costly and you run out fast. A smart waiter takes an order, drops it at the kitchen, and *while that table waits* moves to the next table. One person fluidly handles many tables because most of the work is waiting, not doing.
+>
+> **Assumes you already know:** what a thread/process is, and why systems need to handle many concurrent users — build that in [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md) and [`learn/reliability/vms-and-containers.md`](../../learn/reliability/vms-and-containers.md) first.
+>
+> **Level:** this file is 🔴 overall — it's a runtime-engineering deep dive with no beginner learning-path counterpart. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 For decades, "concurrency" meant OS threads — heavy, preemptive, with megabyte stacks, ~10μs context switches, and limits in the tens of thousands per process. Modern systems handle hundreds of thousands or millions of concurrent operations. Something had to give.
 
@@ -14,7 +26,7 @@ This is the topic where threading evolves into a layered system: at the bottom, 
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a hospital's nursing system.
 
@@ -28,7 +40,7 @@ The progression is the same: each generation made the per-task overhead smaller.
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Forking processes.**
 1970s. Each request handled by a forked process. Heavy. Apache prefork. Reliable but limited to thousands of concurrent operations.
@@ -52,7 +64,9 @@ The pattern: each generation made concurrent units cheaper. The newer abstractio
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### OS threads in detail
 
@@ -236,7 +250,7 @@ Subtle correctness issues: cancellation in the middle of an operation may leave 
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟡
 
 **The restaurant kitchen with preset stations.**
 A single chef (one OS thread) prepares dishes. Each dish has known steps; the chef interleaves them — start the soup boiling (await); chop salad while soup boils; check the soup; plate the salad. Many dishes "in flight" simultaneously, but only one chef.
@@ -252,7 +266,7 @@ That's a coroutine system. The flights are tasks; the controller is the schedule
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -274,7 +288,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The blocking-call surprise.**
 Service uses asyncio. New code includes synchronous DB call (forgot to use async driver). Under load, every request blocks on that DB call; other requests pile up. Performance equivalent to single-threaded. Fix: async-native DB driver.
@@ -293,7 +307,7 @@ Background task spawned for "fire-and-forget" reporting. Parent function returns
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **OS thread context switch**: ~1-10μs.
 - **Coroutine context switch**: tens of nanoseconds.
@@ -303,7 +317,7 @@ Background task spawned for "fire-and-forget" reporting. Parent function returns
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Concurrent task count**: limited by memory. With coroutines, easily millions; with OS threads, low tens of thousands.
 - **Multi-core**: depends on runtime. Single-threaded runtimes (Node, asyncio) scale via multiple processes.
@@ -311,7 +325,7 @@ Background task spawned for "fire-and-forget" reporting. Parent function returns
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Parallelism vs concurrency**: coroutines/green threads provide concurrency; parallelism depends on the runtime's threading. (See [parallelism-vs-concurrency.md](./parallelism-vs-concurrency.md).)
 - **Event loop**: Node's event loop is the single-threaded coroutine runtime model. (See [event-loop-and-async-runtime.md](../js-runtime/event-loop-and-async-runtime.md).)
@@ -323,7 +337,7 @@ The unifying observation: **concurrent units have moved from kernel-managed (hea
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Erlang at WhatsApp**: 2 million connections per server documented. Process-per-connection scale.
 - **Go's adoption at Uber, Cloudflare, Discord**: case studies of replacing thread-per-connection with goroutines.
@@ -358,7 +372,7 @@ The unifying observation: **concurrent units have moved from kernel-managed (hea
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** running your app's day-to-day reads and writes ("save this order") needs a different kind of database than crunching huge reports ("total revenue across five years") — this explains why, and how each one is built.
+>
+> **Analogy:** a corner shop versus a bulk warehouse. The corner shop is laid out so one customer can grab a single item and check out fast (one order at a time). The warehouse is laid out so a forklift can move a whole pallet of one product at once (one column at a time). Same goods, opposite layouts — each is painful at the other's job.
+>
+> **New to this?** Build the basics first in [`learn/data/sql-vs-nosql.md`](../../learn/data/sql-vs-nosql.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Two fundamentally different workload shapes drive two fundamentally different database designs. **OLTP (Online Transactional Processing)** handles many small operations: insert this order, update that user's balance, fetch this row by ID. Latency-sensitive, write-heavy, strongly consistent. Postgres, MySQL, Oracle. **OLAP (Online Analytical Processing)** handles few large operations: sum these revenues across years, compute conversion rates by cohort, aggregate billions of rows. Throughput-sensitive, read-heavy, often eventually consistent. Snowflake, BigQuery, Redshift, ClickHouse, DuckDB.
 
@@ -14,7 +26,7 @@ This is the topic that explains why Postgres struggles when you ask it to scan a
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a library.
 
@@ -26,7 +38,7 @@ Both are libraries. Both have books. But the *organization* is fundamentally dif
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — One database for everything.**
 1980s-90s. Oracle, IBM DB2, Sybase. Used for both transactional and analytical workloads on the same instance. Performance was acceptable because data was small.
@@ -50,7 +62,9 @@ The pattern: workload shapes drove database specialization. Trying to merge them
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Row-oriented storage (OLTP)
 
@@ -195,7 +209,7 @@ The honest answer for most teams: an OLTP database for the application, and an O
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The supermarket vs warehouse.**
 A supermarket optimizes for individual transactions: small purchases, fast checkout, broad selection. A warehouse optimizes for bulk: pallets, forklifts, infrequent large transfers. The same goods, organized differently, for different transaction patterns.
@@ -205,7 +219,7 @@ The reading room serves readers who want specific books quickly. The citation in
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The locked production database.**
 Marketing team runs a "quick" analytical query against production Postgres. Query holds locks for 20 minutes. All transactions queue. Site is effectively down. Recovery: kill the query; education; later: replica for analytics.
@@ -224,7 +238,7 @@ Engineer tries to "fix" individual rows in ClickHouse via UPDATE. Query runs for
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **OLTP**: thousands of small operations per second; sub-millisecond per op.
 - **OLAP**: large queries; aggregations over GBs in seconds (with vectorization + parallel).
@@ -234,7 +248,7 @@ Engineer tries to "fix" individual rows in ClickHouse via UPDATE. Query runs for
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **OLTP vertical**: scales to large machines; sharding for further scale.
 - **OLAP horizontal**: MPP scales to many nodes natively.
@@ -244,7 +258,7 @@ Engineer tries to "fix" individual rows in ClickHouse via UPDATE. Query runs for
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Indexing**: OLTP relies on B-trees; OLAP uses sparse indexes, partitions, statistics. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
 - **MVCC**: OLTP heavily uses; OLAP often uses simpler concurrency. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
@@ -257,7 +271,7 @@ The unifying observation: **workload shape drives database design. Mismatching w
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Snowflake's adoption**: countless case studies of teams moving analytics off OLTP.
 - **ClickHouse at Cloudflare, Yandex, others**: real-time analytics at scale.
@@ -281,7 +295,7 @@ The unifying observation: **workload shape drives database design. Mismatching w
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 - **"OLTP vs OLAP?"** / **"Why is columnar good for analytics?"** (sequential reads, compression, vectorization) / **"Why is row-oriented good for OLTP?"** (random row access, consistency, transactions).
 - **"What's vectorized execution?"** Batched processing with SIMD.

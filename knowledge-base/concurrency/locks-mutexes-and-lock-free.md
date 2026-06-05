@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when several workers touch the same shared data at the same time, they corrupt it — locks (and lock-free tricks) are the ways to let exactly one worker touch it at a time, or to coordinate without anyone ever waiting.
+>
+> **Analogy:** a single office bathroom with one key. Whoever holds the key uses it; everyone else waits outside. That's a lock. The clever-but-dangerous alternative — lock-free — is "no key at all: leave a sticky note that you're going in, and if you discover someone else's note, both of you redo it cleanly."
+>
+> **Assumes you already know:** what a thread/process is, that a CPU runs many of them at once, and that one line of code (like `x++`) can be split into several machine steps. These OS/runtime fundamentals are not covered in the `learn/` interview track — this is a senior runtime-engineering topic, so build that background from an OS primer first.
+>
+> **Level:** this file is 🔴 overall — it lives in the KB-only `concurrency/` track, beyond what system-design interviews ask. The opening sections are approachable; the internals (memory ordering, lock-free queues, ABA) are genuinely hard. If those tags feel steep, that's expected — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Concurrency is the art of getting multiple things to happen at once without them tripping over each other. Locks are the oldest, simplest, most-used answer — and the source of more production-level horror stories than perhaps any other primitive in computing. Deadlocks, priority inversion, lock convoy, ABA bugs, livelock, false sharing — entire vocabularies exist to name the ways locks fail when programmers don't think carefully.
 
@@ -14,7 +26,7 @@ This is the topic where hardware, language semantics, and operational reality cr
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Picture a single bathroom in a small office.
 
@@ -28,7 +40,7 @@ Lock-free programming is the equivalent of "let me just leave a note saying I wa
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Cooperative multitasking and explicit yields.**
 Early multitasking systems (early Mac OS, Windows 3.1) had no preemption. A thread held the CPU until it yielded. Concurrency bugs were limited to the points where you yielded. Simple, fragile.
@@ -52,7 +64,9 @@ The pattern: each generation either *added a synchronization primitive* or *elim
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### Mutex — the fundamental primitive
 
@@ -200,7 +214,7 @@ The tradeoff: channels add overhead vs lock-protected shared state for some work
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The library reading room.**
 A reading room with rare books. Multiple readers can examine the same book (read lock). To make a correction, the librarian must take the book to a back room (write lock) — and no one else can see the book during that time. If readers refuse to leave, the correction never happens (writer starvation). If the librarian always wins, readers may wait indefinitely (reader starvation).
@@ -212,7 +226,7 @@ Multiple chefs (threads) preparing dishes (operations). Only one chef can use th
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What concurrency bugs look like in production:
 
@@ -234,7 +248,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The classic deadlock.**
 Method A acquires lock X, then tries to acquire lock Y. Method B acquires lock Y, then tries to acquire lock X. Under load, they collide. Service hangs. Restart "fixes" it — until next time. Permanent fix: enforce global lock ordering; refactor to acquire both locks atomically (typically via a higher-level lock).
@@ -253,7 +267,7 @@ A reader thread reads a flag set by a writer thread. No memory barrier. Compiler
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Uncontended locks are nearly free** (~10–50ns). Don't over-optimize away.
 - **Contended locks serialize throughput**. The theoretical maximum is one thread's worth of throughput on the critical section.
@@ -264,7 +278,7 @@ A reader thread reads a flag set by a writer thread. No memory barrier. Compiler
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Scale up:** modern CPUs have dozens of cores. Lock contention scales superlinearly with cores under fixed workload.
 - **Scale out:** distributed locks (Redis, ZooKeeper, etcd) carry network latency. Use sparingly; prefer partitioning.
@@ -274,7 +288,7 @@ A reader thread reads a flag set by a writer thread. No memory barrier. Compiler
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **MVCC**: snapshot isolation lets readers proceed without locks. The same insight at the database layer. (See [mvcc-and-isolation-levels.md](../database-internals/mvcc-and-isolation-levels.md).)
 - **Distributed consistency**: distributed locks (Redlock, ZooKeeper) are locking promoted to a network. Same failure modes, longer timescales. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
@@ -287,7 +301,7 @@ The unifying insight: **synchronization is what happens when state is shared. Th
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **NASA's Mars Pathfinder priority inversion (1997)**: textbook case of low-priority thread holding a lock needed by a high-priority one, with a medium-priority thread monopolizing CPU. Fixed remotely by enabling priority inheritance.
 - **Linux kernel's RCU adoption**: reader-side scalability achieved by allowing readers to proceed without locks, with deferred reclamation of obsolete data. Enabled the kernel to scale to hundreds of cores.
@@ -317,7 +331,7 @@ The unifying insight: **synchronization is what happens when state is shared. Th
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 Common questions and the answer depth expected:
 

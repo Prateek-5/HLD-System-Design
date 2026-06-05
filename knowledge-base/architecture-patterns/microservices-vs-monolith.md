@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** Do you build your app as one big program, or as many small programs that talk to each other — and how do you decide?
+>
+> **Analogy:** A single home kitchen vs. an airport food court. One chef in one kitchen is simple and fast to coordinate, but it gets chaotic when the crowd grows. A food court is many independent kitchens that scale and fail separately — but it needs signage, payments, and far more space to run. Tiny crowd → kitchen. Airport → food court.
+>
+> **New to this?** Build the basics first in [`learn/architecture/monolith-vs-microservices.md`](../../learn/architecture/monolith-vs-microservices.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A monolith is a single deployable unit containing all of your application's code. A microservice is one of many small, independently-deployable services that together make up the application. The architectural choice between them shapes everything: team structure, deployment cadence, latency characteristics, debugging difficulty, operational complexity, and the kinds of failures you encounter.
 
@@ -14,7 +26,7 @@ This is the topic where Conway's Law meets distributed systems. The question isn
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine running a restaurant.
 
@@ -28,7 +40,7 @@ The right answer is *fit to scale and complexity*. Most teams don't need a food 
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — The monolithic web application.**
 1990s, 2000s. PHP/Java/Rails monoliths shipped as single artifacts. Worked beautifully at the scale most companies operated at.
@@ -52,7 +64,9 @@ The pattern: the industry oscillated between centralized (monolith), decentraliz
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🟡
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The monolith — clarified
 
@@ -189,7 +203,7 @@ A team without these is doing distributed monolith — the worst of both worlds.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The single-restaurant chef vs the food court.**
 (Already used above.) Small team, simple menu → one kitchen. Large operation, diverse offerings → food court. Trying to run a food court with two staff total is absurd; trying to run a thousand-person food festival from one kitchen is impossible.
@@ -203,7 +217,7 @@ A small town that builds a mall fails. A growing city that stays with one genera
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -226,7 +240,7 @@ The senior architect's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The premature split.**
 A 10-engineer startup splits into 8 services. Each service has its own deploy, its own logging, its own database. Operational overhead explodes. CI takes hours. Engineers spend more time on infrastructure than features. After 18 months, they consolidate to 3 services and recover velocity.
@@ -245,7 +259,7 @@ Service A's API change requires updating clients in B, C, D. Schema migration in
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Monolith function calls**: nanoseconds (in-process, no serialization or network).
 - **Microservice network calls**: add a per-hop overhead — on a LAN, sub-millisecond to a few milliseconds of round-trip plus serialization, more across zones/regions. The key point is the *added* cost of crossing a process/network boundary versus an in-process call, not a fixed floor.
@@ -254,7 +268,7 @@ Service A's API change requires updating clients in B, C, D. Schema migration in
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: monoliths scale to the size of the largest sensible machine — often hundreds of cores, terabytes of RAM.
 - **Horizontal (monolith)**: replicate the whole thing. Memory and CPU usage uniform.
@@ -264,7 +278,7 @@ Service A's API change requires updating clients in B, C, D. Schema migration in
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Sagas**: cross-service workflows in microservices require sagas; monoliths can use database transactions. (See [saga-pattern-and-distributed-transactions.md](./saga-pattern-and-distributed-transactions.md).)
 - **Cascading failures**: microservices' failure modes; monoliths fail differently (whole-process). (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
@@ -277,7 +291,7 @@ The unifying observation: **microservices are a distributed system; monoliths ar
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Netflix's microservices journey**: the canonical case. Public engineering posts span 15+ years. Netflix's scale and engineering investment are both unusual.
 - **Amazon's "two-pizza teams"**: famous organizational pattern that Conway's-Lawed Amazon into microservices.
@@ -289,7 +303,7 @@ The unifying observation: **microservices are a distributed system; monoliths ar
 
 ---
 
-## Worked Example — When to Extract
+## Worked Example — When to Extract 🔴
 
 You have a Rails monolith. 30 engineers, growing to 50. The team is feeling pain: 30-minute CI; merge conflicts daily; deploys touch all features; one team's bug crashes others. Should you extract services?
 
@@ -417,7 +431,7 @@ When extraction time comes, the boundaries are already there. Migration is "depl
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Shopify's modular monolith at scale (2024)**: 6000+ engineers; primarily one Rails app. Public engineering posts on enforcing module boundaries.
 - **Amazon Prime Video moving from microservices to monolith (2023)**: blog post. Their video-monitoring service consolidated services for 90% cost reduction. Caveat: this was a specific workload (video analysis); not a universal lesson, but it's a counterpoint to "always microservice."
@@ -429,7 +443,7 @@ When extraction time comes, the boundaries are already there. Migration is "depl
 
 ---
 
-## Reference Architecture — When You're Ready
+## Reference Architecture — When You're Ready 🔴
 
 ```
    ┌──────────────────────────────────────────────────────┐
@@ -497,7 +511,7 @@ The path is incremental. The end state is bespoke to your needs. The companies w
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

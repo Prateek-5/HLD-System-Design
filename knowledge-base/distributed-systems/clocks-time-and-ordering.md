@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when many computers each have their own slightly-wrong clock, this is how they agree on *what happened before what* — without trusting any single clock.
+>
+> **Analogy:** a group chat where everyone's phone clock is a little off. If you sort messages purely by each phone's timestamp, replies can show up *before* the question they answer. So instead you track "this message is a reply to that one" — the order of *cause and effect* — rather than blindly trusting the wall-clock times.
+>
+> **Assumes you already know:** how data is copied across multiple machines (see [`learn/data/database-replication.md`](../../learn/data/database-replication.md)) and the consistency-vs-availability tradeoff (see [`learn/data/cap-theorem.md`](../../learn/data/cap-theorem.md)).
+>
+> **Level:** this file is 🔴 overall — a senior/staff distributed-systems extra with no beginner counterpart. Sections below are tagged. If a tag feels above you, that's expected here — **you are not behind**; come back after the prerequisites above.
+
+---
+
+## Topic Overview 🟢
 
 Time is the most underappreciated concept in distributed systems. Most engineers go their entire careers without thinking deeply about it — until they ship a system and discover that "we'll use timestamps to order events" is a lie that has betrayed them. Two servers with NTP-synchronized clocks can disagree by tens of milliseconds. A virtual machine's clock can jump backward. A request that *should* have happened first, by wall-clock time, gets recorded after another. The ordering you assumed exists doesn't.
 
@@ -14,7 +26,7 @@ This is the topic where philosophy meets production. The question "did A happen 
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine three friends spread across the world, all trying to keep a shared diary.
 
@@ -34,7 +46,7 @@ That's clocks in distributed systems. The wristwatch isn't the answer; designed-
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Wall-clock everything.**
 Pre-1978. Distributed systems used local timestamps with the assumption "close enough." Frequently bitten by clock skew. No theory.
@@ -58,7 +70,9 @@ The pattern: each generation refined what "time" means in distributed systems. L
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Lamport's logical clocks
 
@@ -188,7 +202,7 @@ Each step up the hierarchy costs more. Most systems use the weakest ordering tha
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The historian's challenge.**
 Three historians are writing a global history. Each has access to local sources but not all of each other's. They mail drafts to each other monthly. To produce a coherent timeline, they need to agree on which events influenced which others — even when their own dating systems differ.
@@ -202,7 +216,7 @@ GPS solved this by giving every ship the same time and position to bounded preci
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -216,7 +230,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The clock skew LWW disaster.**
 A distributed key-value store uses last-write-wins by wall-clock timestamp. Server A's clock is 100ms ahead. A's writes always win conflicts, even when chronologically later. Customers report that their newer changes vanish. Investigation reveals the skew. Mitigation: HLC-based timestamps, or fixed clock skew, or change conflict resolution model.
@@ -235,7 +249,7 @@ Compliance audit asks: "for any conflict between two transactions, can you prove
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Logical clock operations**: nanoseconds.
 - **Vector clock operations**: nanoseconds; size scales with nodes.
@@ -250,7 +264,7 @@ Coordination cost is the real performance impact:
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Single-node**: trivial — one clock, one sequence.
 - **Small cluster**: HLCs or NTP-good-enough.
@@ -260,7 +274,7 @@ Coordination cost is the real performance impact:
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **CAP and consistency**: clocks underpin consistency models. Linearizability requires real-time-respecting ordering. (See [cap-consistency-and-replication.md](./cap-consistency-and-replication.md).)
 - **MVCC**: snapshot isolation in distributed databases requires globally-meaningful timestamps. (See [mvcc-and-isolation-levels.md](../database-internals/mvcc-and-isolation-levels.md).)
@@ -273,7 +287,7 @@ The unifying observation: **time is the hidden coordination mechanism in every d
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Spanner's TrueTime**: famous public design. Atomic clocks + GPS in every datacenter for bounded uncertainty.
 - **CockroachDB's HLC adoption**: documented case of choosing HLCs over wall-clock or pure logical clocks.
@@ -312,7 +326,7 @@ The unifying observation: **time is the hidden coordination mechanism in every d
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

@@ -4,6 +4,18 @@
 
 ---
 
+## 🎯 Start Here — Intuition
+
+> **In one line:** how PostgreSQL actually stores your data, keeps it safe through crashes, lets many people read and write at once without stepping on each other, and figures out the fastest way to answer each query.
+>
+> **Analogy:** a giant, decades-old library. Every reader gets their own librarian (a process), every edit to a book leaves the old copy on the shelf until a janitor clears it out (MVCC + vacuum), and a master logbook records every change before it happens so nothing is ever lost in a fire (the WAL).
+>
+> **New to this?** Build the basics first in [`learn/data/sql-databases.md`](../../learn/data/sql-databases.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🔴 overall — it is a senior/staff operations deep-dive. The opening sections are approachable, but the internals (vacuum, planner, replication, wraparound) assume you already understand what a relational database and a transaction are. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
 ## Topic Overview
 
 PostgreSQL is the workhorse open-source relational database. Used at every scale from startups to Apple. Its design — process-per-connection, MVCC with vacuum, cost-based planner, WAL-based recovery, streaming replication — is the result of three decades of careful engineering.
@@ -14,7 +26,7 @@ This is the topic where general database concepts become concrete. Operating Pos
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine an old library that started with a few patrons and grew over thirty years.
 
@@ -28,7 +40,7 @@ That's Postgres. Process per connection; MVCC with vacuum; WAL-based recovery; s
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Berkeley POSTGRES (1986).**
 Michael Stonebraker's research project. Object-relational. PostQUEL query language.
@@ -52,7 +64,9 @@ The pattern: each release adds capability without breaking compatibility. Postgr
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### The process architecture
 
@@ -307,7 +321,7 @@ External: pg_stat_kcache (kernel-level stats), pgwatch2, Datadog/Grafana dashboa
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The library with periodic stocktaking.**
 The library always has more books than expected because returned books aren't removed; the staff periodically does stocktake (vacuum). If staff is short or distracted (long-running transactions), the library overflows. Routine stocktaking is mandatory, not optional.
@@ -317,7 +331,7 @@ A bank records every transaction in a journal (WAL) before applying. The journal
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The wraparound.**
 Autovacuum tuned too gently; high write rate. TXID approaches 2 billion. Database emergency-vacuums; refuses writes for safety. 6 hours of single-user mode. Recovery, plus permanent autovacuum tuning.
@@ -336,7 +350,7 @@ Sync replication to one replica. Replica's network blips. Primary blocks all com
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Single connection throughput**: thousands of small queries/sec.
 - **Concurrent throughput**: scales with cores until contention; 10K+ commits/sec on good hardware.
@@ -345,7 +359,7 @@ Sync replication to one replica. Replica's network blips. Primary blocks all com
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: scales to large machines; tens of TB databases.
 - **Read replicas**: trivially scale reads.
@@ -355,7 +369,7 @@ Sync replication to one replica. Replica's network blips. Primary blocks all com
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **MVCC**: Postgres is MVCC-canonical. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
 - **WAL**: Postgres WAL implementation. (See [wal-and-crash-recovery.md](./wal-and-crash-recovery.md).)
@@ -368,7 +382,7 @@ The unifying observation: **Postgres is a coherent system. The pieces — proces
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Sentry's wraparound near-miss**: famous incident; required reading.
 - **GitLab's data loss**: backup/replication misconfiguration; documented postmortem.
@@ -396,7 +410,7 @@ The 20% that delivers 80% of understanding:
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

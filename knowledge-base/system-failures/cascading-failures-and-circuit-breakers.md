@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when one slow or broken service drags down everything connected to it, this is how you stop the damage from spreading and take down the whole system.
+>
+> **Analogy:** the circuit breaker in your home's electrical panel. When one appliance shorts out, the breaker trips and cuts power to just that circuit — sacrificing one room to save the house from burning down. Software circuit breakers do the same: they stop calling a failing dependency so the rest of the system keeps running.
+>
+> **New to this?** Build the basics first in [`learn/reliability/circuit-breaker.md`](../../learn/reliability/circuit-breaker.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, with deep 🔴 sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Cascading failures are what happens when systems are connected and one part's degradation becomes another part's overload, which becomes a third part's outage, which loops back and finishes off the original service. They're the dominant failure mode of modern distributed systems — not because individual services are unreliable, but because the *coupling between services* turns small problems into existential ones.
 
@@ -14,7 +26,7 @@ This is the topic where reliability theory, operational reality, and chaos engin
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Picture a power grid.
 
@@ -30,7 +42,7 @@ A circuit breaker, in electrical engineering, is a switch that opens when curren
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Monoliths, simple failure modes.**
 A monolith dies; you restart it. Failure is binary: up or down. Cascading failures are constrained to one process. Bad, but bounded.
@@ -54,7 +66,9 @@ The pattern: each generation rediscovered that **systems must explicitly handle 
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### The anatomy of a cascade
 
@@ -155,7 +169,7 @@ This is engineering work. It requires designing fallbacks for every dependency. 
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The submarine bulkhead.**
 Submarines are divided into watertight compartments. A breach in one compartment is sealed off; the rest of the ship continues to function. The price: redundant pumps, redundant doors, complex flooding management. The benefit: the ship survives single-point hull failures that would sink an undivided vessel.
@@ -168,7 +182,7 @@ A sprinkler activates only on the affected zone, not the entire building. Water 
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What 3am outages look like:
 
@@ -182,7 +196,7 @@ What 3am outages look like:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The Black Friday 30%er.**
 30% increased traffic on Black Friday. Database CPU at 95%. Latency p99 jumps from 50ms to 5s. Web tier connection pool fills. Health checks fail. Auto-scaler launches new instances. New instances also can't get DB connections. Within 20 minutes, the entire fleet is "unhealthy." Recovery: rate-limit at the edge, drain traffic, let DB catch up, gradually re-admit traffic.
@@ -201,7 +215,7 @@ Circuit breaker on Service A → Service B. B has a transient 0.5% error rate (a
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Cascading failures don't show up in normal load tests.** They emerge under sustained overload, partial failures, and the specific dynamics of retries and timeouts. Load tests must include these.
 - **The cost of a circuit breaker is low** — a few atomic counters, a state machine. The cost of *not having one* is unbounded.
@@ -210,7 +224,7 @@ Circuit breaker on Service A → Service B. B has a transient 0.5% error rate (a
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Cascades scale with coupling, not size.** A 10-service system tightly coupled is more fragile than a 100-service system properly bulkheaded.
 - **Cellular architectures** (separating customers/regions into independent cells) are how internet-scale companies bound blast radius. AWS, Slack, Stripe.
@@ -220,7 +234,7 @@ Circuit breaker on Service A → Service B. B has a transient 0.5% error rate (a
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **Backpressure:** circuit breakers are backpressure with hysteresis. Same goal — don't send work into a saturated consumer. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Distributed consistency:** during a partition, the choice between A and C is the choice between "stay available with possibly-stale data" and "fail fast with consistency." Cascading failures are what happens when you fail to make this choice explicitly. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
@@ -233,7 +247,7 @@ The unifying observation: **resilience is not the absence of failure but the iso
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **The 2017 AWS S3 outage:** an operator typo took down a small set of capacity, which triggered a system-wide rebuild that took hours. Fundamentally a bulkheading and capacity-planning issue. AWS's response was to redesign with smaller cells.
 - **GitHub's October 2018 incident:** a network partition flipped a database leader; replication conflicts; 24 hours of degraded performance. A textbook case of how multi-region active/active replication fails under partition.
@@ -244,7 +258,7 @@ The unifying observation: **resilience is not the absence of failure but the iso
 
 ---
 
-## Worked Example — Anatomy of a Real Cascade
+## Worked Example — Anatomy of a Real Cascade 🔴
 
 A real-shaped scenario walked through phase by phase.
 
@@ -371,7 +385,7 @@ Each layer has its bound. Each layer fails fast. The cascade is contained.
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Cloudflare's June 2022 outage**: BGP-related; published a deep postmortem on cascading effects.
 - **Atlassian's 2022 multi-week outage**: cascade across automation tooling caused weeks of customer impact for some.
@@ -403,7 +417,7 @@ The 2003 blackout, the AWS S3 outage, the Facebook BGP incident, the Cloudflare 
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

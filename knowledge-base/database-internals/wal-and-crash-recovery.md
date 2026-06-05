@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a database keeps your "saved" data safe even if the power dies mid-write — by jotting down what it's about to do *before* it does it.
+>
+> **Analogy:** a bank teller who scribbles every transaction on a quick running scroll *before* updating the heavy ledger book. If a fire forces them to flee, they grab the light scroll and rebuild the ledger from it later. The scroll is the write-ahead log; the ledger is the data files; the fire is a crash.
+>
+> **New to this?** Build the basics first in [`learn/data/acid-base.md`](../../learn/data/acid-base.md) — *then* come back for the depth. (This is the topic that makes ACID's "D" — Durability — actually work.)
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 When a database tells you "your transaction is committed," it's making a contract with physics. The bytes are durable. A power failure now won't lose them. The chair you're sitting in could be hit by lightning, the building could burn down, and when the database comes back up, your money transfer will still be there.
 
@@ -14,7 +26,7 @@ This is the topic that makes "ACID's D" — Durability — actually work. It's a
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine you're a bank teller updating account balances by hand.
 
@@ -28,7 +40,7 @@ The discipline: **never update the ledger before writing to the scroll. Never te
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Direct page writes.**
 Early databases wrote modified pages straight to disk. A crash mid-write left half-written pages. Recovery meant scanning everything, finding the corruption, and praying. Backups were the recovery mechanism, with hours-to-days of data loss.
@@ -52,7 +64,9 @@ The pattern: every generation extended WAL further. Once an engineering primitiv
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest assumes the basics above are solid.
 
 ### What's in a WAL record
 
@@ -163,7 +177,7 @@ The boundary between "WAL" and "data" blurs by design.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The accountant's daybook.**
 A traditional accounting practice: every transaction is recorded in a *daybook* (chronological journal) before being posted to ledger accounts. The daybook is the source of truth; the ledgers are summaries derivable from the daybook. If the ledger burns, you reconstruct it from the daybook. If the daybook burns, you have nothing.
@@ -177,7 +191,7 @@ A database's WAL is the same idea: when the complex thing fails, the simple thin
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -199,7 +213,7 @@ The senior DBA's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The fsync lie.**
 A server uses an SSD that ignores fsync (acknowledges writes before they're durable). For months, the database has been "committing" without true durability. A power outage causes a crash. Recovery sees inconsistent state — pages reflect changes whose log entries didn't survive. Database refuses to start. Recovery from backup; ~6 hours of data loss.
@@ -218,7 +232,7 @@ fsync returns an error mid-runtime. The database now has dirty buffers it cannot
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Sequential write throughput** is the bottleneck for log-heavy workloads. Modern NVMe SSDs hit GB/s; rotational disks ~100 MB/s.
 - **fsync latency is the per-commit cost.** Group commit amortizes this across many transactions.
@@ -228,7 +242,7 @@ fsync returns an error mid-runtime. The database now has dirty buffers it cannot
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical**: WAL throughput scales with disk write throughput. NVMe drives can sustain hundreds of MB/s of sequential WAL writes.
 - **Horizontal reads**: WAL streamed to replicas; replicas catch up.
@@ -238,7 +252,7 @@ fsync returns an error mid-runtime. The database now has dirty buffers it cannot
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **MVCC**: each row version is created by a WAL-logged transaction. Vacuum reclaims old versions; the WAL records vacuum's operations too. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
 - **Indexing**: index updates are WAL-logged just like row updates. Recovery rebuilds indexes from WAL. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
@@ -251,7 +265,7 @@ The unifying observation: **the write-ahead log is the universal answer to "how 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Postgres fsyncgate (2018)**: PostgreSQL discovered that fsync error semantics on Linux had been subtly wrong for ~20 years. Resulted in a major design change: PANIC on fsync error.
 - **AWS Aurora's storage architecture**: separates compute from a distributed storage layer that owns the WAL. Replication and durability become properties of the storage service.
@@ -262,7 +276,7 @@ The unifying observation: **the write-ahead log is the universal answer to "how 
 
 ---
 
-## Worked Example — Anatomy of a Commit
+## Worked Example — Anatomy of a Commit 🔴
 
 A user submits a payment. Walk through what actually happens at the WAL level.
 
@@ -396,7 +410,7 @@ Every commit's durability hangs on the fsync of the WAL. Everything else is asyn
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Postgres 16's logical replication from standbys (2023)**: removes the previous limitation that logical replication had to source from primary. Better load distribution.
 - **AWS Aurora's distributed storage**: continues to be a reference for compute/storage decoupling. Storage ships WAL across multiple AZs.
@@ -432,7 +446,7 @@ Every commit's durability hangs on the fsync of the WAL. Everything else is asyn
 
 ---
 
-## Interview angle
+## Interview angle 🟡
 
 What gets tested:
 

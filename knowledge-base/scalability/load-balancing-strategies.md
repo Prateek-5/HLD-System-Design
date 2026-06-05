@@ -4,7 +4,19 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** when you run many copies of a service, something has to decide which copy each incoming request goes to — load balancing is how you spread the work so no single copy gets crushed while others sit idle.
+>
+> **Analogy:** a supermarket with many checkout lanes and a greeter at the entrance pointing each shopper to a lane. Send everyone to lane 1 and the line is endless while the other lanes are empty; spread shoppers across open lanes and everyone gets through faster. The greeter also has to notice when a lane closes (a register breaks) and stop sending people there.
+>
+> **New to this?** Build the basics first in [`learn/foundations/scaling/load-balancing.md`](../../learn/foundations/scaling/load-balancing.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the algorithm and internals sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Load balancing is what makes horizontal scale work. The instant you have more than one instance of a service, somebody — a piece of hardware, a piece of software, a piece of DNS configuration — is deciding which instance handles each request. That decision has consequences for latency, fairness, failure isolation, cache efficiency, session continuity, and operational complexity.
 
@@ -14,7 +26,7 @@ Modern load balancing is a pipeline of decisions: at the DNS layer, at the netwo
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine an airport with multiple check-in counters.
 
@@ -34,7 +46,7 @@ There is no universally best algorithm. There are workload-fitness questions and
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — DNS round robin.**
 1990s. The first load balancers were DNS records returning multiple A records. Clients picked one (usually the first). No health checking, no failover, slow propagation. Worked surprisingly well for static content; inadequate for anything dynamic.
@@ -58,7 +70,9 @@ The pattern: each generation moved the routing decision closer to the request. F
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+⚠️ The rest assumes the basics above are solid.
 
 ### L4 vs L7 load balancing
 
@@ -187,7 +201,7 @@ Modern best practice: terminate at the LB for external traffic, but use mTLS int
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The hospital triage nurse.**
 Patients arrive at the ER. The triage nurse decides who goes to which doctor. They consider:
@@ -206,7 +220,7 @@ This is exactly L7 load balancing with sticky sessions: route new arrivals intel
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -221,7 +235,7 @@ What goes wrong:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The health check that took down everything.**
 Health endpoint hit `SELECT 1` against the database. DB had brief unavailability. Health checks failed across all instances. LB marked all instances unhealthy. Site appeared down for 90 seconds while DB recovered.
@@ -240,7 +254,7 @@ Multi-region active-active behind DNS. Region 1 fails. DNS TTL is 5 minutes. Cli
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **L4 LB**: microsecond overhead; near-line-rate throughput on modern hardware.
 - **L7 LB**: tens of microseconds per request; HTTP parsing cost.
@@ -251,7 +265,7 @@ Multi-region active-active behind DNS. Region 1 fails. DNS TTL is 5 minutes. Cli
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: bigger LB instances; or hardware (for L4) for tens of millions of requests/second.
 - **Horizontal**: multiple LB instances behind DNS or Anycast IP.
@@ -261,7 +275,7 @@ Multi-region active-active behind DNS. Region 1 fails. DNS TTL is 5 minutes. Cli
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Sharding**: consistent hashing in load balancing is the same algorithm as in databases. (See [sharding-and-partitioning-strategies.md](./sharding-and-partitioning-strategies.md).)
 - **Caching**: edge caches (CDNs) are load balancers with caching. The same algorithms with content-aware routing. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
@@ -274,7 +288,7 @@ The unifying observation: **load balancing is the visible face of distribution.*
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🔴
 
 - **Google's Maglev**: high-performance L4 LB. Public paper details consistent hashing algorithm and packet-level performance optimizations.
 - **Facebook's Katran**: XDP-based L4 LB. Pushes packet processing into the kernel for line-rate performance.
