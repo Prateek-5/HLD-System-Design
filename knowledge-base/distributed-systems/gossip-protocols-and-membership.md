@@ -106,6 +106,25 @@ Properties:
 
 The genius is using the *same messages* for failure detection and membership update. No separate protocol layer.
 
+### SWIM mechanics in detail 🔴
+
+The four-line summary above hides the parts an interviewer actually probes. SWIM has two decoupled components: a **failure detector** (the probe loop) and a **dissemination** mechanism (piggybacked gossip). Conflating their cost is the classic mistake.
+
+**The protocol period and direct probe.**
+Time is divided into *protocol periods* of fixed length `T` (Serf's default is 1s; Memberlist exposes it as `ProbeInterval`). Once per period, node `A` picks **one** member `B` uniformly at random from its local list and sends a direct `ping`. If `B` replies with an `ack` before a sub-period timeout (Memberlist `ProbeTimeout`, ~500ms — sized to a few RTTs), `B` is confirmed alive and the period ends. Because each node probes exactly one random member per period, every member is probed within an expected `N` periods, and the *expected* time to detect any given failure is roughly constant in `N` — a small multiple of `T`, set by the timeout and suspicion constants, **not** `O(log N)`.
+
+**Indirect probe (the key innovation).**
+If the direct `ping` times out, `A` does **not** immediately suspect `B`. Instead it picks `k` other random members (Memberlist `IndirectChecks`, default 3) and asks each to ping `B` on its behalf (`ping-req`). Those `k` peers send their own `ping` to `B` and relay any `ack` back to `A`. This routes around the specific failure modes that direct probing can't distinguish from a dead node: a congested or lossy `A→B` link, a dropped packet, or a momentarily busy `B`. `B` is only treated as a problem if *both* the direct probe **and** all `k` indirect probes fail within the period. This is what keeps the false-positive rate low without lengthening the timeout (which would slow real detection).
+
+**The suspicion subprotocol (avoid premature "dead").**
+Even after a failed direct + indirect probe, SWIM does not jump straight to `dead`. The node marks `B` as **`suspect`** and gossips that suspicion. Every node that hears `suspect B` starts a **suspicion timeout** (in Memberlist this is scaled by cluster size, `SuspicionMult × log(N+1) × ProbeInterval` — larger clusters get more grace because gossip takes longer to round-trip a refutation). If the timeout expires with no refutation, `B` is declared `dead` and that is disseminated. The intermediate `suspect` state is the safety valve: it gives a wrongly-accused-but-alive node a window to defend itself before anyone takes destructive action.
+
+**Incarnation numbers (refuting false suspicions).**
+Each member owns a monotonically increasing **incarnation number** that *only that member may increment*. Membership records are ordered by `(incarnation, state)`, where for equal incarnation `alive < suspect < dead` in override priority. When `B` learns it has been suspected (it sees `suspect B @ incarnation i` in gossip), it bumps its own incarnation to `i+1` and broadcasts `alive B @ i+1`. Because that record carries a strictly higher incarnation, it overrides the stale `suspect` everywhere it spreads — a clean, conflict-free refutation with no consensus required. `dead` is the one terminal state: a node can only refute `dead` by rejoining with a fresh incarnation (or, in Cassandra's analogous scheme, a new *generation*). Incarnation numbers are precisely what make the `suspect → alive` recovery deterministic instead of a race.
+
+**Why the O(log N) really belongs to dissemination.**
+The membership *updates* themselves (`alive`/`suspect`/`dead` records) are not flooded; they ride piggybacked on the regular `ping`/`ack`/`ping-req` traffic, each update gossiped a bounded number of times. This infection-style spread reaches all `N` nodes in `O(log N)` protocol periods — that, and only that, is the logarithmic term. Detection time (constant-ish) and dissemination time (`O(log N)`) are independent dials; SWIM's contribution was decoupling them so failure detection does not get slower as the cluster grows.
+
 ### Cassandra's gossip
 
 Cassandra uses gossip for cluster membership and metadata. Each node maintains a state for every other node:
@@ -289,6 +308,8 @@ The unifying observation: **gossip is the protocol that enables decentralized co
 - **Eventually consistent, not strongly.** Two nodes can momentarily disagree about whether a third is alive; they converge. Operations needing strict consistency require a separate mechanism.
 - **Failure detection is integrated** in modern protocols (SWIM): the same ping/ack messages carry membership updates — no separate protocol layer. Detection latency is roughly constant (each node probes one random member per period), independent of N.
 - **Failure detection has false positives.** Aggressive timeouts detect faster but misread network blips as failures; K-probe verification reduces them.
+- **SWIM probes one random member per protocol period**, falls back to `k` indirect probes (via random peers) when the direct ping fails, then marks the target `suspect` — not `dead` — and waits out a suspicion timeout before declaring death. Detection time is roughly constant in `N`; only the piggybacked *dissemination* of the update is `O(log N)` rounds. Keep those two dials separate.
+- **Incarnation numbers refute false suspicions deterministically.** Only a node may bump its own incarnation; a suspected-but-alive node broadcasts `alive` at a higher incarnation, which overrides the stale `suspect` everywhere — no consensus needed. `dead` is terminal (refuted only by rejoining with a fresh incarnation/generation).
 - **Anti-entropy** provides full state reconciliation (slow, complete); rumor-mongering spreads updates fast but misses gaps — real systems combine both.
 - **Phi accrual failure detector** gives adaptive detection based on observed inter-message intervals (used in Cassandra), more robust than fixed timeouts.
 - **Gossip and consensus are complementary, not alternatives.** Use consensus for what must be authoritative (leader election, critical config), gossip for what must scale (liveness, metadata distribution).

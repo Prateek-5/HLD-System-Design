@@ -481,6 +481,54 @@ The hierarchy collapses load by 100×; user-perceived latency is dominated by ne
 
 ---
 
+## Negative Caching & Cache Penetration 🔴
+
+Stampede protects against hot keys that *exist*. **Cache penetration** is the opposite failure: requests for keys that *don't* exist. An attacker (or a buggy client) hammers `user:99999999` — a row that isn't in the DB. Cache-aside checks the cache (miss, because there's nothing to store), queries the DB (miss), stores nothing, and returns null. Every single request falls through to the database. The cache provides zero protection precisely because the data is absent. A scripted attack iterating non-existent IDs can drive 100% of traffic to the DB.
+
+**Negative caching** is the fix: cache the *negative result itself*. On a DB miss, store a tombstone (an empty/sentinel value) under the key with a **short TTL** — typically much shorter than positive TTLs, e.g. 10-30s versus 5min.
+
+```python
+def get_user(id):
+    val = cache.get(f"user:{id}")
+    if val is not None:
+        return None if val == NULL_SENTINEL else val
+    user = db.query("SELECT * FROM users WHERE id = ?", id)
+    if user is None:
+        cache.set(f"user:{id}", NULL_SENTINEL, ttl=30)   # negative entry
+        return None
+    cache.set(f"user:{id}", user, ttl=300)
+    return user
+```
+
+The short TTL is the whole design tension: long enough to absorb a penetration burst, short enough that a key created *after* the negative entry isn't invisible for too long. If creation must be instantly visible, explicitly delete the negative entry on the insert path (write-side invalidation of the tombstone).
+
+**Bloom filter as the alternative guard.** Maintain a Bloom filter of all keys that *do* exist. Check it before touching the cache or DB: if the filter says "not present," the key definitively does not exist — short-circuit and return null with no DB query. Bloom filters have **no false negatives** (a real key always passes) but **tunable false positives** (a small fraction of non-existent keys leak through to the DB — acceptable). They are extremely compact: ~1.2 GB holds ~1 billion keys at a 1% false-positive rate (roughly 9.6 bits/key), versus storing a tombstone per probed key. The catch: standard Bloom filters don't support deletion, so a deleted key still reports "present" — use a counting/cuckoo filter or periodic rebuild if keys are removed. Negative caching and a Bloom filter are complementary: the filter blocks the bulk of garbage IDs cheaply; negative entries catch the false-positive remainder.
+
+## Redis vs Memcached — Internals & When to Pick Which 🔴
+
+Both are in-memory key-value stores reached over the network. The architectural differences decide the choice.
+
+| | **Redis** | **Memcached** |
+|---|---|---|
+| **Threading** | Single-threaded command execution on an event loop (epoll/kqueue); I/O threads since 6.0 only offload socket read/write, not command logic | Multi-threaded; scales vertically across cores natively |
+| **Memory mgmt** | jemalloc; per-type encodings (ziplist/listpack, intset) | **Slab allocator** — memory carved into fixed size-classes; objects rounded up to the nearest class |
+| **Data model** | Rich types: strings, hashes, lists, sets, sorted sets, bitmaps, HyperLogLog, streams, geo | Opaque bytes only — string keys to string/blob values |
+| **Persistence** | Optional **RDB** (point-in-time snapshot/fork) and **AOF** (append-only command log, `appendfsync everysec` default) | None — purely volatile |
+| **Eviction** | Configurable (`noeviction`, `allkeys-lru`, `allkeys-lfu`, etc.) | LRU within each slab class |
+| **Replication / HA** | Async primary-replica, Sentinel, Redis Cluster (16384 hash slots) | None natively; client-side sharding (consistent hashing) |
+
+**Why single-threaded matters (Redis).** Command execution is serialized, so individual commands are atomic with no locking — but one slow command (`KEYS *`, a large `SORT`, a big `SMEMBERS`) blocks *every* other client for its full duration. This is why the worked example forbids `KEYS *` and uses `SCAN`. A single Redis instance saturates roughly one core; you scale out with Cluster, not threads.
+
+**Why the slab allocator matters (Memcached).** Fixed size-classes mean a 1.1 KB object lands in (say) a 1.2 KB slab, wasting ~100 bytes — **slab calcification**: memory assigned to one class can't easily move to another, so a workload whose object-size distribution shifts can have free memory it cannot use. Upside: zero fragmentation churn, trivially multi-threaded, very high raw throughput for uniform small objects.
+
+**When to pick which.**
+- **Memcached** when you want a *pure*, volatile, look-aside cache of small uniform objects (rendered fragments, session blobs, query results), need to saturate many cores from a single node, and want operational simplicity. It does one thing.
+- **Redis** when you need anything beyond opaque get/set: server-side data structures (leaderboards via sorted sets, rate-limiter counters, queues, pub/sub), atomic multi-step operations (Lua/`MULTI`), persistence or replication/failover, or eviction-policy control. The cost is a more complex operational surface and the single-threaded hot-path constraint.
+
+The honest senior framing: Memcached is a cache; Redis is a data structure server that is frequently *used* as a cache. If your only requirement is "fast key-value with TTL," both work and Memcached is simpler; the moment a second requirement appears (a counter, a sorted set, durability), it's Redis.
+
+---
+
 ## Key Takeaways
 
 - **Caching trades freshness for speed.** Every cache decision is a freshness budget. If you can't tolerate any staleness, you don't have a cache — you have a slower indirection.
@@ -494,6 +542,8 @@ The hierarchy collapses load by 100×; user-perceived latency is dominated by ne
 - **Always have a fallback.** The cache is not always available; cache unavailability must not equal application unavailability. Every cache call needs a fallback path, and you should reflexively check what happens when the cache is cold during capacity planning.
 - **Cap value sizes (and key sizes) at the cache layer.** Unbounded values OOM the cache at the worst possible time.
 - **Never store data only in a cache** without explicit persistence guarantees.
+- **Cache the misses too.** Requests for non-existent keys (cache penetration) bypass an ordinary cache entirely. Store short-TTL negative entries, or front the cache with a Bloom filter, to stop garbage IDs from hammering the DB.
+- **Redis vs Memcached is an internals decision, not a brand preference.** Memcached: multi-threaded, slab allocator, volatile — a pure cache. Redis: single-threaded command loop, rich data structures, optional RDB/AOF persistence — a data-structure server used as a cache. Default to Memcached for plain volatile key-value at high per-node throughput; reach for Redis the moment you need a second capability (structures, durability, replication, atomic multi-step ops).
 - **Know whether your cache is in-process or out-of-process** and the cost difference — a network-hop cache can be slower than recomputation for cheap values.
 - **The cache is at every layer.** CPU, OS, app, Redis, CDN, browser. Same idea, six orders of magnitude apart. Every cache is a small distributed system; every invalidation is a small consistency problem.
 

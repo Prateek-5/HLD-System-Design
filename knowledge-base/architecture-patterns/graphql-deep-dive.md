@@ -349,6 +349,53 @@ Or middleware patterns. Easy to get wrong; auth bugs in GraphQL are common.
 - **High-performance edge.** GraphQL's overhead matters.
 - **Teams without GraphQL expertise.** Operational complexity demands it.
 
+### The execution algorithm 🔴
+
+The spec defines execution precisely; understanding it explains both the performance model and the serial-mutation rule.
+
+After a query is **parsed** (string → AST) and **validated** (against the schema — types exist, fields are selectable, arguments are well-typed, fragments resolve), the runtime **executes** by walking the selection set as a tree:
+
+1. Start at the root operation type (`Query`, `Mutation`, or `Subscription`).
+2. For each field in the selection set, invoke its resolver `(parent, args, context, info)`. The `parent` is the value produced by the *parent field's* resolver — this is the chaining you saw in the resolver code (`user` → `posts` → `comments` → `author`). The root's `parent` is the root value (often `undefined`/`null`).
+3. **Coerce the result** against the field's type. If the type is a list, recurse over each element; if it's an object type, recurse into the child selection set; if it's a scalar/enum, serialize it (leaf — recursion stops).
+4. Assemble results into a map that mirrors the query shape exactly.
+
+The critical spec rule governs *grouping order within one selection set*:
+
+- **Query (and nested) fields execute in parallel** (or in any order). They are read-only and side-effect-free, so the runtime may resolve sibling fields concurrently. This is why DataLoader's per-tick batching works — sibling resolvers fire in the same event-loop tick and their `.load()` calls collapse into one batch.
+- **Top-level Mutation fields execute serially**, strictly in the order written, each fully completing (including coercing its result) before the next begins. The spec mandates this *only* for the root mutation field list, because each is presumed to cause an observable side effect; ordering prevents two mutations from racing on shared state. **Selection sets nested under each mutation resolve like normal (parallel) query fields** — only the root list is serial.
+
+Null propagation follows the type's nullability: if a **non-null** field (`String!`) resolves to `null` or errors, the null *bubbles up* to the nearest nullable ancestor, nulling that whole branch and recording an error in `errors[]`. This is why a single failing `Post.title: String!` can null the entire `post` object rather than just that field — and why nullability decisions in the schema are load-bearing for error blast radius.
+
+### Query complexity: how the score is computed and enforced 🔴
+
+"Complexity scoring" is concrete, not hand-wavy. The standard approach (e.g. `graphql-cost-analysis`, Apollo/`graphql-armor`, Shopify's calculated cost model) walks the **query AST before execution** and assigns each field a cost, then sums:
+
+- **Base cost per field** (default often `1`).
+- **Multipliers for list fields**, driven by the pagination argument the client passed — `first`, `last`, or `limit`. A field that returns up to `first: 100` items contributes its own cost *times its children's cost times 100*. Multipliers **compound down the tree**: `users(first: 10) { posts(first: 20) { comments(first: 5) } }` ≈ `10 × 20 × 5 = 1000` leaf units, plus the per-field costs.
+- **Custom per-field weights** declared in the schema (e.g. a directive `@cost(complexity: 5)` on an expensive resolver like a full-text search), overriding the default.
+
+Roughly: `cost(field) = ownCost + multiplier × Σ cost(childFields)`. The total is compared to a configured `maximumCost`; if exceeded the query is **rejected at validation time with zero resolvers run** — so a malicious query costs you a tree walk, not a database meltdown.
+
+Enforcement layers, cheapest first:
+- **Depth limiting** (e.g. `graphql-depth-limit`, max depth 7–10) — a coarse guard that rejects deeply recursive queries (`followers { followers { ... } }`) regardless of cost. Cheap but blunt: it ignores list breadth.
+- **Cost/complexity analysis** — the multiplier-aware budget above; catches "shallow but wide" queries depth limits miss.
+- **Amount/breadth limits & alias limits** — cap requested page sizes and the number of aliased duplicates of one field (alias duplication is a classic amplification trick).
+- **Per-client budgets / rate limits** — assign each client a complexity budget per window (Shopify and GitHub publish exactly this: GitHub's API exposes a `rateLimit { cost remaining }` field; Shopify returns a `cost` extension with `throttleStatus`). This turns cost into a billing/quota primitive, not just an on/off gate.
+
+### APQ vs allowlisted persisted queries 🔴
+
+These are routinely conflated; an interviewer will probe the difference because **only one is a security control.**
+
+**Automatic Persisted Queries (APQ)** are a *bandwidth/caching optimization*, not security. The client hashes its query (SHA-256) and first sends only the hash. On a cache miss the server replies `PersistedQueryNotFound`; the client retries sending the **full query text plus the hash**, and the server registers it for next time. Thereafter that operation travels as a short hash, which (a) shrinks request bodies and (b) lets you send the operation as a **GET with the hash in the query string**, making responses **CDN/HTTP-cacheable** at the edge. Crucially, APQ **still accepts arbitrary new queries** — any client can register a brand-new query simply by sending its text. APQ does nothing to bound complexity or block hostile operations.
+
+**Allowlisted / registered (trusted) persisted queries** are the *actual security control*. Operations are extracted from your clients **at build time**, hashed, and shipped to the server as a fixed manifest. At runtime the server accepts **only** hashes in that manifest and **rejects everything else — including the full query text**, even on a miss (no register-on-the-fly fallback). Effects:
+- The query surface becomes **finite and known**, so cost can be analyzed once offline rather than per request.
+- Introspection and ad-hoc/hostile queries are blocked outright in production — a strong DoS and data-exfiltration mitigation.
+- The cost is operational: clients and server must ship in lockstep with the manifest; ad-hoc tooling (a raw GraphiQL against prod) stops working by design.
+
+One-line distinction: **APQ optimizes how a query is transmitted; allowlisting controls which queries are allowed to exist.** APQ = performance; allowlist = security. Apollo's docs draw exactly this line ("safelisting"/"registered" persisted queries vs APQ).
+
 ---
 
 ## Real Engineering Analogies 🟢
@@ -432,8 +479,9 @@ The unifying observation: **GraphQL is client-power and server-complexity. Where
 
 **What's commonly missed / the 80/20**
 - **N+1 is the default** without DataLoader — naive resolvers fan out; DataLoader batches and caches per-request (use it for every resolver that does I/O — non-negotiable in production).
-- **Complexity must be bounded** — unbounded nested queries are a real DoS vector; enforce depth limits, complexity scoring, per-user quotas.
-- **Persisted queries** for production traffic — only allow pre-registered queries; most secure and enables edge/HTTP caching.
+- **Complexity must be bounded** — unbounded nested queries are a real DoS vector; enforce depth limits, complexity scoring, per-user quotas. Cost is computed by walking the AST *before* execution: `cost(field) = ownCost + listMultiplier × Σ cost(children)`, where the multiplier is the `first`/`limit` argument and multipliers compound down the tree; over-budget queries are rejected at validation with zero resolvers run.
+- **Execution order is specified** — query (and nested) fields may resolve in parallel (enabling DataLoader's per-tick batching); **top-level mutation fields run serially in written order**. Non-null fields propagate `null` up to the nearest nullable ancestor on failure, so nullability decides error blast radius.
+- **APQ ≠ allowlisting** — Automatic Persisted Queries are a *bandwidth/caching* optimization (hash-then-fallback-to-text, enables GET + CDN caching) and **still accept arbitrary new queries**; allowlisted/registered persisted queries are the *security* control — only a build-time manifest of hashes is accepted and unknown query text is rejected outright. APQ optimizes transmission; allowlisting controls which queries can exist.
 - **Caching is harder than REST** — everything is POST to one URL; mitigate with response cache, field-level cache, or persisted queries + GET.
 - **Auth is per-field** — each field needs its own check; prefer schema-driven (directive) auth, default-deny, audit on every schema change (auth gaps are a common, severe bug).
 - **Federation has costs** — unifies multiple services under one schema (each team owns its subgraph), but cross-service resolvers add latency and operational complexity; use timeouts and circuit breakers.

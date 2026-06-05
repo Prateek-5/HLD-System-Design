@@ -231,6 +231,54 @@ Chunking quality dramatically affects retrieval quality.
 - **Quality monitoring**: track outputs; detect regressions.
 - **Prompt management**: version prompts; A/B test.
 
+### Latency taxonomy: prefill vs. decode 🔴
+
+Two distinct phases with different cost profiles, and conflating them is the classic mistake.
+
+- **Prefill** processes the entire prompt in one parallel forward pass and produces the first token. It is **compute-bound** (one big matmul over all prompt tokens) and its cost scales with *input* length. The latency it produces is **TTFT (time-to-first-token)**.
+- **Decode** generates the remaining tokens one at a time, each pass attending over the growing KV cache. It is **memory-bandwidth-bound** (you re-read all weights + KV cache per token, doing little compute), and its cost scales with *output* length. The per-token latency here is **TPOT (time-per-output-token)**, also called **ITL (inter-token latency)**.
+
+The total wall-clock for a request is approximately:
+
+```
+total ≈ TTFT + (output_tokens − 1) × TPOT
+```
+
+Implications that interviewers probe:
+- A long prompt with short output is dominated by TTFT (prefill); a short prompt with long output is dominated by output_tokens × TPOT (decode). Optimizing the wrong phase wastes effort.
+- Because decode is bandwidth-bound, **batching helps decode dramatically** (amortize the weight read across many concurrent requests) but helps prefill less. This is why continuous batching is mostly a decode-throughput win.
+- **Prefix caching** (reusing the KV cache for a shared prompt prefix, e.g. a fixed system prompt) cuts prefill cost and TTFT directly.
+- SLOs are usually written as p50/p99 on **TTFT** and on **TPOT** separately, not on a single "latency" number.
+
+### Quantization methods (not just a bit-width ladder) 🔴
+
+Precision reduction is a family of *methods* with different mechanisms and accuracy profiles — the `fp16 → int4` ladder hides this.
+
+- **Weight-only PTQ (post-training quantization)** — **GPTQ** and **AWQ**. Weights are stored in int4/int3 while activations and the matmul accumulate in higher precision (weights are dequantized on the fly). This targets the *memory-bandwidth* bottleneck of decode, since fewer bytes are read per token. GPTQ uses a second-order (Hessian-based) error-correction to choose rounding; AWQ scales the most "activation-salient" weight channels before rounding to protect them. Both are mainly aimed at memory/throughput, not raw compute.
+- **GGUF k-quants** (the llama.cpp ecosystem, e.g. `Q4_K_M`, `Q5_K_M`, `Q6_K`) — mixed-precision blockwise quantization where different tensors/blocks get different bit-widths, keeping sensitive layers (e.g. attention output, some FFN) at higher precision. This is the dominant format for CPU/Apple-silicon and consumer-GPU local inference.
+- **FP8** (E4M3 / E5M2) on **NVIDIA Hopper (H100) and Ada (L4/L40S) and later** — a *hardware-accelerated* low-precision format with native tensor-core support, so it speeds up the actual matmul (not just memory) and can quantize activations too. This is now common for high-throughput datacenter serving.
+- **int8** (e.g. LLM.int8(), SmoothQuant) — weight+activation 8-bit; SmoothQuant migrates activation outliers into the weights so activations quantize cleanly.
+
+Accuracy caveat: int8 and good 4-bit weight-only quant are often near-lossless on many tasks, but **int4 quality loss is not uniformly "slight."** It is highly model-, method-, and task-dependent — small models, long-context reasoning, and code/math tasks degrade noticeably more than short factual QA, and aggressive 3-bit or activation quantization can be sharply worse. Always evaluate on your own task, not on a generic benchmark.
+
+### HNSW tuning: M, efConstruction, efSearch 🔴
+
+HNSW exposes three knobs that trade recall against latency and memory; knowing what each does is a common vector-DB interview check.
+
+- **`M`** — max number of graph neighbors (edges) per node per layer. Higher `M` → denser graph → better recall and more robust connectivity, but **higher memory** (edges stored per vector) and somewhat slower inserts. Typical values ~8–48 (≈16 is a common default).
+- **`efConstruction`** — size of the candidate list explored while *building* the index. Higher → better-quality graph (higher achievable recall) at the cost of slower, more expensive index builds. It is a build-time-only cost; it does not affect query latency directly.
+- **`efSearch`** (a.k.a. `ef`) — size of the candidate list explored at *query* time. This is the primary recall/latency dial: higher `efSearch` → higher recall but more distance computations → higher query latency. It can be tuned per-query without rebuilding the index. Note `efSearch` must be ≥ the requested `top_k`.
+
+The tradeoff triangle: **recall ↔ latency ↔ memory.** `M` and `efConstruction` are baked in at build time (and `M` drives memory); `efSearch` is the live latency/recall lever. The usual workflow is to fix a recall target (e.g. recall@10 ≥ 0.95) and raise `efSearch` until you hit it, then read off the resulting latency. For very large or memory-constrained indexes, HNSW is often combined with **PQ** (product quantization) to compress the stored vectors, or replaced by **IVF** partitioning to bound the search space.
+
+### Multi-GPU parallelism & speculative decoding 🔴
+
+When a model (or its KV cache) exceeds one GPU, or when decode latency must drop, two orthogonal techniques appear:
+
+- **Tensor parallelism (TP)** — split *each* layer's weight matrices across GPUs; every GPU holds a shard of every layer and they combine via an all-reduce each layer. Low added latency per token but **communication-heavy**, so it is normally kept *within one node* over fast interconnect (NVLink).
+- **Pipeline parallelism (PP)** — assign *different layers* to different GPUs/nodes; activations flow stage-to-stage. Far less communication, so it spans nodes, but it introduces pipeline "bubbles" and needs micro-batching to keep stages busy. TP and PP are commonly combined (TP within a node, PP across nodes) for the largest models.
+- **Speculative decoding** — a fast *draft* model proposes several tokens ahead; the large *target* model then verifies them in a single parallel forward pass, accepting the longest correct prefix and rejecting the rest. Because verification is one batched pass rather than N sequential decode steps, accepted tokens are nearly free — cutting effective TPOT (often ~1.5–3× faster) **with no change to the output distribution** (the target model's tokens are guaranteed identical to greedy/sampled decode). Self-speculative variants (e.g. Medusa, n-gram/prompt lookup) avoid maintaining a separate draft model.
+
 ---
 
 ## Real Engineering Analogies 🟢
@@ -309,7 +357,11 @@ The unifying observation: **LLM serving and vector databases are the new infrast
 
 - **LLM inference is GPU-bound, latency-variable, and expensive** — different constraints and optimizations than traditional web serving.
 - **Token-by-token generation is the dominant pattern.** Latency splits into time-to-first-token (TTFT, prefill before the first token) and inter-token latency (TPOT, per-token streaming rate); total response ≈ TTFT + (output tokens × TPOT). Which matters depends on the use case.
+- **Prefill (compute-bound, scales with input → TTFT) and decode (memory-bandwidth-bound, scales with output → TPOT) are different phases**; batching mostly helps decode, prefix caching cuts TTFT, and SLOs are set on TTFT and TPOT separately.
+- **Quantization is a family of methods, not a bit ladder**: weight-only GPTQ/AWQ and GGUF k-quants attack memory bandwidth; FP8 on Hopper/Ada accelerates the matmul itself. int8 and good 4-bit are often near-lossless, but **int4 quality loss is model/task-dependent** — evaluate on your own task.
 - **Vector embeddings represent meaning numerically**; similarity in vector space ≈ similarity in meaning, and ANN algorithms (HNSW graph-based, IVF cluster-based) find similar vectors fast.
+- **HNSW has three knobs** — `M` (neighbors, drives memory + recall), `efConstruction` (build-time graph quality), `efSearch` (query-time recall/latency dial); fix a recall target, raise `efSearch` to hit it, accept the resulting latency.
+- **Tensor parallelism (intra-node, communication-heavy) and pipeline parallelism (cross-node, has bubbles) shard models that don't fit one GPU; speculative decoding** uses a draft model verified in one target pass to cut effective TPOT with an unchanged output distribution.
 - **RAG** = retrieve relevant context via semantic similarity, then have the LLM synthesize; the LLM doesn't need to "know" the answer.
 - **Context windows are limited** (4K → 1M tokens); RAG fits relevant context within the window, but limits still bite on complex queries.
 - **Chunking quality drives retrieval quality**; **hybrid search** (vector + keyword/BM25 + reranking) beats vector search alone.

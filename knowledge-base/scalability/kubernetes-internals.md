@@ -261,6 +261,45 @@ Industry standard for sharing K8s configurations. Some teams replace with Kustom
 
 **Cost.** Idle nodes; oversized pods. FinOps (Financial Operations) for K8s is a discipline.
 
+### The reconcile loop, precisely 🔴
+
+The controller pattern shown above is **level-triggered**, not edge-triggered. The distinction matters under failure. An edge-triggered system reacts to *events* ("a pod was deleted") and breaks if it misses one. A level-triggered system reacts to the *current level* ("desired = 3, observed = 2, act"), so a dropped or duplicated watch event is harmless — the next reconcile re-reads observed state from the informer cache and converges anyway. This is why a controller can crash mid-reconcile, restart, re-list everything, and produce correct results: reconciliation is idempotent and reads ground truth each pass rather than trusting a delta.
+
+Each pass compares **declared state** (`spec`, what you asked for) against **observed state** (`status`, what the controller last recorded about reality) and emits the corrective action that shrinks the gap. Controllers never assume their action succeeded — they write intent, then observe the result on a later loop. Convergence is therefore *eventual*: there is always a window where `status` lags `spec`. Senior operators design around that lag (readiness gates, PodDisruptionBudgets) rather than assuming changes apply instantly.
+
+### etcd as the single source of truth 🔴
+
+There is exactly one authoritative store of cluster state: **etcd**. Controllers, schedulers, and kubelets hold only *caches* (populated by watches); none of them is authoritative, and all of them can be rebuilt by re-listing from the API server. Only the **kube-apiserver writes to etcd** — every other component mutates state by issuing an API request, never by touching etcd directly. This single-writer funnel is what makes admission control, validation, and RBAC enforceable: there is no back door.
+
+etcd stores each object at a monotonically increasing **revision** (the `resourceVersion` you see on objects). Watches resume from a revision, which is how a reconnecting controller picks up exactly where it left off without missing or replaying changes. Optimistic concurrency uses the same mechanism: a write with a stale `resourceVersion` is rejected with a conflict (HTTP 409), so two controllers racing on the same object can't silently clobber each other — the loser retries against fresh state. Because etcd is the one source of truth, its availability *is* the cluster's write availability: lose quorum and the API server can still serve reads from cache but cannot accept writes, so no new scheduling or reconciliation makes progress.
+
+### Scheduler: filter → score, in detail 🔴
+
+For each unscheduled pod the scheduler runs two ordered phases over the node set:
+
+1. **Filter (predicates).** Eliminate nodes that *cannot* run the pod — insufficient allocatable CPU/memory, unsatisfied `nodeSelector`/node affinity, untolerated taints, volume/topology constraints, ports already bound. Output is the set of *feasible* nodes. If it's empty, the pod stays `Pending` with a `FailedScheduling` event. Filtering decides feasibility — a hard yes/no.
+
+2. **Score (priorities).** Rank the feasible nodes, each scoring plugin returning 0–100, combined by weight. Scorers express *preference*, not feasibility: spread replicas across nodes/zones (`PodTopologySpread`), prefer least-loaded or most-loaded nodes (`LeastAllocated` for spreading vs. `MostAllocated` for bin-packing), honor inter-pod affinity. Highest total wins; ties broken randomly.
+
+The pod is then **bound** — a write to the API server recording `nodeName`. The scheduler only *decides*; the target node's kubelet sees the binding via its watch and actually starts the pod. Because the bind is an API write, sustained scheduling throughput is bounded by that write path, not by how fast filter/score runs in memory.
+
+### Horizontal Pod Autoscaler (HPA) 🔴
+
+The HPA is a controller that adjusts a workload's replica count to track a target metric (CPU utilization, memory, or custom/external metrics via the metrics APIs). Its core decision is a single formula:
+
+```
+desiredReplicas = ceil( currentReplicas × ( currentMetricValue / desiredMetricValue ) )
+```
+
+If 4 replicas average 90% CPU against a 50% target, `ceil(4 × 90/50) = ceil(7.2) = 8` replicas. The `ceil` biases toward adding capacity. Scaling is proportional, not stepwise — a metric 2× over target roughly doubles replicas in one decision rather than nudging by one.
+
+Two mechanisms prevent flapping:
+
+- **Tolerance band (~10%).** If the ratio `currentMetric / desiredMetric` is within a tolerance of 1.0 (default `0.1`, i.e. ±10%, the cluster-wide `--horizontal-pod-autoscaler-tolerance` flag), the HPA does **nothing**. This dead zone stops tiny metric jitter from triggering constant rescaling.
+- **Stabilization window / cooldown.** The HPA recomputes on an interval (default every 15s, `--horizontal-pod-autoscaler-sync-period`). For **scale-down** it considers the *highest* recommendation over a stabilization window (default 300s / 5 min) and acts on that — so it only scales down once load has stayed low for the whole window, dampening oscillation. Scale-up reacts faster (default 0s stabilization) so the system absorbs load spikes quickly. Both directions are further governed by configurable `scaleUp`/`scaleDown` **behavior** policies (max % or max pods per period).
+
+The asymmetry is deliberate: scale up eagerly to protect latency, scale down conservatively to avoid thrashing and cold-start churn. Note the HPA changes *replica count*; the cluster still needs schedulable capacity (Cluster Autoscaler / Karpenter) for those new replicas to actually land on nodes.
+
 ---
 
 ## Real Engineering Analogies 🟢
@@ -360,6 +399,9 @@ The unifying observation: **Kubernetes is a large distributed system with declar
 - **Services abstract pods.** Pods come and go; service IPs are stable. Selectors target pods by labels — getting selectors and labels right is critical (wrong selectors orphan pods).
 - **Everything is an API resource** — pods, services, deployments, configmaps, ingresses — all accessed via the API server.
 - **CRDs + controllers = Operators** extend Kubernetes to stateful and complex workloads (databases, queues, ML pipelines).
+- **Reconciliation is level-triggered and idempotent.** Controllers compare declared `spec` vs observed `status` and re-read ground truth every pass, so a missed or duplicated watch event is harmless — but convergence is eventual, and `status` always lags `spec` for a window.
+- **etcd is the single source of truth; only the API server writes to it.** Everything else holds caches rebuildable by re-listing. Object `resourceVersion` (etcd revision) powers watch resumption and optimistic-concurrency 409 conflicts. Lose etcd quorum and writes (scheduling, reconciliation) stop even if cached reads still serve.
+- **HPA scales by a formula:** `desiredReplicas = ceil(currentReplicas × currentMetric / desiredMetric)`, with a ~10% tolerance dead zone and an asymmetric stabilization window (scale up fast, scale down only after the metric stays low for ~5 min) to prevent flapping.
 - **Resource requests/limits matter** — get them wrong and pods OOM or starve scheduling.
 - **Network policies** secure pod-to-pod traffic (default open; deny-by-default with explicit allows).
 - **GitOps** for config management; **monitor etcd health and API server latency** as primary operational signals; use **pod disruption budgets** and plan for cluster failures.

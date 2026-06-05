@@ -312,6 +312,53 @@ The unifying observation: **GC trades programmer-time for runtime-time. The runt
 
 ---
 
+## V8 Generational GC In Depth 🔴
+
+The earlier "V8's GC specifically" section names the pieces; this one explains the mechanisms an interviewer probes.
+
+### Young generation — the Scavenger (Cheney's semi-space copying)
+
+New space is split into two equal halves: **to-space** and **from-space**. Allocation is a bump pointer in to-space — increment a pointer, no free-list search — which is why young-object allocation is effectively a single add instruction. When to-space fills, a **Scavenge** runs:
+
+1. The roles flip: the active half becomes **from-space**.
+2. Starting from the roots (stack, registers, handles), every *live* object is **copied** into the new to-space.
+3. Pointers to copied objects are rewritten to their new address; a forwarding pointer left in the old slot ensures an object reached by two paths is copied once, not twice.
+
+This is **Cheney's algorithm**: it uses the to-space itself as the work queue (a `scan` pointer chases an `alloc` pointer), so the traversal is iterative with no separate marking stack. Cost is proportional to the **surviving** set, not the allocated set — dead objects are never touched, so a Scavenge that allocated 8 MB but kept 200 KB does ~200 KB of work. Modern V8 runs the Scavenger **in parallel** across helper threads. After two Scavenge survivals an object is **promoted** to old space. The 2× space cost is the well-known downside of any copying collector, but new space is small (a few MB per isolate), so it's cheap in absolute terms.
+
+### Old generation — Orinoco (mark-sweep / mark-compact)
+
+Promoted objects live in **old space**, collected by the **major GC** (codename **Orinoco**). It cannot copy semi-space style — old space is gigabytes — so it uses **tri-color marking** followed by either **sweep** (rebuild free lists in place; fast, leaves fragmentation) or **compact** (relocate live objects to defragment; slower, used on fragmented pages). Orinoco makes the pauses tolerable through three techniques:
+
+- **Incremental marking**: marking work is sliced into small steps interleaved with JS execution, so a multi-second mark becomes many sub-millisecond slices.
+- **Concurrent marking**: most marking runs on background threads *while* JS keeps executing.
+- **Parallel** sweeping/compaction across helper threads.
+
+Only short **stop-the-world** phases remain (atomic pause: finalize marking, then start sweeping).
+
+### Write barriers — tracking old→young references
+
+Concurrent/incremental marking and generational collection share one hazard: the mutator can install a pointer the collector won't otherwise see. The fix is a **write barrier** — code V8 emits on every object-pointer store.
+
+It solves two distinct problems:
+
+- **Generational (inter-generational pointers).** A Scavenge treats old space as roots but must *not* trace all of old space (that would defeat the point of a minor GC). So when old-space object `A` is made to point at young-space object `B` (`A.field = B`), the barrier records `A`'s page in a **remembered set** (V8 stores these slots per-page). The Scavenger scans only the remembered set as extra roots, keeping `B` alive without walking the whole old generation. Without this, surviving young objects reachable only from old space would be wrongly reclaimed.
+- **Concurrent marking (the lost-object problem).** If the mutator points an already-marked **black** object at a **white** object and deletes the only other path to that white object, the white object would be swept while still live. V8 uses a **Dijkstra-style insertion barrier**: writing a pointer to a white object re-colors it **gray** (re-enqueues it), preserving the tri-color invariant that no black object points directly to a white one.
+
+The barrier is a few instructions on every reference store — a real but small steady-state cost, and the price of admission for non-blocking collection.
+
+### Why tracing, not reference counting 🔴
+
+V8 is a **tracing** collector (reachability from roots), not a reference-counting one, and the choice is deliberate:
+
+- **Cycles.** Reference counting cannot reclaim a cycle: two detached objects referencing each other each keep the other's count at 1, so neither ever hits zero. JS makes cycles trivial (`a.b = b; b.a = a`, a DOM node holding a closure that captures the node). A refcounting JS engine would need a separate cycle-collector anyway — which is just tracing bolted on. Tracing handles cycles for free: an unreachable cycle is simply never marked.
+- **Per-mutation overhead.** Reference counting taxes *every* pointer write with a counter update (and under concurrency, an *atomic* one — see the Reference counting section). JS executes enormous numbers of pointer writes; tracing moves the cost off the mutation hot path and amortizes it into periodic collection that scales with the *live* set, not the *mutation* count.
+- **Locality.** Refcount updates dirty cache lines across the whole object graph on every assignment; the Scavenger touches only live objects in a tight copy loop.
+
+The trade-off tracing accepts is *non-determinism of reclamation* (an object isn't freed the instant it dies, but at the next collection) — acceptable in a managed runtime, and the reason finalization (`FinalizationRegistry`, `WeakRef`) is explicitly non-deterministic in JS.
+
+---
+
 ## Key Takeaways
 
 - **GC reclaims unreachable memory** automatically — but reachable-but-unused objects are leaks the GC will never collect (unbounded caches, long-lived collections, unregistered listeners, over-capturing closures).
@@ -322,6 +369,8 @@ The unifying observation: **GC trades programmer-time for runtime-time. The runt
 - **GC tuning is application-specific.** The right algorithm and parameters depend on heap size, allocation rate, latency requirements, and throughput goals. Heap size cuts both ways: too small means frequent GCs, too big means long pauses. Profile first, tune on data.
 - **GC algorithms differ dramatically** — and modern ones (ZGC, Shenandoah) achieve sub-millisecond pauses on multi-TB heaps.
 - **GC is not a black box.** Reading GC logs, monitoring pause times, understanding generational counts, and distinguishing leaks from sizing issues are routine operational skills.
+- **V8 splits the work by generation.** The young-gen **Scavenger** does Cheney semi-space copying — cost scales with *survivors*, not allocations; the old-gen **Orinoco** does tri-color mark-sweep/compact with incremental + concurrent + parallel phases so only short stop-the-world windows remain.
+- **Tracing beats reference counting for JS** because refcounting cannot collect cycles (trivial to create in JS) and taxes every pointer write; **write barriers** are the glue — a remembered set tracks old→young pointers so minor GCs needn't scan old space, and an insertion barrier preserves the tri-color invariant during concurrent marking.
 
 > **Mental model:** Garbage collection is the runtime contract that frees programmers from memory management — but the contract has fine print: pauses, allocation pressure, throughput cost. Production engineers read the fine print; novices treat GC as magic. Modern GCs are excellent — when configured for the workload. GC trades programmer-time for runtime-time, handling billions of allocations per second invisibly, until it doesn't and you have to understand how it actually works.
 

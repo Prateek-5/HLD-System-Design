@@ -234,6 +234,31 @@ The only valid DR is tested DR.
 
 Record results; track improvements. Each exercise reveals gaps; each gap is a fix.
 
+### The DR tier table: RTO/RPO vs. cost 🔴
+
+The strategies above (the AWS "four pillars": backup-restore, pilot light, warm standby, multi-site active/active) form a ladder where each rung buys you tighter RTO and RPO at a steeper cost. The single most useful thing to internalize for an interview is the *shape* of this trade-off: cost is roughly a step function of how much standby infrastructure you keep continuously running, while RTO/RPO improve by orders of magnitude per rung.
+
+| Strategy | RTO (recovery time) | RPO (data loss) | What's running at the DR site | Cost (× single-region steady-state) |
+|---|---|---|---|---|
+| **Backup & restore** | Hours (provision + restore) | Hours (last backup/snapshot interval) | Nothing — only data in object storage (e.g. S3, with cross-region replication) | **~1.1×** (storage + egress only) |
+| **Pilot light** | 10s of minutes | Minutes (continuous async data replication) | Core data tier replicated and "warm"; app/compute defined but **off** (scaled to 0) | **~1.3–1.5×** |
+| **Warm standby** | Minutes | Seconds (async replication, low lag) | Full stack running at **reduced capacity**; scale up on failover | **~1.5–2×** |
+| **Hot standby / active-active** | Seconds (often automatic) | ~Zero (sync) to seconds (async) | Full-capacity stack serving (active-passive) or already taking traffic (active-active) | **~2× and up** (2× minimum for symmetric active-active; more with cross-region data transfer) |
+
+**Why the cost curve is a step function, not linear.** The dominant cost driver is *idle standby capacity you pay for whether or not a disaster happens.* Backup-restore keeps zero compute warm, so you pay only for stored bytes (~10% overhead). Each subsequent tier keeps progressively more of a second copy of production permanently powered on:
+
+- **Pilot light** keeps only the *data tier* hot (the expensive-to-warm-up part: replicating databases, caches, search indexes), while compute sits at zero. RTO is bounded by how long it takes to scale compute from 0 to N and run any final data catch-up — minutes, not hours.
+- **Warm standby** keeps the *whole stack* on but small (e.g. 1 node per tier behind an idle ASG/replica set). You pay for a slice of full production continuously; failover is "scale up + shift traffic." Sub-minute to single-digit-minute RTO.
+- **Active-active** runs ≥2 full production environments simultaneously, so the floor is literally 2× steady-state spend, plus inter-region replication/egress and the engineering cost of conflict resolution and data consistency across regions. In return, losing a region is a routine, often automatic event (RTO ~ failure-detection time).
+
+**The RPO axis is governed by replication mode, independent of the cost tier above it.** RPO ≈ how much in-flight data the DR copy hasn't received yet:
+
+- **RPO ≈ backup interval** for backup-restore (snapshot every N hours → lose up to N hours).
+- **RPO ≈ replication lag** for any async-replicated tier (pilot light through async hot standby) — seconds to minutes, and *this is why replication lag must be a monitored, alerted metric*: your effective RPO silently degrades when lag spikes.
+- **RPO ≈ 0** only with **synchronous** replication (commit acknowledged on both sites before returning to the client) — which costs write latency proportional to inter-site RTT and can stall the primary if the secondary is unreachable. Zero RPO is never free; you pay for it on every write.
+
+**How to pick a rung:** translate the business RTO/RPO into the *cheapest* tier that meets both numbers, then verify the cost is justified. A common mistake is over-buying (active-active for a system whose business RTO is 4 hours) or under-buying (backup-restore for a payments ledger whose business RPO is zero). Different subsystems in one product routinely sit on different rungs — payments on hot/sync, the analytics warehouse on nightly backup-restore.
+
 ---
 
 ## Real Engineering Analogies 🟢
@@ -341,7 +366,8 @@ The unifying observation: **disaster recovery is the cumulative sum of all your 
 - **Untested backups are not backups.** "We have backups" is meaningless without "we tested restore last quarter." Disasters routinely reveal backups that exist but can't be restored (corrupted index, version mismatch, lost encryption key).
 - **DR is broader than backups** — it also covers standby infrastructure, failover procedures, runbooks, team training, network config, and third-party dependencies.
 - **Replication is not backup.** Deletes and corruption propagate, and ransomware encrypts replicas too. They solve different problems.
-- **DR strategy ladder, by cost/RTO:** backup-and-restore → pilot light → warm standby → hot standby (active-passive) → active-active multi-region. Cost scales with how strict your targets are (cold ~1.1×, warm ~1.5×, hot ~2×).
+- **DR strategy ladder, by cost/RTO:** backup-and-restore (RTO hours, RPO hours, ~1.1×) → pilot light (RTO 10s of min, RPO minutes, ~1.3–1.5×) → warm standby (RTO minutes, RPO seconds, ~1.5–2×) → hot standby / active-active (RTO seconds, RPO ~zero, ~2×+). Cost is a step function of *idle standby capacity kept running*, not linear: each rung powers on more of a second production copy. See the tier table above.
+- **RPO is set by replication mode, not the cost tier:** RPO ≈ backup interval (backup-restore), ≈ replication lag (async), or ≈ 0 (synchronous — paid for in write latency on every commit). Monitor replication lag because it *is* your live RPO.
 - **3-2-1 rule:** 3 copies, 2 media, 1 off-site (modern 3-2-1-1-0 adds 1 immutable copy, 0 verification errors).
 - **Air-gapped or immutable backups** are the defense against ransomware; fire-era backup strategies don't protect against attackers.
 - **Runbooks rot.** They must be specific, tested in drills, reviewed quarterly, and stored where on-call can find them — not on the failing system.
