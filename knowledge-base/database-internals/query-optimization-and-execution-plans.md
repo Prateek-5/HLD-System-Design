@@ -4,17 +4,29 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** you tell the database *what* rows you want; this is how the database figures out the fastest *way* to actually go get them — and why the same query is sometimes instant and sometimes painfully slow.
+>
+> **Analogy:** it's like a GPS planning your drive. You only say "take me home"; the GPS decides the route — highway vs. side streets — based on its guess about current traffic. When its traffic estimate is right, you get the fast route; when its guess is stale or wrong, it confidently sends you into a jam. The database's "traffic estimate" is its statistics about your data.
+>
+> **New to this?** Build the basics first in [`learn/data/sql-databases.md`](../../learn/data/sql-databases.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A SQL query is a question; an execution plan is the answer to *how* the database is going to compute it. The same query — `SELECT * FROM orders WHERE customer_id = ? AND status = 'paid'` — can take 1ms or 1000ms depending on which indexes the planner uses, what join order it picks, whether it streams or buffers, whether it estimates 10 rows or 10 million.
 
 The query planner is a small compiler that translates declarative SQL into a concrete plan, guided by *statistics* about the data and a cost model that predicts which plan will be cheapest. When the planner is right, life is good. When it's wrong — outdated statistics, a skewed value distribution, an unexpected join — performance can degrade by orders of magnitude with no schema change, no code change, no obvious culprit.
 
-This is the topic where indexes, MVCC, and storage internals come together in the engineer's daily life. Understanding execution plans is the difference between "the query is slow" (helpless) and "the planner picked a hash join when it should have used a merge join because the row estimate was off by 1000×" (actionable).
+This is the topic where indexes, MVCC (Multi-Version Concurrency Control), and storage internals come together in the engineer's daily life. Understanding execution plans is the difference between "the query is slow" (helpless) and "the planner picked a hash join when it should have used a merge join because the row estimate was off by 1000×" (actionable).
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine asking a librarian: "find all books written by authors born in France between 1850 and 1900, that were bestsellers, in the romance genre."
 
@@ -34,7 +46,7 @@ The cleverness — and the failure modes — both live in the planner's estimate
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Heuristic optimizers.**
 Early relational databases (System R, Ingres in the 1970s) used rule-based optimization: a fixed sequence of plan transformations. Predictable. Fragile. Could not adapt to data.
@@ -49,35 +61,18 @@ System R (IBM, 1979) introduced cost-based optimization with statistics-driven c
 Modern systems (Postgres `pg_hint_plan`, Spark adaptive execution, SQL Server's "Adaptive Query Processing") allow plans to *change at runtime* based on observed cardinalities. The plan is no longer fixed at compile time.
 
 **Era 5 — Learned optimizers.**
-Research and experimental implementations (DeepMind, Microsoft) using ML to predict plan costs. Promising; not yet mainstream. The fundamental problem of estimation in the presence of correlations is an active research area.
+Research and experimental implementations (DeepMind, Microsoft) using ML (Machine Learning) to predict plan costs. Promising; not yet mainstream. The fundamental problem of estimation in the presence of correlations is an active research area.
 
 **Era 6 — Columnar and vectorized execution.**
-Modern OLAP systems (ClickHouse, DuckDB, Snowflake) push beyond row-at-a-time. Vectorized execution processes batches; the optimizer plans for batch-friendly operations (hash joins over nested loops). A different cost model entirely.
+Modern OLAP (Online Analytical Processing) systems (ClickHouse, DuckDB, Snowflake) push beyond row-at-a-time. Vectorized execution processes batches; the optimizer plans for batch-friendly operations (hash joins over nested loops). A different cost model entirely.
 
 The pattern: each generation pushed the optimizer to do more — more transformations, more accurate estimates, more runtime adaptation. The fundamental theory is half a century old; the engineering is constantly evolving.
 
 ---
 
-## Core Mental Models
+## Deep Technical Explanation 🔴
 
-**1. The plan is a tree of physical operators.**
-Each node is a specific algorithm: index scan, hash join, sort, filter, aggregate. Data flows up the tree. The plan is the *execution strategy*, not the SQL.
-
-**2. The planner's job is to estimate cost.**
-Cost = expected I/O + CPU + memory. Plans with lower estimated cost win. The estimates are only as good as the statistics.
-
-**3. Statistics are the planner's lens on reality.**
-Histograms, distinct counts, correlation coefficients. Without statistics — or with stale ones — the planner is guessing.
-
-**4. The right operator depends on the data shape.**
-Tiny join → nested loop. Medium join with sorted inputs → merge join. Large unsorted join → hash join. Index-friendly filter → index scan. Bulk filter → sequential scan. The plan reflects the data, or it should.
-
-**5. Plan stability is desirable; plan choice is not always optimal.**
-A "good enough" plan that runs reliably beats an "optimal" plan that occasionally turns into a disaster. Production tuning often means *constraining* the planner more than freeing it.
-
----
-
-## Deep Technical Explanation
+⚠️ The rest assumes the basics above are solid.
 
 ### Reading an execution plan
 
@@ -154,7 +149,7 @@ This is *the* problem. Real-world data has correlations the planner doesn't see.
 
 Postgres maintains per-column statistics:
 - **n_distinct**: estimated distinct value count.
-- **most_common_vals (MCV)**: top-K most frequent values.
+- **most_common_vals (MCV — Most Common Values)**: top-K most frequent values.
 - **histogram_bounds**: equi-depth histogram for the rest.
 - **correlation**: physical-to-logical ordering correlation.
 
@@ -199,7 +194,7 @@ for order in orders:
 
 Planner sees N+1 separate queries. Each is fine individually. Total is catastrophic. Fix: a join or a batch query (`WHERE order_id IN (...)`) — single round trip, single plan.
 
-ORMs are particularly susceptible. Inspect the queries actually executed; ORM laziness can hide an N+1 in a single line of code.
+ORMs (Object-Relational Mappers) are particularly susceptible. Inspect the queries actually executed; ORM laziness can hide an N+1 in a single line of code.
 
 ### Hints and plan stability
 
@@ -220,19 +215,19 @@ Modern databases sometimes change plans mid-query:
 - **SQL Server adaptive joins**: switches between hash join and nested loop based on actual row count.
 - **Postgres**: limited adaptive features; plan is mostly fixed at planning.
 
-For OLTP workloads, plan stability matters more than adaptation. For OLAP, adaptation prevents catastrophic plan choices on unfamiliar data.
+For OLTP (Online Transaction Processing) workloads, plan stability matters more than adaptation. For OLAP, adaptation prevents catastrophic plan choices on unfamiliar data.
 
 ### Vectorized vs row-at-a-time
 
 Traditional databases process rows one at a time through the operator tree. Each row goes through every operator. Cache-unfriendly; CPU-inefficient.
 
-Vectorized execution (ClickHouse, DuckDB, Snowflake) processes *batches* (typically 1024 rows). Better cache behavior; SIMD opportunities; orders-of-magnitude speedups for analytics. The optimizer must plan for batch-friendly operators.
+Vectorized execution (ClickHouse, DuckDB, Snowflake) processes *batches* (typically 1024 rows). Better cache behavior; SIMD (Single Instruction, Multiple Data) opportunities; orders-of-magnitude speedups for analytics. The optimizer must plan for batch-friendly operators.
 
 This is mostly an OLAP innovation; OLTP databases process individual queries that benefit less.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟡
 
 **The freight forwarder.**
 Shipping a container from Shanghai to Cleveland involves: ocean freight, port handling, customs, rail or truck, last-mile delivery. A naive shipper books each leg individually. A freight forwarder *plans* the route — choosing modes, stops, transfers — to minimize cost and time, given current conditions (port congestion, fuel prices, customs delays).
@@ -248,31 +243,7 @@ A query planner explores plan space similarly: enumerate, score, prune, return t
 
 ---
 
-## Production Engineering Perspective
-
-What goes wrong:
-
-- **The plan flip after a deploy.** New release ships; queries that were fast are now slow. Investigation: a schema change subtly altered statistics; planner chose a different plan; the new plan is worse for production data shape.
-- **The forgotten ANALYZE.** Bulk-load a table; statistics are still empty/stale. Subsequent queries get wildly bad plans. The "first query after migration" disaster.
-- **The correlated columns trap.** `WHERE region = 'us-east' AND service = 'web'` — both heavily correlated in real data. Planner's independence assumption produces 100× misestimate. Plans cascade.
-- **The parameter-sniffing problem.** Prepared statement first executed with an unusual parameter; that plan is cached. Subsequent calls with usual parameters get the bad plan.
-- **The ORM laziness disaster.** A loop iterates orders, each access triggers a query. 1000 orders = 1001 queries. Page load times balloon. Fix: eager loading, joins, batched fetches.
-- **The missing index discovery.** EXPLAIN reveals seq scan on a 100M-row table. Add index; query goes from 30s to 30ms.
-- **The over-indexing surprise.** 12 indexes on a heavy-write table. INSERTs slow because every index updates. Audit shows 5 unused. Drop them; INSERTs accelerate.
-- **The seq scan that was correct.** Junior engineer adds an index "to fix the seq scan." Index makes things slower because the table is small or selectivity is poor. Sometimes the planner is right and the seq scan is optimal.
-
-The senior DBA's habits:
-- **Read EXPLAIN ANALYZE** for slow queries.
-- **Compare estimated vs actual rows** at each plan node.
-- **Run ANALYZE** after bulk operations.
-- **Audit unused indexes** periodically.
-- **Watch query plan changes** in production.
-- **Use extended statistics** for known correlations.
-- **Consider plan stability features** for predictability-critical queries.
-
----
-
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The catastrophic plan flip.**
 A query that ran in 50ms suddenly takes 5 minutes. No code change. Investigation: statistics on a key column drifted; planner now estimates 10 rows instead of 100K. Chose nested loop join. Each "fast" iteration is a full table scan. Recovery: ANALYZE; plan returns to normal.
@@ -291,7 +262,7 @@ Engineer adds `/*+ USE_INDEX(idx_status) */` to fix a slow query. It works. Six 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
 - **Plan time matters for OLTP**, where queries are short. Postgres's plan time of 1-5ms is a real cost for sub-ms queries.
 - **Prepared statements** amortize plan time across executions.
@@ -301,30 +272,30 @@ Engineer adds `/*+ USE_INDEX(idx_status) */` to fix a slow query. It works. Six 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical**: more memory enables hash joins over nested loops; more CPU enables parallel query.
-- **Parallel query**: modern databases parallelize scans, sorts, and aggregates. Postgres parallel workers, Spark partitions, MPP databases.
+- **Parallel query**: modern databases parallelize scans, sorts, and aggregates. Postgres parallel workers, Spark partitions, MPP (Massively Parallel Processing) databases.
 - **Distributed planners**: distributed databases (CockroachDB, Spanner, ClickHouse) plan across shards. Data locality matters; cross-shard joins are expensive.
 - **Query routing**: separate read replicas, OLAP replicas. Plan once per replica.
 - **At hyperscale**: query planning itself becomes a system — caching plans, distributing planning work, learning from past executions.
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Indexing**: the planner's most powerful lever. Wrong index = wrong plan. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
 - **MVCC**: plans must consider visibility checks; bloated tables (high dead-tuple ratio) inflate estimated costs. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
 - **Sharding**: distributed planners must consider data locality; cross-shard plans are expensive. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
 - **Caching**: prepared statement caches are plan caches; same invalidation problems. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **Observability**: query metrics (slow queries, plan changes, statistic freshness) are first-class signals. (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)
-- **WAL**: dirty buffers from heavy writes affect cost models — pages in dirty state may have different I/O profiles. (See [wal-and-crash-recovery.md](./wal-and-crash-recovery.md).)
+- **WAL (Write-Ahead Log)**: dirty buffers from heavy writes affect cost models — pages in dirty state may have different I/O profiles. (See [wal-and-crash-recovery.md](./wal-and-crash-recovery.md).)
 
 The unifying observation: **the query planner is a small compiler whose output is execution behavior. Its quality determines whether the same SQL runs in milliseconds or minutes — and its inputs (statistics, indexes, data shape) are operational concerns that change over time.**
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Postgres's planner evolution**: ongoing improvements to multi-column statistics, partition-aware planning, parallel query. Public mailing lists track every change.
 - **MySQL's optimizer hints culture**: heavier reliance on hints than Postgres; community practice diverges.
@@ -335,73 +306,36 @@ The unifying observation: **the query planner is a small compiler whose output i
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways 🟢
 
-- That **EXPLAIN ANALYZE is the diagnostic**, not just EXPLAIN.
-- That **estimate vs actual rows** is the key signal.
-- That **stale statistics cause plan disasters**.
-- That **N+1 patterns are about the application, not the planner**.
-- That **functions on columns defeat indexes**.
-- That **prepared statements have parameter-sniffing risks**.
-- That **the planner is sometimes right** when it picks seq scan.
-- That **hints are dangerous** as a default tool.
+**Mental models:**
+- A SQL query is a goal; the execution plan is the strategy. Between them sits a small compiler making decisions you didn't write — driven by statistics that may be stale, cost models that may misestimate, and a search space too large to fully explore. **Most query performance problems are statistics problems wearing a costume.**
+- The plan is a **tree of physical operators** (index scan, hash join, sort, filter, aggregate); data flows up the tree. The plan is the execution strategy, not the SQL.
+- The planner's job is to **estimate cost** = expected I/O + CPU + memory; the lowest-estimated-cost plan wins, and estimates are only as good as the statistics (histograms, distinct counts, correlation coefficients).
+- The **right operator depends on data shape**: tiny join → nested loop; medium sorted join → merge join; large unsorted join → hash join; selective filter → index scan; bulk filter → seq scan.
+- **Plan stability is desirable; plan choice is not always optimal.** A "good enough" plan that runs reliably beats an "optimal" plan that occasionally turns into a disaster. Production tuning often means *constraining* the planner more than freeing it.
 
----
+**Core practices (the 20% that covers 80%):**
+- Use **EXPLAIN ANALYZE** (not just EXPLAIN) on slow queries, and read **estimate vs actual rows** at every node — it is the key signal that the planner misjudged.
+- **Stats drive plans:** run ANALYZE after bulk loads/migrations; the "first query after migration" disaster is stale statistics.
+- **Cardinality estimation** is the critical fragility, especially under correlated columns — use **extended statistics** (`CREATE STATISTICS`) for known correlations.
+- **N+1 is an application problem, not a planner problem;** fix with joins, batching, or eager loading. Detect it in code review (ORMs hide it).
+- **Functions/implicit casts on columns defeat indexes** unless functional indexes exist.
+- **Parameter sniffing** can lock in a bad plan from the first execution's parameter.
+- The planner is **sometimes right** to pick a seq scan (small table, poor selectivity) — don't add an index reflexively.
+- **Hints last, schema changes first:** hints are dangerous as a default and rot as data shifts. Prefer fixing the cause (stats, indexes, schema) over the symptom.
+- Watch out for **over-indexing**: many indexes on a heavy-write table slow INSERTs; audit and drop unused ones.
+- **Monitor plan changes** in production as a first-class signal (a plan flip after deploy is a classic regression).
 
-## What Senior Engineers Instinctively Notice
+## Interview angle 🟡
 
-- They **read execution plans fluently**.
-- They **compare estimate to actual** at every node.
-- They **verify ANALYZE has run** after bulk operations.
-- They **detect N+1 patterns** in code review.
-- They **audit unused indexes**.
-- They **use extended statistics** for known correlations.
-- They **prefer schema changes to hints**.
-- They **monitor plan changes** as a production signal.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"Walk through this EXPLAIN output."** Tests fluency. Junior reads it; senior interprets it.
-2. **"Why might this query be slow?"** Tests systematic thinking: stats, indexes, plan choice, N+1, etc.
-3. **"What's the difference between nested loop and hash join?"** Tests algorithm awareness.
+Common questions:
+1. **"Walk through this EXPLAIN output."** Fluency test — junior reads it, senior interprets it.
+2. **"Why might this query be slow?"** Systematic thinking: stats, indexes, plan choice, N+1.
+3. **"Difference between nested loop and hash join?"** Algorithm awareness.
 4. **"How does the planner estimate cost?"** Statistics + cost model + cardinality estimation.
-5. **"What's parameter sniffing?"** Plan cached for first parameter; bad fit for later ones.
+5. **"What's parameter sniffing?"** Plan cached for the first parameter; bad fit for later ones.
 6. **"How would you fix an N+1?"** Joins, batching, or eager loading.
 7. **"When wouldn't you add an index?"** Small tables; very high write rate; unused queries.
 
-Common traps:
-- Ignoring the difference between estimate and actual.
-- Adding indexes without measuring.
-- Using hints reflexively.
-- Believing planner is always right or always wrong.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **EXPLAIN ANALYZE** for slow queries. Read estimate vs actual.
-2. **Stats drive plans.** ANALYZE after bulk ops.
-3. **The plan tree is operators**: scans, joins, sorts, aggregates.
-4. **Cardinality estimation** is the critical fragility.
-5. **N+1 is an app problem**, not a planner problem.
-6. **Functions on columns defeat indexes** unless functional indexes exist.
-7. **Parameter sniffing** can lock in a bad plan.
-8. **Extended statistics** for correlated columns.
-9. **Hints last; schema changes first.**
-10. **Plan stability** sometimes beats plan optimality.
-
----
-
-## Final Mental Model
-
-> **A SQL query is a goal; the execution plan is the strategy. Between them sits a small compiler making decisions you didn't write — driven by statistics that may be stale, cost models that may misestimate, and a search space too large to fully explore. Most query performance problems are statistics problems wearing a costume.**
-
-The senior database engineer treats execution plans as the primary artifact when something is slow. Read the plan; compare estimates to actuals; identify the misjudgment. Fix the cause (stats, indexes, schema), not the symptom (hints). Build a habit of EXPLAIN-driven development for new queries.
-
-The systems that scale gracefully are the ones where engineers know what their queries are doing under the hood. The systems that mysteriously slow down over time are the ones where nobody reads plans until customers complain.
-
-That's query optimization. That's execution plans. That's the bridge between "what I asked for" and "what actually ran." It's the most useful skill no one teaches you in undergraduate databases — and the one that separates engineers who tune SQL from engineers who guess.
+Common traps: ignoring estimate-vs-actual; adding indexes without measuring; using hints reflexively; believing the planner is always right or always wrong.

@@ -1,22 +1,34 @@
 # GPU & Accelerator Computing
 
-> *"GPUs were designed for graphics. The discovery that they were also vastly better at parallel numerical computation than CPUs reshaped scientific computing, machine learning, and now AI infrastructure. The architecture — thousands of cores, massive memory bandwidth, SIMT execution — demands a different style of programming. Understanding what GPUs are good at (and what they're not) is foundational to modern AI infrastructure."*
+> *"GPUs (Graphics Processing Units) were designed for graphics. The discovery that they were also vastly better at parallel numerical computation than CPUs reshaped scientific computing, machine learning, and now AI infrastructure. The architecture — thousands of cores, massive memory bandwidth, SIMT (Single Instruction, Multiple Threads) execution — demands a different style of programming. Understanding what GPUs are good at (and what they're not) is foundational to modern AI infrastructure."*
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** some jobs are made of millions of identical, independent little calculations — a GPU does them all at once instead of one-after-another, which is why modern AI is even possible.
+>
+> **Analogy:** a CPU is a few brilliant chefs who can each cook any dish to order; a GPU is a thousand line cooks who only know how to flip one burger but flip a thousand burgers in the time it takes a chef to plate one entrée. For a banquet of identical burgers, the line cooks win by a landslide; for one bespoke tasting menu, the chefs win.
+>
+> **Assumes you already know:** what scaling a workload means and why throughput matters — build that first in [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md). (This is a senior/staff KB-only deep-dive with no beginner counterpart of its own; some background in parallelism and ML helps too.)
+>
+> **Level:** this file is 🔴 overall — it is genuinely advanced runtime/AI-infrastructure territory. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 A modern GPU has thousands of cores, hundreds of GB/sec memory bandwidth, and a programming model utterly different from CPUs. CPUs are optimized for *latency* — finish one task fast. GPUs are optimized for *throughput* — finish many parallel tasks faster than CPUs could.
 
 For workloads that fit (data-parallel, regular access patterns), GPUs are 10-100× faster per dollar than CPUs. For workloads that don't (branching control flow, sequential dependencies, tiny data), GPUs underperform.
 
-The infrastructure category emerged with CUDA (2006); now spans GPU training/inference, custom ASICs (TPUs, IPUs, NPUs), specialized accelerators (FPGAs). For modern ML, AI infrastructure, and HPC, accelerator awareness is non-optional.
+The infrastructure category emerged with CUDA (Compute Unified Device Architecture) (2006); now spans GPU training/inference, custom ASICs (Application-Specific Integrated Circuits) (TPUs (Tensor Processing Units), IPUs (Intelligence Processing Units), NPUs (Neural Processing Units)), specialized accelerators (FPGAs (Field-Programmable Gate Arrays)). For modern ML (Machine Learning), AI (Artificial Intelligence) infrastructure, and HPC (High-Performance Computing), accelerator awareness is non-optional.
 
 This artifact covers the engineering reality: when to use GPUs, what they cost, how to think about programming them, and how AI/ML infrastructure depends on them.
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine two factories making the same product.
 
@@ -30,50 +42,33 @@ That's the GPU vs CPU trade-off. Different shapes of work; different optimal arc
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Graphics-only GPUs (1990s-2000s).**
 GPUs as graphics accelerators. Fixed-function pipelines.
 
-**Era 2 — General-purpose GPU (GPGPU).**
+**Era 2 — General-purpose GPU (GPGPU — General-Purpose computing on Graphics Processing Units).**
 ~2003. Researchers discover GPUs can do non-graphics computation.
 
 **Era 3 — CUDA (2006).**
-NVIDIA releases CUDA — a C-like programming model for GPUs. Inflection point.
+NVIDIA (NVIDIA Corporation) releases CUDA — a C-like programming model for GPUs. Inflection point.
 
 **Era 4 — ML revolution.**
-2012+. AlexNet wins ImageNet on GPUs. Deep learning rapidly adopts GPUs. NVIDIA's market cap grows.
+2012+. AlexNet wins ImageNet (ImageNet Large Scale Visual Recognition Challenge) on GPUs. Deep learning rapidly adopts GPUs. NVIDIA's market cap grows.
 
 **Era 5 — Custom accelerators.**
-2016+. Google's TPU. AWS Trainium/Inferentia. Apple Neural Engine. Many specialized chips.
+2016+. Google's TPU. AWS (Amazon Web Services) Trainium/Inferentia. Apple Neural Engine. Many specialized chips.
 
 **Era 6 — AI infrastructure dominant.**
-2024+. GPUs are the bottleneck of AI; H100s have multi-month lead times. Custom accelerators emerge.
+2024+. GPUs are the bottleneck of AI; H100s (NVIDIA Hopper 100 GPUs) have multi-month lead times. Custom accelerators emerge.
 
 The pattern: GPUs went from niche graphics to the core of compute. Custom accelerators emerging for specialized workloads.
 
 ---
 
-## Core Mental Models
+## Deep Technical Explanation 🔴
 
-**1. CPU optimizes latency; GPU optimizes throughput.**
-Different goals; different architectures.
-
-**2. Data parallelism is the GPU's sweet spot.**
-Many independent operations on different data. Branching/sequential code is hostile.
-
-**3. Memory bandwidth is the limit.**
-GPUs have huge bandwidth (1+ TB/sec) but compute is even faster. Often you're memory-bandwidth-bound, not compute-bound.
-
-**4. The host-device boundary is expensive.**
-Data must move from CPU memory to GPU memory. PCIe is slow (50-100 GB/sec) compared to GPU memory (1+ TB/sec).
-
-**5. SIMT execution.**
-Single Instruction Multiple Threads. Threads in a warp execute together; divergent branches serialize.
-
----
-
-## Deep Technical Explanation
+⚠️ The rest assumes the basics above are solid.
 
 ### CPU vs GPU architecture
 
@@ -89,14 +84,14 @@ Single Instruction Multiple Threads. Threads in a warp execute together; diverge
 - Optimized for data-parallel workloads.
 - Memory bandwidth: 500-3000 GB/sec.
 
-NVIDIA H100: 80GB HBM3 memory; 3 TB/sec bandwidth; ~67 teraflops FP32 / 1000 teraflops FP16.
+NVIDIA H100: 80GB HBM3 (High Bandwidth Memory 3) memory; ~3 TB/sec bandwidth; ~67 teraflops FP32 (32-bit Floating Point) (CUDA cores) / ~1000 teraflops FP16 (16-bit Floating Point) on Tensor Cores (dense; roughly double with structured sparsity). Note the ~15× gap is a Tensor Core effect, not vanilla CUDA-core FP16 throughput.
 
 ### CUDA programming model
 
 CUDA introduced the abstraction:
 
 - **Thread**: smallest unit of execution.
-- **Warp**: 32 threads executing in lockstep (SIMT).
+- **Warp**: 32 threads executing in lockstep (SIMT — Single Instruction, Multiple Threads).
 - **Block**: group of threads sharing fast memory.
 - **Grid**: collection of blocks.
 
@@ -137,8 +132,8 @@ Lesson: avoid branching within warps. Group similar work together.
 GPU memory is layered:
 - **Registers**: per-thread; fastest.
 - **Shared memory**: per-block; fast (~1 TB/sec); programmer-managed.
-- **L1/L2 cache**: per-SM and global.
-- **Global memory**: per-device; slow but large (1-2 TB/sec).
+- **L1/L2 cache**: per-SM (Streaming Multiprocessor) and global.
+- **Global memory (HBM — High Bandwidth Memory)**: per-device; large (~1-3 TB/sec). Slow *relative to* on-chip SRAM (Static Random-Access Memory)/shared memory, but fast *relative to* PCIe (Peripheral Component Interconnect Express) host transfer.
 
 Optimization: maximize use of fast memory. Cache reuse via shared memory. Coalesced access patterns (consecutive threads access consecutive memory).
 
@@ -161,8 +156,8 @@ The bottleneck: data movement. For workloads where data is reused many times, GP
 **Excellent fit:**
 - Matrix operations (the heart of ML training/inference).
 - Image/video processing.
-- Scientific simulation (CFD, molecular dynamics).
-- Cryptocurrency mining (regular SHA-256 work).
+- Scientific simulation (CFD (Computational Fluid Dynamics), molecular dynamics).
+- Cryptocurrency mining (regular SHA-256 (Secure Hash Algorithm 256-bit) work).
 - Cryptography (parallel block cipher).
 
 **Mediocre fit:**
@@ -190,9 +185,9 @@ The framework handles kernel launches, memory management, device transfer. Most 
 
 Training: gradient computation, backprop, optimizer steps — all GPU-accelerated.
 
-Inference: forward pass, attention computation, KV cache management — also GPU-accelerated.
+Inference: forward pass, attention computation, KV (Key-Value) cache management — also GPU-accelerated.
 
-(See [LLM Serving & Vector Databases](../architecture-patterns/llm-serving-and-vector-databases.md) for inference specifics.)
+(See [LLM (Large Language Model) Serving & Vector Databases](../architecture-patterns/llm-serving-and-vector-databases.md) for inference specifics.)
 
 ### Multi-GPU
 
@@ -205,11 +200,11 @@ For models too large for one GPU:
 
 NVLink (NVIDIA's GPU-to-GPU interconnect): 900 GB/sec on H100, much faster than PCIe.
 
-Massive training (GPT-class) uses combinations: thousands of GPUs across many nodes; Infiniband for cross-node communication.
+Massive training (GPT-class — Generative Pre-trained Transformer) uses combinations: thousands of GPUs across many nodes; Infiniband for cross-node communication.
 
 ### Custom accelerators
 
-**TPU (Google)**: matrix-multiply-optimized; used for Google's models. Available on GCP.
+**TPU (Tensor Processing Unit) (Google)**: matrix-multiply-optimized; used for Google's models. Available on GCP (Google Cloud Platform).
 
 **Trainium / Inferentia (AWS)**: AWS's training/inference chips.
 
@@ -225,7 +220,7 @@ Each has its own programming model; vendor lock-in is real. Frameworks (PyTorch 
 
 Vendor-specific APIs:
 - **CUDA** (NVIDIA): the dominant ecosystem.
-- **ROCm** (AMD): CUDA-equivalent for AMD GPUs.
+- **ROCm** (Radeon Open Compute) (AMD — Advanced Micro Devices): CUDA-equivalent for AMD GPUs.
 - **oneAPI** (Intel): Intel's vision for unified accelerator programming.
 
 CUDA's network effects (libraries, tooling, education) make NVIDIA dominant in production AI.
@@ -239,7 +234,7 @@ For ML training, this is the dominant cost. For inference, depends on utilizatio
 Operational considerations:
 - Reserved capacity vs on-demand vs spot.
 - Multi-tenant inference (share GPU across users).
-- Quantization (FP32 → FP16 → INT8) reduces memory and increases throughput.
+- Quantization (FP32 → FP16 → INT8 (8-bit Integer)) reduces memory and increases throughput.
 
 ### Frameworks and abstractions
 
@@ -251,16 +246,16 @@ Operational considerations:
 **High-level**:
 - PyTorch
 - TensorFlow / JAX
-- ONNX Runtime (cross-framework)
+- ONNX (Open Neural Network Exchange) Runtime (cross-framework)
 
 Most engineers work at the high level. Low-level matters when squeezing performance.
 
 ### Inference optimizations
 
 For LLM serving:
-- **Quantization**: FP16, INT8, INT4. Smaller weights; faster.
+- **Quantization**: FP16, INT8, INT4 (4-bit Integer). Smaller weights; faster.
 - **KV cache**: avoid recomputing attention for previous tokens.
-- **PagedAttention** (vLLM): efficient KV cache memory.
+- **PagedAttention** (vLLM — virtual Large Language Model serving engine): efficient KV cache memory.
 - **Continuous batching**: process multiple requests in one GPU pass.
 - **Speculative decoding**: smaller model proposes; larger validates.
 - **Flash Attention**: cache-friendly attention computation.
@@ -281,7 +276,7 @@ Common findings:
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The factory assembly line.**
 A car factory's assembly line has many workers each doing one repetitive task, in parallel. A custom-build shop has a few skilled mechanics each doing varied work end-to-end. Different shapes; different optimal architectures.
@@ -291,7 +286,7 @@ A high-volume newspaper press prints thousands of identical pages per minute. A 
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🟡
 
 What goes wrong:
 
@@ -302,16 +297,9 @@ What goes wrong:
 - **The cost shock.** Bills 10× expected because of underutilized GPUs. Mitigation: monitor utilization; right-size instance types; spot pricing.
 - **The CUDA version mismatch.** Driver version incompatible with library version. Production crashes. Mitigation: containerize the entire stack.
 
-The senior AI infrastructure engineer's habits:
-- **Keep data on GPU** as much as possible.
-- **Profile** with nsight before optimizing.
-- **Use established frameworks** for production.
-- **Monitor GPU utilization** as primary metric.
-- **Plan for cost** — GPUs are expensive.
-
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The transfer-dominated workload.**
 Service receives small requests; loads each onto GPU; runs kernel; reads back. GPU utilization 5%; transfer 80% of time. Recovery: batch requests; keep state on GPU.
@@ -319,7 +307,7 @@ Service receives small requests; loads each onto GPU; runs kernel; reads back. G
 **Scenario 2 — The branchy CUDA disaster.**
 Custom kernel has many if/else paths. Warps diverge constantly. 10× slower than equivalent CPU code. Fix: redesign for data parallelism; or accept it's not GPU-friendly.
 
-**Scenario 3 — The OOM during fine-tuning.**
+**Scenario 3 — The OOM (Out Of Memory) during fine-tuning.**
 Fine-tuning a model that should fit; activations grow during training; OOM. Mitigation: gradient checkpointing; smaller batch size; mixed precision.
 
 **Scenario 4 — The CUDA version compatibility break.**
@@ -330,7 +318,7 @@ Team rents 8× A100s for training; forgets to release after experiment. Weekend 
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Matrix multiply**: GPUs 10-100× faster than CPU.
 - **Memory bandwidth**: 1-3 TB/sec (vs CPU's ~100 GB/sec).
@@ -339,16 +327,16 @@ Team rents 8× A100s for training; forgets to release after experiment. Weekend 
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
-- **Single GPU**: 80GB memory; tens of TFLOPs.
+- **Single GPU**: 80GB memory; tens of TFLOPs (Tera Floating-point Operations Per Second).
 - **Multi-GPU on one node**: NVLink; up to 8 GPUs per node typical.
 - **Multi-node**: Infiniband; thousands of GPUs.
 - **At hyperscale**: dedicated AI infrastructure (Meta, Google, OpenAI, Anthropic).
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **LLM Serving**: GPUs are the substrate. (See [llm-serving-and-vector-databases.md](../architecture-patterns/llm-serving-and-vector-databases.md).)
 - **Parallelism**: GPUs embody data parallelism. (See [parallelism-vs-concurrency.md](../concurrency/parallelism-vs-concurrency.md).)
@@ -360,7 +348,7 @@ The unifying observation: **GPUs are the right tool for data-parallel, throughpu
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **NVIDIA's CUDA dominance**: ecosystem moat.
 - **Google's TPU papers**: custom accelerator design.
@@ -370,61 +358,26 @@ The unifying observation: **GPUs are the right tool for data-parallel, throughpu
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways 🟢
 
-- That **transfer cost** often dominates.
-- That **branching kills** GPU performance.
-- That **memory bandwidth** is the typical bottleneck.
-- That **CUDA versions** matter.
-- That **GPUs are expensive** — utilization matters.
+- **CPU optimizes latency; GPU optimizes throughput.** Different goals, different architectures. GPUs are the right tool for data-parallel, throughput-bound work — and the wrong tool for branchy, sequential, or small-data work.
+- **Data parallelism is the GPU's sweet spot.** Many independent operations on different data; branching/sequential code is hostile.
+- **Memory bandwidth is usually the limit.** GPUs have huge bandwidth (1-3 TB/sec) but compute is even faster, so most ML inference is memory-bandwidth-bound, not compute-bound.
+- **The host-device boundary is expensive.** Data must move CPU↔GPU over PCIe (~32-64 GB/sec) vs GPU internal ~3 TB/sec. Keep data on GPU; batch operations. For one-shot work on small data, transfer cost dominates.
+- **SIMT execution.** Single Instruction Multiple Threads — a warp of 32 threads runs in lockstep; divergent branches serialize, so avoid branching within warps.
+- **Frameworks abstract GPU programming.** Most engineers use PyTorch/TensorFlow/JAX and never write CUDA; drop to low-level (CUDA, Triton) only when squeezing performance.
+- **Inference is optimized via quantization** (FP16, INT8, INT4), KV cache, PagedAttention, continuous batching, speculative decoding, Flash Attention.
+- **Multi-GPU for large models:** data, model, pipeline, and tensor parallelism, often combined; NVLink/Infiniband for fast interconnect.
+- **Custom accelerators (TPU, Trainium/Inferentia, Cerebras, Groq) are emerging,** but CUDA's ecosystem network effects keep NVIDIA dominant; vendor lock-in is real.
+- **GPUs are expensive — utilization matters.** Profile (nsight) before optimizing; monitor GPU utilization as the primary metric; plan cost explicitly; watch CUDA driver/library version compatibility (containerize the stack).
 
----
+## Interview angle 🟡
 
-## What Senior Engineers Instinctively Notice
+- **"CPU vs GPU architecture?"** Latency vs throughput.
+- **"What's SIMT?"** Single Instruction Multiple Threads; warps serialize on divergent branches.
+- **"What's the bottleneck?"** Often memory bandwidth or host-device transfer.
+- **"What workloads fit GPUs?"** Data-parallel, regular access patterns, large data.
+- **"Multi-GPU strategies?"** Data, model, pipeline, tensor parallelism.
+- **Common traps:** believing GPUs are universally faster; ignoring transfer cost.
 
-- They **profile before optimizing**.
-- They **keep data on GPU**.
-- They **use established frameworks**.
-- They **monitor utilization**.
-- They **plan cost** explicitly.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"CPU vs GPU architecture?"** Latency vs throughput.
-2. **"What's SIMT?"** Single Instruction Multiple Threads.
-3. **"What's the bottleneck?"** Often memory bandwidth or transfer.
-4. **"What workloads fit GPUs?"** Data-parallel, regular, large.
-5. **"Multi-GPU strategies?"** Data, model, pipeline, tensor parallelism.
-
-Common traps:
-- Believing GPUs are universally faster.
-- Ignoring transfer cost.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **CPU = latency**, **GPU = throughput**.
-2. **Data parallelism** is the GPU sweet spot.
-3. **Memory bandwidth** often the bottleneck.
-4. **Host-device transfer** is expensive.
-5. **SIMT** — branches serialize warps.
-6. **Frameworks abstract** GPU programming.
-7. **Quantization** (FP16, INT8) for inference.
-8. **Multi-GPU** for large models.
-9. **Custom accelerators** (TPU, etc.) are emerging.
-10. **GPUs are expensive** — utilize them.
-
----
-
-## Final Mental Model
-
-> **GPUs are the right tool for data-parallel, throughput-bound work. They're the wrong tool for everything else. AI exists at the scale it does because GPUs made the necessary computation economically feasible. The infrastructure category is the engineering response to that.**
-
-The senior AI infrastructure engineer treats GPUs as a constraint and a capability. Plan for data movement; optimize for throughput; bound costs; use frameworks. The architecture rewards alignment with its strengths; misalignment produces expensive disappointment.
-
-That's GPU and accelerator computing. That's the substrate of modern AI. That's the hardware revolution that made deep learning, then large language models, then the AI era — possible.
+> **Final mental model:** AI exists at the scale it does because GPUs made the necessary computation economically feasible. Plan for data movement, optimize for throughput, bound costs, and use frameworks — the architecture rewards alignment with its strengths and punishes misalignment with expensive disappointment.

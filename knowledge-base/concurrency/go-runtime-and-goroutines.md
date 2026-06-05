@@ -4,17 +4,29 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
 
-The Go runtime is what makes goroutines work. A goroutine is a lightweight execution context — much cheaper than an OS thread, but with similar programming semantics. The Go scheduler multiplexes millions of goroutines onto a small number of OS threads, with work-stealing for load balance and integrated I/O for non-blocking semantics that look blocking.
-
-Channels are the coordination primitive. Built into the language; integrated with the scheduler; "share by communicating" is the slogan. Combined with goroutines, they form a programming model that handles many concurrency patterns elegantly.
-
-This is the topic that explains why "rewriting in Go" has been a recurring engineering pattern. The language's concurrency model is ergonomically superior to threads-with-locks for many workloads. Understanding the runtime — the scheduler, the GC, the channels, the system call handling — is what separates "I write Go" from "I understand why Go is fast at concurrency."
+> **In one line:** how to run thousands of things "at the same time" cheaply, by giving each task its own tiny worker and letting a smart manager juggle them onto a handful of real CPU threads — so you write simple step-by-step code that still scales.
+>
+> **Analogy:** a busy restaurant kitchen with three chefs and a flood of orders. Each order (goroutine) is handled step by step, but while one dish bakes the chef starts another. A manager (the scheduler) keeps every chef busy, and orders coordinate through written tickets (channels) instead of shouting across the room.
+>
+> **Assumes you already know:** what an OS process/thread is and why threads are relatively heavyweight — build that in [`learn/reliability/vms-and-containers.md`](../../learn/reliability/vms-and-containers.md). It also helps to have a feel for how systems scale across cores/machines: [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md). *(This is a knowledge-base-only deep dive — the beginner learning path has no Go/concurrency topic, so start with those OS fundamentals.)*
+>
+> **Level:** this file is 🟡/🔴 overall — the mental models are approachable, but the scheduler internals, syscall handling, and GC are genuinely senior material. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
 
 ---
 
-## Intuition Before Definitions
+## Topic Overview 🟢
+
+The Go runtime is what makes goroutines work. A goroutine is a lightweight execution context — much cheaper than an OS thread, but with similar programming semantics. The Go scheduler multiplexes millions of goroutines onto a small number of OS threads, with work-stealing for load balance and integrated I/O (Input/Output) for non-blocking semantics that look blocking.
+
+Channels are the coordination primitive. Built into the language; integrated with the scheduler; "share by communicating" is the slogan. Combined with goroutines, they form a programming model that handles many concurrency patterns elegantly.
+
+This is the topic that explains why "rewriting in Go" has been a recurring engineering pattern. The language's concurrency model is ergonomically superior to threads-with-locks for many workloads. Understanding the runtime — the scheduler, the GC (Garbage Collector), the channels, the system call handling — is what separates "I write Go" from "I understand why Go is fast at concurrency."
+
+---
+
+## Intuition Before Definitions 🟢
 
 Imagine a kitchen with three chefs and unlimited orders.
 
@@ -30,10 +42,10 @@ That's Go's runtime. Many concurrent activities; few execution threads; a smart 
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Go's design (2009).**
-Pike, Griesemer, Thompson at Google. Goroutines and channels as first-class. Inspired by CSP (Tony Hoare).
+Pike, Griesemer, Thompson at Google. Goroutines and channels as first-class. Inspired by CSP (Communicating Sequential Processes) (Tony Hoare).
 
 **Era 2 — Early scheduler.**
 ~2009-2014. M:N scheduler; work-stealing. Reasonable but had limitations.
@@ -51,7 +63,7 @@ The pattern: Go's runtime has steadily evolved. The fundamental design stays; th
 
 ---
 
-## Core Mental Models
+## Core Mental Models 🟡
 
 **1. Goroutines are M:N multiplexed onto OS threads.**
 Many goroutines (M) share a fewer OS threads (N). Scheduler handles assignment.
@@ -70,7 +82,9 @@ Each P (processor context) has a local queue. Idle Ps steal from busy ones.
 
 ---
 
-## Deep Technical Explanation
+## Deep Technical Explanation 🔴
+
+> ⚠️ The rest of this section assumes the basics above are solid — G/M/P scheduling, syscall handling, the network poller, preemption, and GC are senior-level internals.
 
 ### G, M, P — the Go scheduler
 
@@ -79,7 +93,7 @@ The runtime has three primary types:
 - **M (Machine)**: an OS thread.
 - **P (Processor)**: a logical processor; runs G's on M's.
 
-Number of P's: `GOMAXPROCS` (default = number of CPUs).
+Number of P's: `GOMAXPROCS` (Go Maximum Processors) (default = number of CPUs).
 Number of M's: dynamic; created as needed.
 
 A G runs on an M, scheduled by a P. When a G blocks (system call), the M can detach from the P; another M picks up the P and continues running other G's.
@@ -150,7 +164,7 @@ This is how Go achieves "blocking-looking code with non-blocking efficiency."
 
 Network I/O uses a separate mechanism:
 - Goroutine calls `net.Conn.Read`.
-- Go runtime registers interest with the network poller (epoll/kqueue/IOCP).
+- Go runtime registers interest with the network poller (epoll/kqueue/IOCP (Input/Output Completion Ports)).
 - Goroutine descheduled.
 - When socket is ready, poller wakes the goroutine.
 - M continues with other work in the meantime.
@@ -191,7 +205,7 @@ Trade-offs:
 - Write barriers maintained.
 - More CPU for GC; less for application.
 
-`GOGC` controls heap growth target (default 100% — collect when heap doubles).
+`GOGC` (Go Garbage Collection) controls heap growth target (default 100% — collect when heap doubles).
 
 ### Goroutine leaks
 
@@ -269,7 +283,7 @@ Each stage is a goroutine reading from its input channel and writing to its outp
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The kitchen brigade.**
 Head chef directs; line cooks specialize; runners deliver; communication via order tickets. Many concurrent activities; few people; clear roles. Goroutines and channels are the engineered version.
@@ -279,19 +293,19 @@ Workers move between stations as demand varies. The supervisor (scheduler) reass
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
 - **The goroutine leak.** Every request spawns a goroutine that never exits. Memory grows. Restart needed eventually. Fix: bounded lifetimes; context cancellation.
 - **The channel deadlock.** Goroutine A waits to send; B never receives. Both stuck. Detection: deadlock detector (only for whole-program deadlocks).
-- **The unbounded goroutine spawn.** Each request spawns new goroutine; no limit. Many requests = many goroutines = OOM. Mitigation: worker pools.
-- **The blocking-call blocker.** Cgo or syscall doesn't release P efficiently. Throughput drops. Mitigation: avoid long syscalls; use Go-native equivalents.
+- **The unbounded goroutine spawn.** Each request spawns new goroutine; no limit. Many requests = many goroutines = OOM (Out Of Memory). Mitigation: worker pools.
+- **The blocking-call blocker.** Cgo (C-to-Go bindings) or syscall doesn't release P efficiently. Throughput drops. Mitigation: avoid long syscalls; use Go-native equivalents.
 - **The race condition.** Shared map without mutex. Race detector catches in tests. Fix: mutex or sync.Map or channel.
 - **The GC pause.** Heavy allocation; GC pauses appear in latency. Reduce allocations.
 
 The senior Go engineer's habits:
-- **Run race detector** in CI.
+- **Run race detector** in CI (Continuous Integration).
 - **Bound goroutine concurrency** (worker pools).
 - **Pass `context.Context`** through async paths.
 - **Use channels for coordination**; mutexes for shared state.
@@ -300,7 +314,7 @@ The senior Go engineer's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The goroutine leak.**
 HTTP handler launches goroutine; never returns. After million requests: million goroutines. Memory exhausted. Fix: bounded lifetimes via context.
@@ -309,7 +323,7 @@ HTTP handler launches goroutine; never returns. After million requests: million 
 `select { case <-ch: ... default: ... }` — if `ch` not ready, default runs immediately. Code intended to block; instead burns CPU in a busy loop. Mitigation: remove default if blocking desired.
 
 **Scenario 3 — The channel deadlock.**
-Sender and receiver both waiting on each other. Whole program hangs. Detected by Go's runtime; panic. Fix: redesign coordination.
+Sender and receiver both waiting on each other. If this is the *whole* program (all goroutines asleep), Go's runtime detects it and panics with "fatal error: all goroutines are asleep - deadlock!". But a deadlock between a subset of goroutines while others keep running is *not* detected — it just hangs. Fix: redesign coordination.
 
 **Scenario 4 — The CPU pegging via GOMAXPROCS.**
 Container with 1 CPU; Go thinks it has 32 (host CPUs). GOMAXPROCS=32. Excessive context switching. Fix: set GOMAXPROCS to actual CPU.
@@ -319,7 +333,7 @@ High allocation rate; GC overhead 30%. Reduced via pooling; CPU recovered.
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Goroutine creation**: microseconds.
 - **Goroutine switch**: nanoseconds (cooperative).
@@ -329,16 +343,16 @@ High allocation rate; GC overhead 30%. Reduced via pooling; CPU recovered.
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Single process**: millions of goroutines.
 - **Multi-core**: GOMAXPROCS scales to CPUs.
 - **Distributed**: each Go process is its own runtime.
-- **Cloud**: container-aware GOMAXPROCS (modern Go).
+- **Cloud**: container-aware GOMAXPROCS (default since Go 1.25, Aug 2025; before that, use `uber-go/automaxprocs` to respect cgroup CPU limits).
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Coroutines**: goroutines are coroutines. (See [coroutines-and-green-threads.md](./coroutines-and-green-threads.md).)
 - **Backpressure**: bounded channels are backpressure. (See [backpressure-and-queues.md](./backpressure-and-queues.md).)
@@ -350,7 +364,7 @@ The unifying observation: **Go's runtime is what makes Go's concurrency story wo
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Discord's voice servers**: documented Go usage.
 - **Cloudflare's Go services**: extensive public engineering.
@@ -359,64 +373,24 @@ The unifying observation: **Go's runtime is what makes Go's concurrency story wo
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **goroutines need bounding** to avoid leaks.
-- That **GOMAXPROCS** matters in containers.
-- That **channels integrate with scheduler**.
-- That **context propagation** is mandatory.
-- That **race detector** is essential.
-- That **panics in goroutines crash the process**.
+- **Goroutines are M:N multiplexed** onto OS threads via the GMP scheduler (G = goroutine, M = OS thread, P = logical processor), which uses work-stealing — idle P's steal from busy ones.
+- **Channels coordinate by communication**, not shared memory; they integrate with the scheduler so blocked goroutines are descheduled and the thread picks up other work.
+- **Blocking I/O looks blocking but isn't** — goroutines waiting on I/O are descheduled via the network poller (epoll/kqueue/IOCP); the M takes another goroutine.
+- **Goroutines are cheap, not free** — ~2KB initial stack, nanosecond switches. Believing they are free is a classic trap; they still need bounding (worker pools) to avoid leaks and OOM.
+- **Context propagation is mandatory** — pass `context.Context` through async paths for cancellation and deadlines.
+- **Run the race detector in CI** — it catches data races (e.g. shared map without mutex) in tests.
+- **GOMAXPROCS matters in containers** — without container-aware settings Go sees host CPUs, causing excessive context switching (default container-aware since Go 1.25; before that use `uber-go/automaxprocs`).
+- **Panics in goroutines crash the whole process** unless recovered — use `recover()` in a deferred function inside the goroutine.
+- **GC pauses are sub-millisecond** with concurrent mark-sweep; profile with pprof and watch goroutine count as a metric to detect leaks.
 
----
+## Interview angle
 
-## What Senior Engineers Instinctively Notice
-
-- They **bound goroutine concurrency**.
-- They **propagate context**.
-- They **use channels for coordination**.
-- They **run race detector** in CI.
-- They **profile with pprof**.
-- They **set GOMAXPROCS** for container awareness.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"What's a goroutine?"** Lightweight execution unit.
-2. **"Channels?"** Coordination via message passing.
-3. **"GMP scheduler?"** G's run on M's via P's.
-4. **"How does Go handle blocking I/O?"** Goroutine descheduled; thread takes another.
-5. **"What's work-stealing?"** Idle P steals from busy.
-6. **"How do you cancel work?"** context.Context.
-
-Common traps:
-- Believing goroutines are free.
-- Not knowing about GOMAXPROCS in containers.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Goroutines = M:N** multiplexed onto threads.
-2. **GMP scheduler** with work-stealing.
-3. **Channels coordinate** by communication.
-4. **Blocking I/O via network poller**.
-5. **Context propagation** for cancellation.
-6. **Bound concurrency** to prevent leaks.
-7. **Race detector** in CI.
-8. **GC sub-ms** pauses.
-9. **GOMAXPROCS** = CPU count.
-10. **Recover panics** in goroutines.
-
----
-
-## Final Mental Model
-
-> **Go's runtime is what made "cheap concurrent units" production-ready at scale. The combination of goroutines, channels, M:N scheduling, and integrated I/O is engineered for the workloads where threads-and-locks fail. The systems that adopted Go found patterns of concurrency that were awkward elsewhere natural in Go.**
-
-The senior Go engineer leans on the runtime. Goroutines for parallelism; channels for coordination; context for cancellation. They know the scheduler's quirks. They watch for leaks. They use the race detector. The runtime handles the complexity; they focus on the program.
-
-That's Go's runtime. That's goroutines. That's the most-deployed work-stealing concurrent runtime in production — and the design that influenced async runtimes everywhere.
+- **"What's a goroutine?"** Lightweight execution unit, M:N multiplexed onto threads.
+- **"Channels?"** Coordination via message passing.
+- **"GMP scheduler?"** G's run on M's via P's, with work-stealing.
+- **"How does Go handle blocking I/O?"** Goroutine descheduled; thread takes another.
+- **"What's work-stealing?"** Idle P steals from a busy P's queue.
+- **"How do you cancel work?"** `context.Context`.
+- Common traps: believing goroutines are free; not knowing about GOMAXPROCS in containers.

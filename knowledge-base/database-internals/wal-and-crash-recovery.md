@@ -4,17 +4,29 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a database keeps your "saved" data safe even if the power dies mid-write — by jotting down what it's about to do *before* it does it.
+>
+> **Analogy:** a bank teller who scribbles every transaction on a quick running scroll *before* updating the heavy ledger book. If a fire forces them to flee, they grab the light scroll and rebuild the ledger from it later. The scroll is the write-ahead log; the ledger is the data files; the fire is a crash.
+>
+> **New to this?** Build the basics first in [`learn/data/acid-base.md`](../../learn/data/acid-base.md) — *then* come back for the depth. (This is the topic that makes ACID's "D" — Durability — actually work.)
+>
+> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 When a database tells you "your transaction is committed," it's making a contract with physics. The bytes are durable. A power failure now won't lose them. The chair you're sitting in could be hit by lightning, the building could burn down, and when the database comes back up, your money transfer will still be there.
 
 Honoring that contract is harder than it sounds. Disks don't write atomically. The OS caches writes. The disk firmware caches writes. Power loss in the middle of any of these layers can leave half-written data, corrupted indexes, inconsistent metadata. The naive solution — "just write everything to disk" — is too slow by orders of magnitude. The actual solution is the **Write-Ahead Log (WAL)**: an append-only log of intentions, written *first*, durably, and used to reconstruct the database's state after any failure.
 
-This is the topic that makes "ACID's D" — Durability — actually work. It's also the topic where engineers discover that what they thought was "writing to disk" was actually "putting bytes in a kernel buffer that may or may not survive a power cut." Understanding WAL is understanding the foundation that MVCC, indexing, replication, and every other database feature is built on.
+This is the topic that makes "ACID's D" — Durability — actually work. It's also the topic where engineers discover that what they thought was "writing to disk" was actually "putting bytes in a kernel buffer that may or may not survive a power cut." Understanding WAL is understanding the foundation that MVCC (Multi-Version Concurrency Control), indexing, replication, and every other database feature is built on.
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine you're a bank teller updating account balances by hand.
 
@@ -28,7 +40,7 @@ The discipline: **never update the ledger before writing to the scroll. Never te
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Direct page writes.**
 Early databases wrote modified pages straight to disk. A crash mid-write left half-written pages. Recovery meant scanning everything, finding the corruption, and praying. Backups were the recovery mechanism, with hours-to-days of data loss.
@@ -40,7 +52,7 @@ Copy-on-write at the page level: write modified data to *new* pages, atomically 
 IBM's recovery algorithm for relational databases. Three principles: write-ahead logging, repeat history during redo, log changes during undo. The blueprint for almost every modern transactional database. Postgres, MySQL InnoDB, SQL Server, Oracle — all implement variants of ARIES.
 
 **Era 4 — Log-structured storage.**
-LSM trees (LevelDB, RocksDB, Cassandra) take the WAL idea to its limit: the log is the *primary* storage, not just the recovery log. Reads check the log + sorted snapshots; writes are pure appends. The line between WAL and main storage blurs.
+LSM (Log-Structured Merge) trees (LevelDB, RocksDB, Cassandra) take the WAL idea to its limit: the log is the *primary* storage, not just the recovery log. Reads check the log + sorted snapshots; writes are pure appends. The line between WAL and main storage blurs.
 
 **Era 5 — Replicated logs.**
 Kafka and the realization that a WAL is itself useful: an append-only, durable, replayable log of changes is exactly what distributed event systems need. Internal database WALs become external streaming primitives. Change Data Capture (CDC) reads the WAL and turns it into events.
@@ -52,26 +64,9 @@ The pattern: every generation extended WAL further. Once an engineering primitiv
 
 ---
 
-## Core Mental Models
+## Deep Technical Explanation 🔴
 
-**1. Write-ahead means write *before*.**
-Every change to the data files must be preceded by a durable log entry. If you crash, the log tells you what was in flight. If the log doesn't have it, it didn't happen — even if the data files show otherwise.
-
-**2. Commit is the moment the log entry is durable.**
-Not when the data file is written. The data file is updated lazily. The log is the source of truth. "Commit" = "the log entry is on stable storage." Everything else is bookkeeping.
-
-**3. Recovery is replay.**
-Power on after a crash, read the log from the last consistent point, replay every entry. The data files re-emerge in the correct state. This is conceptually a pure function: `state_after_crash = replay(log, state_before_crash)`.
-
-**4. Durability is fsync.**
-The OS doesn't write to disk by default — it writes to a buffer. The disk firmware doesn't write to platters by default — it writes to its own cache. `fsync()` is the syscall that says "actually push this through, all the way." The database's durability hinges on calling fsync at the right moments. Skipping it for performance is a famous source of "we lost data on a power outage" stories.
-
-**5. Group commit amortizes the cost.**
-fsync is slow (~milliseconds on rotational disks, ~hundreds of microseconds on SSDs). One fsync per transaction caps your throughput. Real systems batch many transactions' log entries and fsync them together. Throughput multiplies; per-transaction latency rises slightly. The tradeoff is universal.
-
----
-
-## Deep Technical Explanation
+> ⚠️ The rest assumes the basics above are solid.
 
 ### What's in a WAL record
 
@@ -127,7 +122,7 @@ This is conceptually simple but has subtle correctness requirements:
 
 ### Group commit
 
-A naive implementation fsyncs once per transaction. With ~1ms fsync latency, that caps throughput at ~1000 commits/second per single thread. For OLTP workloads, that's nowhere near enough.
+A naive implementation fsyncs once per transaction. With ~1ms fsync latency, that caps throughput at ~1000 commits/second per single thread. For OLTP (Online Transaction Processing) workloads, that's nowhere near enough.
 
 Group commit:
 1. Many transactions queue their COMMIT log records.
@@ -143,7 +138,7 @@ A checkpoint is the moment "everything up to LSN X is durably in the data files.
 - **Allows log truncation.** Older log records (those before the oldest in-flight transaction) can be deleted.
 - **Costs I/O.** Forcing all dirty pages to disk is expensive; checkpoints typically run incrementally over many seconds to minutes.
 
-Tuning checkpoints is a real DBA discipline:
+Tuning checkpoints is a real DBA (Database Administrator) discipline:
 - **Too frequent**: I/O overhead, more pages flushed than necessary.
 - **Too rare**: huge log volume, long recovery times after a crash.
 - **Postgres**: `checkpoint_timeout` (default 5 min), `max_wal_size` (default 1GB) — checkpoints triggered by either.
@@ -154,7 +149,7 @@ fsync on Linux has a problematic history. Pre-2018, certain failure modes (e.g.,
 
 Modern practice:
 - **Always fsync the WAL.** Yes, it's slow. The alternative is data loss.
-- **Trust verified hardware.** Some SSDs and RAID controllers lie about fsync — they ack writes before the data hits stable storage. Battery-backed cache mitigates; misconfigured systems silently lose data on power loss.
+- **Trust verified hardware.** Some SSDs (Solid-State Drives) and RAID (Redundant Array of Independent Disks) controllers lie about fsync — they ack writes before the data hits stable storage. Battery-backed cache mitigates; misconfigured systems silently lose data on power loss.
 - **fsync errors are catastrophic.** A failed fsync can leave the database in an unrecoverable state. Postgres now panics on fsync failure rather than continuing with potentially corrupt data.
 
 ### WAL as a streaming primitive
@@ -173,7 +168,7 @@ This dual use is why WAL design constraints have evolved. Kafka-style durable lo
 LSM trees (RocksDB, LevelDB, Cassandra) push the idea further:
 - Writes go to a memtable (in-memory).
 - A WAL records the same writes for durability.
-- When the memtable fills, it's written to disk as an immutable SSTable.
+- When the memtable fills, it's written to disk as an immutable SSTable (Sorted String Table).
 - Reads check memtable first, then SSTables.
 
 Here the WAL isn't an audit log of changes to a primary store — *it is* the primary durable storage of recent writes. The SSTables are checkpoints, taken much more aggressively than in B-tree systems.
@@ -182,7 +177,7 @@ The boundary between "WAL" and "data" blurs by design.
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The accountant's daybook.**
 A traditional accounting practice: every transaction is recorded in a *daybook* (chronological journal) before being posted to ledger accounts. The daybook is the source of truth; the ledgers are summaries derivable from the daybook. If the ledger burns, you reconstruct it from the daybook. If the daybook burns, you have nothing.
@@ -196,7 +191,7 @@ A database's WAL is the same idea: when the complex thing fails, the simple thin
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -218,7 +213,7 @@ The senior DBA's habits:
 
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The fsync lie.**
 A server uses an SSD that ignores fsync (acknowledges writes before they're durable). For months, the database has been "committing" without true durability. A power outage causes a crash. Recovery sees inconsistent state — pages reflect changes whose log entries didn't survive. Database refuses to start. Recovery from backup; ~6 hours of data loss.
@@ -237,9 +232,9 @@ fsync returns an error mid-runtime. The database now has dirty buffers it cannot
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🔴
 
-- **Sequential write throughput** is the bottleneck for log-heavy workloads. Modern NVMe SSDs hit GB/s; rotational disks ~100 MB/s.
+- **Sequential write throughput** is the bottleneck for log-heavy workloads. Modern NVMe (Non-Volatile Memory Express) SSDs hit GB/s; rotational disks ~100 MB/s.
 - **fsync latency is the per-commit cost.** Group commit amortizes this across many transactions.
 - **Checkpoints are I/O burden** on data files; tuning balances WAL volume against page-write smoothness.
 - **Page cache hit rate** matters: a working set that fits in RAM means most writes are to dirty pages, fsync'd lazily.
@@ -247,21 +242,21 @@ fsync returns an error mid-runtime. The database now has dirty buffers it cannot
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🔴
 
 - **Vertical**: WAL throughput scales with disk write throughput. NVMe drives can sustain hundreds of MB/s of sequential WAL writes.
 - **Horizontal reads**: WAL streamed to replicas; replicas catch up.
-- **Horizontal writes**: each shard has its own WAL. Cross-shard transactions need 2PC or similar. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
+- **Horizontal writes**: each shard has its own WAL. Cross-shard transactions need 2PC (Two-Phase Commit) or similar. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
 - **Cloud storage**: distributed storage layers (Aurora, AlloyDB) decouple WAL from compute. Replication is a property of storage, not the database engine.
 - **Geographic**: WAL shipping across regions is the foundation for disaster recovery.
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **MVCC**: each row version is created by a WAL-logged transaction. Vacuum reclaims old versions; the WAL records vacuum's operations too. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
 - **Indexing**: index updates are WAL-logged just like row updates. Recovery rebuilds indexes from WAL. (See [indexing-and-storage-engines.md](./indexing-and-storage-engines.md).)
-- **CAP/replication**: WAL streaming is the substrate of database replication. Synchronous vs async replication is a WAL durability choice. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
+- **CAP (Consistency, Availability, Partition tolerance)/replication**: WAL streaming is the substrate of database replication. Synchronous vs async replication is a WAL durability choice. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Event sourcing**: the WAL *is* an event log. Some systems blur the line — using the database WAL as the application's event source. (See [cqrs-and-event-sourcing.md](../architecture-patterns/cqrs-and-event-sourcing.md).)
 - **Filesystems**: journaling filesystems (ext4 journal, XFS, ZFS) use the same idea. The OS's filesystem journal protects metadata; the database's WAL protects data.
 - **Distributed consensus**: Raft's log is a WAL replicated across nodes — recovery via replay is identical. (See [leader-election-and-consensus.md](../distributed-systems/leader-election-and-consensus.md).)
@@ -270,7 +265,7 @@ The unifying observation: **the write-ahead log is the universal answer to "how 
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Postgres fsyncgate (2018)**: PostgreSQL discovered that fsync error semantics on Linux had been subtly wrong for ~20 years. Resulted in a major design change: PANIC on fsync error.
 - **AWS Aurora's storage architecture**: separates compute from a distributed storage layer that owns the WAL. Replication and durability become properties of the storage service.
@@ -281,52 +276,7 @@ The unifying observation: **the write-ahead log is the universal answer to "how 
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That **commit means the WAL is fsynced**, not that data files are written.
-- That **fsync is the durability boundary** — without it, "committed" is a lie.
-- That **recovery is replay**, conceptually simple but operationally complex.
-- That **checkpoints are I/O work** that must be scheduled carefully.
-- That **long-running transactions pin WAL** and can fill the disk.
-- That **torn pages exist** and require special handling.
-- That **the WAL is a streaming primitive** — used for replication and CDC.
-- That **untested recovery is broken** until proven otherwise.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **monitor WAL volume** and oldest active transaction.
-- They **verify fsync semantics** of hardware/filesystems.
-- They **tune checkpoint behavior** for their workload.
-- They **plan recovery time** and capacity-plan accordingly.
-- They **test PITR** regularly.
-- They **replicate WAL off-host** for disaster recovery.
-- They **understand the WAL as a streaming primitive** for CDC and replication.
-- They **know the fsync history** and trust it appropriately.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **"How does a database guarantee durability?"** Senior answer: WAL + fsync at commit + recovery replay.
-2. **"What's a write-ahead log?"** Append-only log of changes, written before data files.
-3. **"Why fsync?"** Tests OS literacy. Right answer: explicit syscall to push through buffer caches to stable storage.
-4. **"What's a checkpoint?"** Bounded recovery time; consistent point in data files.
-5. **"What's group commit?"** Amortize fsync cost; many transactions per fsync.
-6. **"How does recovery work?"** Find checkpoint; redo committed; undo uncommitted.
-7. **"Why don't we just write directly to the data files?"** Random I/O, ordering, partial writes, performance — the WAL solves all of them.
-
-Common traps:
-- Confusing "write to disk" with "fsync."
-- Believing data files contain the latest committed state at all times.
-- Not knowing about the WAL's role in replication.
-
----
-
-## Worked Example — Anatomy of a Commit
+## Worked Example — Anatomy of a Commit 🔴
 
 A user submits a payment. Walk through what actually happens at the WAL level.
 
@@ -343,7 +293,7 @@ In the database (Postgres flavor):
 ```
 1. UPDATE 1 (debit account A):
    - Find account A's row in heap; current balance 500.
-   - Generate new tuple version: balance=400; xmin=current_txid.
+   - Generate new tuple version: balance=400; xmin=current_txid (transaction ID).
    - Generate WAL record: {LSN: 1234, type: HEAP_UPDATE, page: 47, before: ..., after: ...}
    - Append WAL record to in-memory WAL buffer (NOT disk yet).
    - Update in-memory page; page is now "dirty".
@@ -398,7 +348,7 @@ T1 commit: WAL record at LSN 1237; calls fsync.
 T2 commit: WAL record at LSN 1238; calls fsync.
 T3 commit: WAL record at LSN 1239; calls fsync.
 
-Naive: 3 fsyncs (each takes ~1ms on SSD); 3000 commits/sec ceiling per thread.
+Naive: 3 fsyncs (each takes ~1ms on SSD); ~333 commits/sec ceiling per thread.
 
 Group commit:
 T1 calls fsync; this fsync includes any WAL written so far.
@@ -460,10 +410,10 @@ Every commit's durability hangs on the fsync of the WAL. Everything else is asyn
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Postgres 16's logical replication from standbys (2023)**: removes the previous limitation that logical replication had to source from primary. Better load distribution.
-- **AWS Aurora's distributed storage**: continues to be a reference for compute/storage decoupling. Storage ships WAL across multiple AZs.
+- **AWS Aurora's distributed storage**: continues to be a reference for compute/storage decoupling. Storage ships WAL across multiple AZs (Availability Zones).
 - **Neon's serverless Postgres (2023+)**: complete decoupling of compute from storage; storage is its own service that handles the WAL and replication.
 - **The fsyncgate retrospectives (continuing)**: educational material on Linux fsync semantics; ongoing relevance.
 - **Heap.io's writeup on long-running transactions**: documented the operational impact on vacuum and WAL.
@@ -472,27 +422,40 @@ Every commit's durability hangs on the fsync of the WAL. Everything else is asyn
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **WAL = append-only log of changes**, written before data files.
-2. **Commit = WAL record durably fsynced.** Data files updated lazily.
-3. **fsync is the durability boundary.** Without it, "committed" is a lie.
-4. **Recovery = replay log from checkpoint forward.**
-5. **Group commit amortizes fsync cost.**
-6. **Checkpoints bound recovery time** at the cost of background I/O.
-7. **Long-running transactions pin WAL** — disk-full risk.
-8. **Torn pages require special handling** (e.g., full_page_writes).
-9. **The WAL is a streaming primitive** — CDC and replication build on it.
-10. **Test recovery regularly.** Untested recovery is broken.
+**The core model**
+- **WAL = append-only log of changes, written *before* the data files are touched.** Write-ahead means write before: if the log doesn't have it, it didn't happen — even if the data files show otherwise.
+- **Commit = the WAL record is durably fsynced**, not when the data file is written. The log is the source of truth; data files are a lazily-updated cache of the WAL's effects. Conceptually, `state_after_crash = replay(log, state_before_crash)`.
+- **fsync is the durability boundary.** The OS writes to a buffer and the disk firmware writes to its own cache; `fsync()` is the syscall that pushes bytes all the way through to stable storage. Without it, "committed" is a lie — a famous source of "we lost data on a power outage" stories.
+- **Recovery is replay:** find the last checkpoint, redo committed transactions forward, undo uncommitted ones. Conceptually simple, operationally complex.
+
+**Operational reality**
+- **Group commit amortizes fsync cost** — batch many transactions' log entries into one fsync. Throughput multiplies (e.g. ~1k/s to 10k+/s); per-transaction latency rises slightly. The tradeoff is universal.
+- **Checkpoints bound recovery time** at the cost of background I/O. Too frequent wastes I/O; too rare means huge log volume and long recovery.
+- **Long-running transactions pin WAL** (log can't be truncated past the oldest in-flight txn) — a disk-full risk.
+- **Torn pages exist** and need special handling (e.g. Postgres `full_page_writes`); a half-written page can't be reconstructed from a redo record alone.
+- **The WAL is a streaming primitive** — CDC and synchronous/async/logical replication all build on it.
+- **Untested recovery is broken recovery.** Test PITR regularly.
+
+**Senior habits**
+- Verify fsync semantics of your hardware and filesystem (some SSDs/RAID controllers lie; `nobarrier` mounts silently disable durability).
+- Monitor WAL volume and the oldest active transaction; plan and capacity-plan recovery time.
+- Tune checkpoint behavior for the workload; replicate the WAL off-host for disaster recovery.
+- Know the fsync history (Postgres now PANICs on fsync error rather than continuing with potentially corrupt durability) and trust hardware appropriately.
 
 ---
 
-## Final Mental Model
+## Interview angle 🟡
 
-> **A database is a physics-defying promise: 'committed means it's safe.' Underneath that promise is a write-ahead log, an fsync, and the discipline of writing intentions before changes. Get that stack right, and your durability holds. Get it wrong — by skipping fsync, by mis-tuning checkpoints, by trusting hardware that lies — and the promise quietly becomes a fiction.**
+What gets tested:
 
-The senior database engineer's instinct, debugging a durability question, isn't "did the data file get updated?" — it's "did the WAL fsync return?" Everything else is downstream of that. The WAL is the truth; the data files are a cache; the tools and metrics that monitor the WAL are the early-warning system for the database's most important guarantee.
+1. **"How does a database guarantee durability?"** WAL + fsync at commit + recovery replay.
+2. **"What's a write-ahead log?"** Append-only log of changes, written before data files.
+3. **"Why fsync?"** (OS literacy) Explicit syscall to push through buffer caches to stable storage.
+4. **"What's a checkpoint?"** Bounded recovery time; consistent point in the data files.
+5. **"What's group commit?"** Amortize fsync cost; many transactions per fsync.
+6. **"How does recovery work?"** Find checkpoint; redo committed; undo uncommitted.
+7. **"Why don't we just write directly to the data files?"** Random I/O, ordering, partial writes, performance — the WAL solves all of them.
 
-Crash recovery is the test of this discipline. Every database that has been around for a decade has stories about times the discipline failed — fsyncgate at Postgres, configuration errors at countless shops, hardware that lied about durability. The answer is not to be smarter than the system; the answer is to *trust the WAL, test recovery, monitor the indicators, and accept that durability is a property of an entire stack, not a checkbox.*
-
-That's the WAL. That's crash recovery. That's how databases keep their promise.
+Common traps: confusing "write to disk" with "fsync"; believing data files always contain the latest committed state; not knowing the WAL's role in replication.

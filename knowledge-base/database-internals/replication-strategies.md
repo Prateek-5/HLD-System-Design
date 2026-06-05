@@ -4,17 +4,29 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how to keep copies of your data on more than one machine, so that if one dies your service keeps running and doesn't lose what people just saved.
+>
+> **Analogy:** like keeping a backup of important photos on your phone *and* in the cloud — if your phone is lost you still have them, but the cloud copy might be a few minutes behind the very last photo you took. Replication is choosing how many copies, how spread out, and how up-to-date each one is.
+>
+> **New to this?** Build the basics first in [`learn/data/database-replication.md`](../../learn/data/database-replication.md) — *then* come back for the depth.
+>
+> **Level:** this file is 🟡 overall, with 🔴 deep-internals sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+---
+
+## Topic Overview 🟢
 
 Database replication is how copies of data live on multiple machines, kept in sync to varying degrees. It's the foundation of every reliable production database — single-instance databases are toys; production runs on replicas. The choice of replication strategy shapes everything: read scalability, failover speed, consistency guarantees, write latency, operational complexity.
 
 The fundamental dimensions: **synchronous vs asynchronous**, **single-leader vs multi-leader vs leaderless**, **per-row vs per-statement**. Each combination is a different point in the consistency-availability-latency space, with different operational characteristics. There's no single best choice; there are workload-fits.
 
-This is the topic that operationalizes CAP theorem, MVCC, and consensus into actual database architectures. Postgres's streaming replication, MySQL's various replication modes, Cassandra's quorum-based writes, Kafka's ISR — all are specific designs in this space. Understanding them shapes both database selection and operational practice.
+This is the topic that operationalizes CAP (Consistency, Availability, Partition tolerance) theorem, MVCC (Multi-Version Concurrency Control), and consensus into actual database architectures. Postgres's streaming replication, MySQL's various replication modes, Cassandra's quorum-based writes, Kafka's ISR (In-Sync Replicas) — all are specific designs in this space. Understanding them shapes both database selection and operational practice.
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Imagine a corporate ledger maintained by multiple secretaries.
 
@@ -30,7 +42,7 @@ Each model has pros and cons. The right choice depends on what you need: low wri
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟡
 
 **Era 1 — Single-master.**
 1990s, early 2000s. Postgres, MySQL, Oracle. One primary; periodic backups; no online replicas. Failure recovery was hours of restore.
@@ -54,34 +66,16 @@ The pattern: each generation pushed replication deeper into the database design 
 
 ---
 
-## Core Mental Models
+## Deep Technical Explanation 🔴
 
-**1. Sync vs async is the most important dimension.**
-Sync: write isn't done until replicas confirm. Strong durability; latency cost; availability trade-off (if a replica is down, can you commit?).
-Async: write completes locally; replicas catch up. Low latency; window of data loss on primary failure.
-
-**2. Read replicas don't scale writes; they scale reads.**
-Adding read replicas helps if your bottleneck is read load. Doesn't help if it's writes. Easy to misdiagnose.
-
-**3. Lag is a first-class concern.**
-Async replicas trail the primary. Lag varies. Reading from a lagged replica gives stale data. Every async-replicated system needs lag monitoring.
-
-**4. Failover is a separate problem from replication.**
-Replication ships data; failover decides what to do when the primary fails. The two often have different failure modes; one can work without the other.
-
-**5. The consistency model is what your application sees.**
-Replication strategy determines consistency. Application code that expects strong consistency on a system with eventually-consistent replicas will have bugs.
-
----
-
-## Deep Technical Explanation
+> ⚠️ The rest assumes the basics above are solid.
 
 ### Single-leader replication
 
 The classic model. One primary handles all writes; one or more replicas receive a stream of changes.
 
 **Mechanism:**
-- WAL streaming (Postgres): replicas tail the primary's WAL.
+- WAL (Write-Ahead Log) streaming (Postgres): replicas tail the primary's WAL.
 - Binlog streaming (MySQL): primary's binary log shipped to replicas.
 - Statement-based: SQL statements re-executed on replicas (deprecated; non-deterministic statements break this).
 - Row-based: actual row changes replicated (preferred).
@@ -97,7 +91,7 @@ Postgres-specific:
 - `synchronous_standby_names`: which replicas count.
 
 **Trade-offs:**
-- Sync replication: zero-data-loss promise; per-write latency = primary commit + slowest replica RTT.
+- Sync replication: zero-data-loss promise; per-write latency = primary commit + slowest replica RTT (Round-Trip Time).
 - Async: low latency; possible data loss equal to replication lag.
 
 ### Read scaling
@@ -124,11 +118,11 @@ Multiple primaries; writes can occur on any. Replicas exchange updates.
 - **Last-write-wins (LWW)**: timestamp-based. Issues with clock skew.
 - **Per-field merge**: merge changes if they don't overlap.
 - **Application-level resolution**: callback to resolve conflicts.
-- **CRDTs**: data structures that merge cleanly.
+- **CRDTs (Conflict-free Replicated Data Types)**: data structures that merge cleanly.
 
 **Operational reality:**
 - Multi-leader is operationally complex.
-- Schema changes are hard (requires coordinated DDL).
+- Schema changes are hard (requires coordinated DDL (Data Definition Language)).
 - Performance is good; correctness is the challenge.
 
 ### Leaderless replication
@@ -206,10 +200,10 @@ Most production systems run async with very low typical lag (milliseconds), acce
 
 **Physical**: replicate WAL/binlog at the byte level. Same database version required. Whole cluster replicated.
 
-**Logical**: replicate as logical changes (INSERT, UPDATE, DELETE). Different versions possible. Subset of tables can be replicated. CDC tools (Debezium) work on logical replication.
+**Logical**: replicate as logical changes (INSERT, UPDATE, DELETE). Different versions possible. Subset of tables can be replicated. CDC (Change Data Capture) tools (Debezium) work on logical replication.
 
 Use cases:
-- **Physical**: HA replicas; fast.
+- **Physical**: HA (High Availability) replicas; fast.
 - **Logical**: heterogeneous replication (e.g., to data warehouse); selective; cross-version.
 
 ### Cross-region replication
@@ -225,7 +219,7 @@ Multi-region active-active requires multi-leader, with all its complexity.
 
 Modern cloud databases (Amazon Aurora, Google AlloyDB) decouple compute from storage:
 - WAL is shipped to a distributed storage layer.
-- Storage replicates the WAL across multiple AZs.
+- Storage replicates the WAL across multiple AZs (Availability Zones).
 - Compute instances are stateless; failover is fast (just point to the same storage).
 
 Properties:
@@ -235,7 +229,7 @@ Properties:
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The newspaper editions.**
 A newspaper has a master copy at HQ. Regional offices receive printed editions, slightly delayed. Subscribers in remote regions read yesterday's news. If HQ burns down, regional copies are slightly out of date.
@@ -249,7 +243,7 @@ Modern banking has moved to real-time replication (sync) for fraud reasons, but 
 
 ---
 
-## Production Engineering Perspective
+## Production Engineering Perspective 🔴
 
 What goes wrong:
 
@@ -261,18 +255,9 @@ What goes wrong:
 - **The logical replication slot growth.** A logical replication consumer is paused; primary's WAL grows because it can't be cleaned up. Disk fills. Production halts.
 - **The cross-region failover that hadn't been tested.** First time exercising it: discovers a configuration bug. RTO (recovery time objective) wildly exceeded. Lesson: test failover regularly.
 
-The senior DBA's habits:
-- **Monitor replication lag** as a primary metric.
-- **Test failover regularly**.
-- **Plan stickiness** for read-after-write consistency.
-- **Use semi-sync or sync** for critical durability.
-- **Document failover runbooks**.
-- **Watch logical replication slots**.
-- **Plan for cross-region failures**.
-
 ---
 
-## Failure Scenarios
+## Failure Scenarios 🔴
 
 **Scenario 1 — The async data loss.**
 Primary crashes; failover to replica. Replica was 30 seconds behind. 30 seconds of writes lost. Customer support: "I made a payment but it doesn't show up." Investigation; reconciliation. Lesson: sync or semi-sync for critical data.
@@ -291,7 +276,7 @@ CDC consumer (Debezium) pauses for maintenance. Postgres retains all WAL the con
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Async replication**: minimal write latency overhead; replica processing is asynchronous.
 - **Sync replication**: latency = primary commit + slowest sync replica RTT.
@@ -300,7 +285,7 @@ CDC consumer (Debezium) pauses for maintenance. Postgres retains all WAL the con
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical**: bigger primary handles more writes.
 - **Read scaling**: add replicas; trivial.
@@ -310,20 +295,20 @@ CDC consumer (Debezium) pauses for maintenance. Postgres retains all WAL the con
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🔴
 
 - **CAP**: replication strategy determines CAP position. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **WAL**: physical replication is WAL streaming. (See [wal-and-crash-recovery.md](./wal-and-crash-recovery.md).)
 - **Consensus**: synchronous replication often uses consensus for failover. (See [leader-election-and-consensus.md](../distributed-systems/leader-election-and-consensus.md).)
 - **MVCC**: replicas serve consistent snapshots; vacuum interacts with replication. (See [mvcc-and-isolation-levels.md](./mvcc-and-isolation-levels.md).)
 - **Sharding**: replication and sharding compose; replica sets per shard. (See [sharding-and-partitioning-strategies.md](../scalability/sharding-and-partitioning-strategies.md).)
-- **Disaster recovery**: replication is the foundation of DR. (See [disaster-recovery-and-rto-rpo.md](../system-failures/disaster-recovery-and-rto-rpo.md).)
+- **Disaster recovery**: replication is the foundation of DR (Disaster Recovery). (See [disaster-recovery-and-rto-rpo.md](../system-failures/disaster-recovery-and-rto-rpo.md).)
 
 The unifying observation: **replication is the bridge between durability (one machine) and availability (many machines). Every choice in the strategy maps to a specific position in the consistency-latency-availability space.**
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Postgres streaming replication**: industry standard for HA Postgres. Documented operational practices.
 - **MySQL group replication**: more recent multi-leader. Public adoption stories.
@@ -334,72 +319,33 @@ The unifying observation: **replication is the bridge between durability (one ma
 
 ---
 
-## What Junior Engineers Usually Miss
+## Key Takeaways
 
-- That **async replication has data-loss windows.**
-- That **sync replication has availability costs.**
-- That **read replicas don't scale writes.**
-- That **lag matters** for read consistency.
-- That **failover and replication are separate concerns.**
-- That **multi-leader is operationally complex.**
-- That **logical replication slots can fill disk.**
-- That **schema changes** are hard in replicated systems.
+- **Sync vs async is the central trade-off.** Sync: write isn't done until replicas confirm — strong durability, latency cost, and an availability trade-off (if a sync replica is down, can you still commit?). Async: write completes locally and replicas catch up — low latency, but a data-loss window equal to replication lag on primary failure.
+- **Read replicas scale reads, not writes.** Adding replicas helps a read-bound bottleneck only; write scaling requires sharding (replication is per-shard). Easy to misdiagnose.
+- **Lag is a first-class concern.** Async replicas always trail the primary; reading a lagged replica returns stale data. Every async-replicated system needs continuous lag monitoring (bytes-behind and time-behind).
+- **Failover is a separate problem from replication.** Replication ships data; failover decides what to do when the primary fails. Different failure modes; one can work without the other. Test failover regularly (monthly) and document failover runbooks — untested cross-region failover blows your RTO.
+- **The consistency model is what your application sees.** Code that assumes strong consistency on eventually-consistent replicas will have bugs. Plan stickiness or explicit primary reads for read-after-write consistency.
+- **Split-brain is catastrophic.** A partition that promotes two primaries diverges data on the same keys; recovery is manual and lossy. Prevent with consensus-backed failover — never auto-promote without quorum.
+- **Multi-leader is operationally complex.** Performance is good; correctness (conflict resolution: LWW, per-field merge, app callbacks, CRDTs) and coordinated schema changes are the hard parts.
+- **Quorum (W + R > N)** gives leaderless reads that see the latest write under non-failure conditions; W and R are tunable consistency knobs.
+- **Logical vs physical replication is a granularity choice.** Physical: byte-level WAL/binlog, same version, whole cluster, fast HA. Logical: row-level changes, cross-version, selective tables, powers CDC. Watch logical replication slots — a paused consumer pins WAL and can fill the disk.
+- **Isolate read replicas** from the primary's vacuum needs (`hot_standby_feedback` can pin WAL), and treat replication as a foundational part of disaster recovery.
 
----
-
-## What Senior Engineers Instinctively Notice
-
-- They **monitor replication lag** continuously.
-- They **understand the data-loss window** of their setup.
-- They **test failover** regularly.
-- They **plan for split-brain prevention**.
-- They **use semi-sync or quorum** for critical workloads.
-- They **isolate read replicas** from primary's vacuum needs.
-- They **track logical replication slots** as a metric.
-- They **understand that replication is part of DR**.
+> **Mental model: replication is how you make data available somewhere it isn't already. The strategy determines what "somewhere" means — a hot standby (sync), a slightly-delayed read replica (async), a peer that can also accept writes (multi-leader), or a quorum of equals (leaderless). Each model has a workload that fits, chosen against consistency requirements, latency budget, operational maturity, geographic distribution, and failure tolerance.**
 
 ---
 
-## Interview Perspective
+## Interview Angle 🟡
 
 What gets tested:
 
-1. **"Sync vs async replication?"** Tests fundamental.
-2. **"How does Postgres streaming replication work?"** Tests practical knowledge.
+1. **"Sync vs async replication?"** The fundamental trade-off.
+2. **"How does Postgres streaming replication work?"** Practical knowledge (WAL streaming to replicas; `synchronous_commit`, `synchronous_standby_names`).
 3. **"What's split-brain?"** Two primaries; data divergence.
 4. **"What's read-after-write consistency?"** Stickiness; primary reads.
 5. **"Multi-leader's challenges?"** Conflict resolution; operational complexity.
 6. **"How do quorum reads work?"** R + W > N.
 7. **"What's logical vs physical replication?"** Logical: row-level; physical: byte-level.
 
-Common traps:
-- Believing replicas auto-scale writes.
-- Underestimating lag impact.
-- Not knowing about split-brain.
-
----
-
-## 20% Knowledge Giving 80% Understanding
-
-1. **Sync vs async** is the central trade-off.
-2. **Read replicas scale reads, not writes.**
-3. **Lag matters** for consistency.
-4. **Async = data loss window** on primary failure.
-5. **Sync = availability cost** if replica slow.
-6. **Multi-leader has conflicts**; resolution is hard.
-7. **Quorum (R+W > N)** for leaderless consistency.
-8. **Failover is a separate concern** from replication.
-9. **Test failover regularly.**
-10. **Logical vs physical** replication: granularity choice.
-
----
-
-## Final Mental Model
-
-> **Replication is how you make data available somewhere it isn't already. The strategy determines what "somewhere" means: a hot standby (sync), a slightly-delayed read replica (async), a peer that can also accept writes (multi-leader), a quorum of equals (leaderless). Each model has a workload that fits.**
-
-The senior DBA selecting a replication strategy considers the consistency requirements, latency budget, operational maturity, geographic distribution, and failure tolerance. They monitor lag continuously. They test failover monthly. They plan for split-brain. They size for both steady-state and recovery-mode.
-
-The systems that survive failures gracefully are the ones with thoughtful replication. The systems that lose data, or freeze for hours, or split-brain are the ones where replication was an afterthought. The choice is consequential; the operational discipline more so.
-
-That's replication. That's how data lives in multiple places, kept in sync to varying degrees. That's the foundation of every database that has ever survived a node failure — and the source of failures of every database that didn't.
+Common traps: believing replicas auto-scale writes; underestimating lag impact; not knowing about split-brain.

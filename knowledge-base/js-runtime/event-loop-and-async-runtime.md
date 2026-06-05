@@ -4,7 +4,17 @@
 
 ---
 
-## Topic Overview
+## 🎯 Start Here — Intuition
+
+> **In one line:** how a program juggles thousands of "waiting" jobs (network calls, disk reads, timers) on a single worker without hiring a thread for each one.
+>
+> **Analogy:** one barista at a busy coffee shop. They never stand still waiting for an espresso machine — they start your drink, take the next order, start that machine too, and circle back when each machine beeps. The barista is the single thread; the beeping machines are I/O finishing in the background.
+>
+> **Assumes you already know:** what it means for a server to handle many requests at once, and the single-machine vs. add-more-machines tradeoff — build that in [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md). Threads-per-connection vs. one-process-many-connections is the contrast this whole topic lives in.
+>
+> **Level:** this file is 🔴 overall — it's Node/JS-specialist runtime depth, deliberately past what a system-design interview needs. The intuition and history below are approachable; the phases, libuv, and microtask internals are deep. If those feel shaky, that tag is your signal to slow down — **you are not behind.**
+
+## Topic Overview 🟢
 
 The event loop is the most misunderstood mechanism in modern programming, and the most powerful. It's why Node.js can handle 50,000 concurrent connections on a single thread. It's why a misplaced `JSON.parse` of a 200MB blob freezes your entire server. It's why `setTimeout(fn, 0)` doesn't actually run `fn` in zero milliseconds. It's why every senior backend engineer who came from Java has, at some point, said "wait, *what*?"
 
@@ -16,7 +26,7 @@ The cost: every unit of work *must* yield. A single tight CPU loop blocks everyt
 
 ---
 
-## Intuition Before Definitions
+## Intuition Before Definitions 🟢
 
 Picture a coffee shop with one barista.
 
@@ -32,22 +42,22 @@ That's the entire model. Everything else is mechanics.
 
 ---
 
-## Historical Evolution
+## Historical Evolution 🟢
 
 **Era 1 — Threads everywhere.**
 Apache, classic Java EE servers: one OS thread per connection. Beautiful programming model. Disastrous at scale. 10K connections = 10K threads = 80GB of stack memory + a context-switch storm. The "C10K problem" was named in 1999 and dominated server engineering for a decade.
 
 **Era 2 — `select()` and `poll()`.**
-The first wave of event-driven servers used POSIX `select` to wait on many file descriptors with one thread. Worked. Scaled to a few thousand connections, then quadratic costs in the syscall killed it.
+The first wave of event-driven servers used POSIX (Portable Operating System Interface) `select` to wait on many file descriptors with one thread. Worked. Scaled to a few thousand connections, then quadratic costs in the syscall killed it.
 
-**Era 3 — `epoll`, `kqueue`, IOCP.**
-Linux's `epoll` (2002) and BSD's `kqueue` introduced O(1) event notification: register interest in fds once, get back only the ones with activity. This is the kernel-level primitive that makes modern event loops viable. Without it, async would still be a niche pattern.
+**Era 3 — `epoll`, `kqueue`, IOCP (Input/Output Completion Ports).**
+Linux's `epoll` (2002) and BSD (Berkeley Software Distribution)'s `kqueue` introduced O(1) event notification: register interest in fds (file descriptors) once, get back only the ones with activity. This is the kernel-level primitive that makes modern event loops viable. Without it, async would still be a niche pattern.
 
 **Era 4 — Node.js (2009).**
 Ryan Dahl's insight: JavaScript already has a single-threaded async model (the browser event loop), and the language's culture is callback-friendly. Pair it with V8 (a fast JS engine) and libuv (a cross-platform abstraction over epoll/kqueue/IOCP) — suddenly you have a runtime that handles tens of thousands of concurrent I/O-bound connections on a single thread.
 
 **Era 5 — Async/await everywhere.**
-Promises (ES2015), async/await (ES2017) made async code look synchronous. Other languages followed: Python's asyncio, C# async/await, Rust's async/await with tokio, Java's Project Loom (a different but related answer). Async became mainstream syntax.
+Promises (ES2015, ECMAScript 2015), async/await (ES2017) made async code look synchronous. Other languages followed: Python's asyncio, C# async/await, Rust's async/await with tokio, Java's Project Loom (a different but related answer). Async became mainstream syntax.
 
 **Era 6 — The blowback.**
 "Function coloring" (red functions can call blue, blue can't call red), the rise of *structured concurrency*, the realization that purely cooperative scheduling has ergonomic costs. Go's goroutines and Java's virtual threads represent a different bet — keep the threading mental model, but with cheap user-space threads multiplexed onto OS threads.
@@ -56,26 +66,9 @@ The event loop won the *infrastructure* war (it's everywhere). The threading mod
 
 ---
 
-## Core Mental Models
+## Deep Technical Explanation 🔴
 
-**1. The event loop is a scheduler with a single execution slot.**
-At any moment, exactly one piece of JS is running. The event loop's job is to decide *what runs next* when that piece finishes.
-
-**2. JS is single-threaded; the runtime around it is not.**
-V8 runs your code on one thread. libuv has a thread pool for blocking syscalls (file I/O, DNS, crypto). Network I/O uses kernel async (epoll). The thread pool is invisible to your code, but it's there, and it's why `crypto.pbkdf2` doesn't block the event loop.
-
-**3. There is no preemption.**
-A function runs from start to finish (or until it `await`s). The runtime cannot interrupt your code. If you write a `while(true)` loop, the entire process is frozen — no requests served, no timers fired, nothing. This is the central tradeoff.
-
-**4. Microtasks ≠ macrotasks.**
-The queue you think is "the queue" is actually two queues with very different scheduling rules. Microtasks (Promise callbacks, `queueMicrotask`) drain *completely* between every macrotask. This single rule causes 80% of "why did my code run in this order" confusion.
-
-**5. The event loop has phases (in Node).**
-Timers, pending callbacks, idle/prepare, poll (I/O), check (`setImmediate`), close. Each phase processes its queue, then yields to the next. Knowing the phases is what separates "I use Node" from "I understand Node."
-
----
-
-## Deep Technical Explanation
+⚠️ The rest assumes the basics above are solid.
 
 ### The browser event loop (simplified)
 
@@ -115,7 +108,7 @@ After each individual callback, microtasks drain and `process.nextTick` callback
 Practical consequences:
 - `setTimeout(fn, 0)` runs in the *next* timer phase, not "next tick."
 - `setImmediate(fn)` runs in the *check* phase of the current loop iteration.
-- Inside an I/O callback, `setImmediate` runs before `setTimeout(fn, 0)`. Outside, the order is non-deterministic. This trips up everyone exactly once.
+- Inside an I/O callback, `setImmediate` runs before `setTimeout(fn, 0)`. Outside (at the top of the main module) the order isn't guaranteed: it depends on whether the ~1ms timer threshold has already elapsed by the time the loop reaches the timers phase, which is sensitive to process-startup cost — not a true coin flip. This trips up everyone exactly once.
 
 ### Microtasks: the rule that explains everything
 
@@ -136,7 +129,7 @@ This is not a JavaScript quirk. It is *the* mechanism by which Promises chain wi
 
 libuv handles the bits the kernel can't do async natively:
 - File I/O (because `read`/`write` on files don't have a clean async syscall on Linux that works for *all* filesystems).
-- DNS resolution via `getaddrinfo` (synchronous-looking C library).
+- DNS (Domain Name System) resolution via `getaddrinfo` (synchronous-looking C library).
 - CPU-heavy crypto operations.
 - User-defined `worker_threads`.
 
@@ -162,6 +155,8 @@ function f() {
 }
 ```
 
+This is a happy-path sketch only — it gets rejection semantics wrong. A real async function wraps its entire synchronous body so that a `throw` *before* the first `await` still returns a rejected promise; the naive `.then` desugaring above would instead throw synchronously at call time. (This is the same reason an `async` function always returns a promise, even on a synchronous error.)
+
 Each `await` is a yield point. The function's state is captured, control returns to the event loop, and when the awaited promise resolves, a microtask is queued to resume the function.
 
 Implication: there are *more yield points* in async code than in sync code. Each yield is an opportunity for other tasks to run. This is where async code's concurrency comes from — but it's also where its *bugs* come from. Anything reading shared state across an `await` may find that state changed.
@@ -178,7 +173,7 @@ app.get('/heavy', (req, res) => {
 
 This server can serve *one* request at a time. The CPU loop blocks the event loop entirely. Every other client waits, including the load balancer's health check.
 
-Real production: a JSON parse of a megabyte payload is ~10ms of pure CPU. A markdown render is ~50ms. A regex on attacker-controlled input can be *milliseconds to minutes* (ReDoS). Each is a tiny event-loop freeze. At scale, these add up to elevated p99 latency that is invisible in CPU graphs but obvious to users.
+Real production: a JSON parse of a megabyte payload is ~10ms of pure CPU. A markdown render is ~50ms. A regex on attacker-controlled input can be *milliseconds to minutes* (ReDoS, Regular expression Denial of Service). Each is a tiny event-loop freeze. At scale, these add up to elevated p99 latency that is invisible in CPU graphs but obvious to users.
 
 The fix categories:
 1. **Yield with `await new Promise(setImmediate)`** in long loops to let other work in.
@@ -187,38 +182,17 @@ The fix categories:
 
 ---
 
-## Real Engineering Analogies
+## Real Engineering Analogies 🟢
 
 **The single-lane bridge.**
 The event loop is a single-lane bridge. Cars cross one at a time. The bridge keeper (scheduler) lets each car finish crossing, then waves on the next. Some cars are tiny (a microtask). Some are huge (a CPU loop). The bridge can't be widened. The job of every developer is to keep their cars small.
 
 **The air traffic controller.**
-ATC handles dozens of planes from one console. They never *fly* a plane — they coordinate. They authorize takeoffs, hand off to other controllers, manage the queue. If a single plane needs continuous attention (an emergency), every other plane waits. That's an event loop with a blocking task.
+ATC (Air Traffic Control) handles dozens of planes from one console. They never *fly* a plane — they coordinate. They authorize takeoffs, hand off to other controllers, manage the queue. If a single plane needs continuous attention (an emergency), every other plane waits. That's an event loop with a blocking task.
 
 ---
 
-## Production Engineering Perspective
-
-What breaks at 3am because of the event loop:
-
-- **`JSON.parse` of large payloads.** Synchronous. Blocks the loop. A 10MB JSON parse at p99 looks like a mysterious latency spike.
-- **Regex backtracking (ReDoS).** Attacker sends `aaaaaaaaaaaaaaaaaaaaaaa!` against a vulnerable regex. The loop freezes for seconds. Service appears down.
-- **DNS resolution.** Default `dns.lookup` uses libuv's thread pool. Under load, the 4-thread default saturates. Symptom: requests pile up, CPU is idle, and nobody can figure out why. Fix: increase `UV_THREADPOOL_SIZE` or use `dns.resolve` (which goes async).
-- **Crypto operations on the request path.** `bcrypt`, `pbkdf2`, large RSA operations. Each one blocks a libuv thread. Pool saturation looks like elevated p99s with idle CPU.
-- **Synchronous filesystem calls.** `fs.readFileSync` in a route handler is grounds for code review rejection. Yet it appears in production code constantly.
-- **Promise rejection handling.** Unhandled rejections used to crash the process; now they emit warnings and (since Node 15) terminate by default. Misconfigured handlers turn this into silent data loss.
-- **Memory leaks via closures.** Long-lived event handlers capturing large objects. The GC can't collect what's referenced; memory grows monotonically.
-- **The `process.nextTick` recursion bug.** A library that schedules a `nextTick` from inside a `nextTick` callback can starve the I/O phases entirely. The server stops accepting connections without crashing. Hard to diagnose without flame graphs.
-
-The senior engineer's habits:
-- Watch the **event loop lag** as a first-class metric. If lag > 100ms, your tail latency is suffering.
-- Profile with `--prof` or `clinic.js` when latency spikes appear.
-- Keep CPU-heavy work in worker threads or external services.
-- Set up *unhandled rejection* and *uncaught exception* handlers that crash loudly rather than silently.
-
----
-
-## Failure Scenarios
+## Failure Scenarios 🟡
 
 **Scenario 1 — The DNS thread pool starvation.**
 A service makes outbound API calls to ~10 services per request. Each call does a DNS lookup. Under traffic, all 4 libuv threads are stuck on DNS. New requests pile up. CPU is idle. The team blames "the network" for an hour before someone reads the libuv docs.
@@ -229,36 +203,36 @@ A library implements polling via recursive `Promise.resolve().then(...)`. It wor
 **Scenario 3 — The synchronous JSON in the hot path.**
 Service averages 5ms per request. A new feature parses a config blob (200KB) on every request. Median goes to 8ms. p99 goes from 30ms to 400ms — disproportionately bad because the synchronous parse blocks every concurrent request on the same loop iteration.
 
-**Scenario 4 — The ReDoS DoS.**
+**Scenario 4 — The ReDoS DoS (Denial of Service).**
 A health-check endpoint validates input via regex. Attacker sends a pathological payload. The regex engine backtracks for 30 seconds. Process appears hung. Load balancer marks it unhealthy. Auto-scaler spins up new instances. Attacker hits each one in turn. Service is down.
 
 **Scenario 5 — The memory-leak-from-closure.**
-A Promise-based queue keeps references to old completed jobs because of an unintentional closure capture in the resolution path. Memory grows by 50MB/hour. Service restarts every 12 hours from OOM. The "fix" is to deploy more frequently, until someone profiles the heap.
+A Promise-based queue keeps references to old completed jobs because of an unintentional closure capture in the resolution path. Memory grows by 50MB/hour. Service restarts every 12 hours from OOM (Out Of Memory). The "fix" is to deploy more frequently, until someone profiles the heap.
 
 ---
 
-## Performance Perspective
+## Performance Perspective 🟡
 
 - **Event loop lag is your latency budget.** Zero blocking work = zero added latency. Every blocking ms is added to *every concurrent request's* tail.
 - **Microtasks are cheaper than macrotasks** (no phase transition cost), but they share the same blocking risk.
-- **Buffer reuse matters.** Allocating new buffers on every request is GC pressure. Reusing buffers via pools is a classic optimization.
+- **Buffer reuse matters.** Allocating new buffers on every request is GC (Garbage Collection) pressure. Reusing buffers via pools is a classic optimization.
 - **Avoid sync I/O on the request path.** Without exception. The "fast path" of a sync call is *not* faster than async — it's faster *for that one request*, at the cost of every concurrent request.
-- **`worker_threads` are real OS threads.** Use them for CPU work. The IPC cost is real, so reserve them for tasks that take >10ms.
+- **`worker_threads` are real OS threads.** Use them for CPU work. The IPC (Inter-Process Communication) cost is real, so reserve them for tasks that take >10ms.
 
 ---
 
-## Scaling Perspective
+## Scaling Perspective 🟡
 
 - **Vertical:** a Node process uses one CPU core. Add more concurrency to that core via async I/O, but if you saturate the core, you saturate the process.
-- **Horizontal (clustered):** Run N processes on N cores using cluster, PM2, or just multiple containers behind a load balancer. Almost always preferable to manual `worker_threads` orchestration for HTTP servers.
+- **Horizontal (clustered):** Run N processes on N cores using cluster, PM2 (Process Manager 2), or just multiple containers behind a load balancer. Almost always preferable to manual `worker_threads` orchestration for HTTP servers.
 - **Memory:** A Node process with 100K open connections still costs orders of magnitude less RAM than a thread-per-connection server with 100K threads.
-- **Where it fails to scale:** workloads dominated by CPU, not I/O. Image processing, ML inference, heavy serialization — these are not Node's natural habitat.
+- **Where it fails to scale:** workloads dominated by CPU, not I/O. Image processing, ML (Machine Learning) inference, heavy serialization — these are not Node's natural habitat.
 
 The scaling logic mirrors distributed systems: **the bottleneck is whichever resource you saturate first.** Node biases toward saturating CPU (because I/O is async); thread-per-connection biases toward saturating memory (per-thread stacks).
 
 ---
 
-## Cross-Domain Connections
+## Cross-Domain Connections 🟡
 
 - **Database transactions:** the "task runs to completion" rule is the application-layer analog of *serializable execution* — if no other code can interleave, you have isolation by construction.
 - **Message queues:** the event loop's task queue *is* a message queue, in miniature. Backpressure, prioritization, fairness — all the same problems.
@@ -271,7 +245,7 @@ The deep insight: **single-threaded async is a tradeoff replicated at every laye
 
 ---
 
-## Real Production Scenarios
+## Real Production Scenarios 🟡
 
 - **Walmart's Node migration (2012):** moved their mobile backend from Java to Node and watched memory drop, throughput rise — until a CPU-intensive feature surfaced the blocking problem. Postmortems became required Node training material.
 - **PayPal's Node migration:** double the requests/sec at half the response time vs. Java, on equivalent hardware. The win was almost entirely from event-driven I/O.
@@ -281,51 +255,7 @@ The deep insight: **single-threaded async is a tradeoff replicated at every laye
 
 ---
 
-## What Junior Engineers Usually Miss
-
-- That "JavaScript is async" is **wrong** — JS is *synchronous*; the *runtime* provides async I/O.
-- That `setTimeout(fn, 0)` is not "run immediately" — it's "run on the next timer phase."
-- That `forEach` does not await async callbacks. It returns immediately. (`for...of` with `await` does what you want.)
-- That throwing inside a Promise without `.catch` swallows the error.
-- That `async` functions always return a Promise, even if you `return` a plain value.
-- That `await` inside a loop serializes the iterations; `Promise.all(map)` parallelizes them.
-- That `Promise.all` rejects on the first failure; `Promise.allSettled` waits for all.
-- That a synchronous `for` loop with millions of iterations blocks every other client.
-
----
-
-## What Senior Engineers Instinctively Notice
-
-- They watch **event loop lag** in production dashboards.
-- They reach for `worker_threads` reflexively when they see CPU work in a request handler.
-- They know the **default libuv thread pool size is 4** and tune it for their workload.
-- They distinguish **CPU-bound** from **I/O-bound** workloads in the first sentence of a design discussion.
-- They don't write `try/catch` around `await` reflexively — they think about *what they're going to do with the error* first.
-- They treat **unhandled promise rejections** as production-blocking bugs.
-- They profile with flame graphs before guessing.
-- They understand that **scaling a Node service horizontally is almost always preferable to optimizing for more concurrency on one core**.
-
----
-
-## Interview Perspective
-
-What gets tested:
-
-1. **The microtask-vs-macrotask order question.** A code snippet with `setTimeout`, Promises, and synchronous logs, asking for the output order. The candidate who explains *why* (microtasks drain between macrotasks) is showing real understanding.
-2. **"Why doesn't this work?" with `forEach` + async.** The candidate who knows `forEach` doesn't await is mid-level. The one who suggests `Promise.all(arr.map(asyncFn))` *and* mentions concurrency limits is senior.
-3. **"How do you do CPU work in Node?"** Worker threads, child processes, offload to another service. Bonus for knowing libuv's thread pool exists.
-4. **"What is event loop lag and how do you measure it?"** Look for `process.hrtime` based measurements or the `perf_hooks` monitor. Senior candidates name specific metrics and alert thresholds.
-5. **"What happens if you throw inside an async function?"** The function returns a rejected promise. If unhandled, it (in modern Node) crashes the process.
-
-Common traps:
-- "JavaScript is single-threaded" without nuance — the *runtime* provides parallelism via libuv.
-- Confusing `setImmediate` and `setTimeout(fn, 0)`.
-- Thinking `await` waits for *all* concurrent operations.
-- Not knowing about `process.nextTick` priority.
-
----
-
-## Worked Example — Diagnosing Event Loop Lag
+## Worked Example — Diagnosing Event Loop Lag 🔴
 
 Production Node service averages 30ms latency. p99 is 800ms. CPU usage is 45%. The mismatch is the giveaway: low average + high tail = event loop lag.
 
@@ -360,11 +290,11 @@ CPU profile (with `--prof` or clinic.js) reveals the hot path:
    [==] db_query
 ```
 
-Each request parses a 50KB XML invoice synchronously. ~80ms of pure CPU per parse.
+Each request parses a 50KB XML (eXtensible Markup Language) invoice synchronously. ~80ms of pure CPU per parse.
 
 ### Step 3: The synchronous-blocks-everyone realization
 
-When request A is parsing for 80ms, every other request waits. Request B that arrives during A's parse waits 80ms before it even starts. With 100 RPS, queue depth grows; tail latency explodes.
+When request A is parsing for 80ms, every other request waits. Request B that arrives during A's parse waits 80ms before it even starts. With 100 RPS (Requests Per Second), queue depth grows; tail latency explodes.
 
 This is *not* a CPU-utilization problem (CPU is 45%, not 100%). It's a *single-threaded blocking* problem. The event loop has only one execution slot; 80ms of blocking work blocks everything else.
 
@@ -458,7 +388,7 @@ Main loop handles I/O orchestration; workers handle CPU-bound tasks.
 
 ---
 
-## Recent Production References (2023-2024)
+## Recent Production References (2023-2024) 🟡
 
 - **Bun's runtime (2023+)**: alternative JS runtime; event loop comparison with Node has been actively benchmarked. Different tradeoffs.
 - **Deno 2 (2024)**: continues to push runtime evolution; native TypeScript support changes how teams use the event loop.
@@ -469,25 +399,29 @@ Main loop handles I/O orchestration; workers handle CPU-bound tasks.
 
 ---
 
-## 20% Knowledge Giving 80% Understanding
+## Key Takeaways
 
-1. **One thread runs JS. Everything else is async I/O via libuv/kernel.**
-2. **Microtasks drain completely between macrotasks.** This single rule explains most ordering questions.
-3. **Anything CPU-bound blocks every other request on the same loop.**
-4. **`setTimeout(fn, 0)` is not zero — it's "next timer phase."**
-5. **The libuv thread pool is 4 threads by default.** DNS, file I/O, crypto share it.
-6. **Async/await is sugar over promises; every `await` is a yield point.**
-7. **Unhandled promise rejections crash modern Node.** Handle them or design for crash-and-restart.
-8. **Cluster horizontally, not within the loop.** N processes on N cores beats heroics in one loop.
-9. **Event loop lag is a leading indicator** of latency problems. Monitor it.
-10. **`forEach` doesn't await; `for...of` does; `Promise.all(map)` parallelizes.**
+**The 20% that gives 80% of the understanding:**
 
----
+- **One thread runs JS; everything else is async I/O via libuv/kernel.** "JavaScript is async" is wrong — JS is *synchronous*; the *runtime* provides async I/O and (via libuv) invisible parallelism. There is no preemption: a function runs to completion or until it `await`s. A `while(true)` loop freezes the whole process.
+- **Microtasks drain completely between macrotasks.** This single rule explains most "why did it run in this order" questions. Microtasks (Promise callbacks, `queueMicrotask`) are cheaper than macrotasks but share the same blocking risk; `process.nextTick` runs *before* microtasks.
+- **The event loop runs in phases (Node):** timers, pending callbacks, idle/prepare, poll (I/O), check (`setImmediate`), close. `setTimeout(fn, 0)` is not zero — it runs on the *next timer phase*. `setImmediate` runs in the *check* phase; inside an I/O callback it beats `setTimeout(fn, 0)`.
+- **Anything CPU-bound blocks every other request on the same loop.** A synchronous `for` loop with millions of iterations, a `JSON.parse` of a large payload, a markdown render — each is an event-loop freeze that inflates every concurrent request's tail latency. Distinguish **CPU-bound** from **I/O-bound** workloads first.
+- **The libuv thread pool is 4 threads by default** (tunable via `UV_THREADPOOL_SIZE`). DNS (`dns.lookup`), file I/O, and crypto (`bcrypt`/`pbkdf2`) share it; saturation looks like elevated p99 with idle CPU. `dns.resolve` goes async instead.
+- **Async/await is sugar over promises; every `await` is a yield point** — and an opportunity for shared state to change underneath you. `async` functions always return a Promise, even on a synchronous `return` or `throw`.
+- **`forEach` does not await async callbacks** (it returns immediately); `for...of` with `await` serializes iterations; `Promise.all(arr.map(asyncFn))` parallelizes them. `Promise.all` rejects on first failure; `Promise.allSettled` waits for all. Throwing inside a Promise without `.catch` swallows the error.
+- **Unhandled promise rejections crash modern Node** (terminate by default since Node 15). Handle them or design for crash-and-restart; set up loud unhandled-rejection and uncaught-exception handlers rather than silent data loss.
+- **Watch event loop lag as a first-class metric** (a leading indicator of latency problems; lag > 100ms means tail latency is suffering). Profile with flame graphs (`--prof`, `clinic.js`) before guessing — don't reach for `try/catch` around `await` without knowing what you'll do with the error.
+- **Reach for `worker_threads` for CPU-heavy work** (real OS threads; reserve for >10ms tasks given IPC cost), or offload to an external service. Watch for memory leaks via long-lived closures capturing large objects, and the `process.nextTick`-recursion bug that starves I/O phases without crashing.
+- **Cluster horizontally, not within the loop.** N processes on N cores (cluster/PM2/containers) beats `worker_threads` heroics for HTTP servers; CPU-dominated workloads (image processing, ML inference) are not Node's habitat.
 
-## Final Mental Model
+> **The event loop is a deal: you give up preemption, you get cheap concurrency. Honor the deal by yielding often. Break it once, and the entire system stutters.** The senior engineer is the one who knows which workload class they're in *before* they pick the runtime.
 
-> **The event loop is a deal: you give up preemption, you get cheap concurrency. Honor the deal by yielding often. Break it once, and the entire system stutters.**
+## Interview angle
 
-Threads handle blocking work by burning memory and context-switch CPU. Event loops handle it by *outsourcing waiting* to the kernel and accepting that all in-process work is sequential. Each model is right for a class of workload — and the senior engineer is the one who knows which class they're in *before* they pick the runtime.
-
-The barista metaphor isn't cute — it's literal. Your job, writing async code, is to be the good barista. Take the order, start the machine, take the next order, never freeze on a single drink. When you do that, one core handles thousands of customers. When you don't, the line goes out the door.
+- **Microtask-vs-macrotask ordering.** Given a snippet of `setTimeout` + Promises + synchronous logs, predict the output order *and explain why* (microtasks drain between macrotasks).
+- **"Why doesn't `forEach` + async work?"** Knowing `forEach` doesn't await is mid-level; suggesting `Promise.all(arr.map(asyncFn))` *and* mentioning concurrency limits is senior.
+- **"How do you do CPU work in Node?"** Worker threads, child processes, or offload to another service. Bonus: knowing libuv's thread pool exists.
+- **"What is event loop lag and how do you measure it?"** `process.hrtime`-based measurement or the `perf_hooks` monitor, with named metrics and alert thresholds.
+- **"What happens if you throw inside an async function?"** It returns a rejected promise; if unhandled, modern Node crashes the process.
+- **Common traps:** "JavaScript is single-threaded" without nuance (runtime parallelism via libuv); confusing `setImmediate` and `setTimeout(fn, 0)`; thinking `await` waits for *all* concurrent operations; not knowing `process.nextTick` priority.
