@@ -89,10 +89,11 @@ Path: build production-grade backend services.
 4. [Indexing](database-internals/indexing-and-storage-engines.md) — query performance.
 5. [Query Optimization](database-internals/query-optimization-and-execution-plans.md) — debug slow queries.
 6. [API Design](architecture-patterns/api-design-rest-vs-grpc.md) — your service's contract.
-7. [Timeouts, Retries, Idempotency](system-failures/timeouts-retries-and-idempotency.md) — distributed-call basics.
-8. [Backpressure & Queues](concurrency/backpressure-and-queues.md) — flow control.
-9. [Caching Hierarchy](caching/caching-hierarchy.md) — performance patterns.
-10. [Cascading Failures](system-failures/cascading-failures-and-circuit-breakers.md) — defensive design.
+7. [gRPC Internals & Streaming](architecture-patterns/grpc-internals-and-streaming.md) — fast, typed service-to-service RPC.
+8. [Timeouts, Retries, Idempotency](system-failures/timeouts-retries-and-idempotency.md) — distributed-call basics.
+9. [Backpressure & Queues](concurrency/backpressure-and-queues.md) — flow control.
+10. [Caching Hierarchy](caching/caching-hierarchy.md) — performance patterns.
+11. [Cascading Failures](system-failures/cascading-failures-and-circuit-breakers.md) — defensive design.
 
 ---
 
@@ -141,13 +142,14 @@ Path: deep storage and replication mastery.
 3. [Indexing & Storage Engines](database-internals/indexing-and-storage-engines.md)
 4. [Query Optimization & Plans](database-internals/query-optimization-and-execution-plans.md)
 5. [Replication Strategies](database-internals/replication-strategies.md)
-6. [OLTP vs OLAP & Columnar](database-internals/oltp-vs-olap-and-columnar-storage.md)
-7. [Time-Series Databases](database-internals/time-series-databases.md)
-8. [Sharding & Partitioning](scalability/sharding-and-partitioning-strategies.md)
-9. [CAP, Consistency & Replication](distributed-systems/cap-consistency-and-replication.md)
-10. [Leader Election & Consensus](distributed-systems/leader-election-and-consensus.md)
-11. [Distributed Transactions 2PC/3PC](distributed-systems/distributed-transactions-2pc-3pc.md)
-12. [Disaster Recovery](system-failures/disaster-recovery-and-rto-rpo.md)
+6. [Postgres Internals](database-internals/postgres-internals-deep-dive.md) — where the general concepts become concrete (vacuum, planner, wraparound).
+7. [OLTP vs OLAP & Columnar](database-internals/oltp-vs-olap-and-columnar-storage.md)
+8. [Time-Series Databases](database-internals/time-series-databases.md)
+9. [Sharding & Partitioning](scalability/sharding-and-partitioning-strategies.md)
+10. [CAP, Consistency & Replication](distributed-systems/cap-consistency-and-replication.md)
+11. [Leader Election & Consensus](distributed-systems/leader-election-and-consensus.md)
+12. [Distributed Transactions 2PC/3PC](distributed-systems/distributed-transactions-2pc-3pc.md)
+13. [Disaster Recovery](system-failures/disaster-recovery-and-rto-rpo.md)
 
 ---
 
@@ -177,15 +179,17 @@ Path: architecture-pattern mastery.
 1. [Microservices vs Monolith](architecture-patterns/microservices-vs-monolith.md)
 2. [Anti-Corruption Layer & DDD](architecture-patterns/anti-corruption-layer-and-domain-driven-design.md)
 3. [API Design](architecture-patterns/api-design-rest-vs-grpc.md)
-4. [Sagas & Distributed Transactions](architecture-patterns/saga-pattern-and-distributed-transactions.md)
-5. [CQRS & Event Sourcing](architecture-patterns/cqrs-and-event-sourcing.md)
-6. [Event-Driven Architecture](architecture-patterns/event-driven-architecture.md)
-7. [Strangler Fig & Legacy Migration](architecture-patterns/strangler-fig-and-legacy-migration.md)
-8. [Idempotency & Exactly-Once](architecture-patterns/idempotency-receivers-and-exactly-once-semantics.md)
-9. [Multi-Tenancy Strategies](scalability/multi-tenancy-strategies.md)
-10. [Cascading Failures](system-failures/cascading-failures-and-circuit-breakers.md)
-11. [SLOs, Error Budgets](observability/slos-error-budgets-and-alerting.md)
-12. [Kafka Internals](architecture-patterns/kafka-internals-and-stream-processing.md)
+4. [gRPC Internals & Streaming](architecture-patterns/grpc-internals-and-streaming.md) — internal-service RPC in depth.
+5. [GraphQL Deep Dive](architecture-patterns/graphql-deep-dive.md) — client-driven aggregation and where it fits.
+6. [Sagas & Distributed Transactions](architecture-patterns/saga-pattern-and-distributed-transactions.md)
+7. [CQRS & Event Sourcing](architecture-patterns/cqrs-and-event-sourcing.md)
+8. [Event-Driven Architecture](architecture-patterns/event-driven-architecture.md)
+9. [Strangler Fig & Legacy Migration](architecture-patterns/strangler-fig-and-legacy-migration.md)
+10. [Idempotency & Exactly-Once](architecture-patterns/idempotency-receivers-and-exactly-once-semantics.md)
+11. [Multi-Tenancy Strategies](scalability/multi-tenancy-strategies.md)
+12. [Cascading Failures](system-failures/cascading-failures-and-circuit-breakers.md)
+13. [SLOs, Error Budgets](observability/slos-error-budgets-and-alerting.md)
+14. [Kafka Internals](architecture-patterns/kafka-internals-and-stream-processing.md)
 
 ---
 
@@ -232,17 +236,18 @@ Path: from network up.
 Path: AI-native infrastructure.
 
 1. [LLM Serving & Vector Databases](architecture-patterns/llm-serving-and-vector-databases.md)
-2. [Caching Hierarchy](caching/caching-hierarchy.md)
-3. [Edge Computing & CDNs](scalability/edge-computing-and-cdns.md)
-4. [API Design](architecture-patterns/api-design-rest-vs-grpc.md)
-5. [Backpressure & Queues](concurrency/backpressure-and-queues.md)
-6. [Capacity Planning](scalability/auto-scaling-and-capacity-planning.md)
-7. [SLOs](observability/slos-error-budgets-and-alerting.md)
-8. [Cascading Failures](system-failures/cascading-failures-and-circuit-breakers.md)
-9. [Distributed Tracing](observability/distributed-tracing-deep-dive.md)
-10. [Time-Series Databases](database-internals/time-series-databases.md) (for ML metrics)
-11. [WebSockets](networking/websockets-and-realtime-protocols.md) (for streaming responses)
-12. [TLS](networking/tls-and-mtls.md)
+2. [GPU & Accelerator Computing](scalability/gpu-and-accelerator-computing.md) — the compute substrate AI runs on.
+3. [Caching Hierarchy](caching/caching-hierarchy.md)
+4. [Edge Computing & CDNs](scalability/edge-computing-and-cdns.md)
+5. [API Design](architecture-patterns/api-design-rest-vs-grpc.md)
+6. [Backpressure & Queues](concurrency/backpressure-and-queues.md)
+7. [Capacity Planning](scalability/auto-scaling-and-capacity-planning.md)
+8. [SLOs](observability/slos-error-budgets-and-alerting.md)
+9. [Cascading Failures](system-failures/cascading-failures-and-circuit-breakers.md)
+10. [Distributed Tracing](observability/distributed-tracing-deep-dive.md)
+11. [Time-Series Databases](database-internals/time-series-databases.md) (for ML metrics)
+12. [WebSockets](networking/websockets-and-realtime-protocols.md) (for streaming responses)
+13. [TLS](networking/tls-and-mtls.md)
 
 ---
 
