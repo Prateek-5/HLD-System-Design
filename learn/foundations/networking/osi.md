@@ -238,61 +238,9 @@ Almost every real performance problem maps cleanly to a layer. This is why the m
 ---
 
 ## L. Potential Gaps & Improvements
-- **BGP (Border Gateway Protocol)** — the L3 protocol that routers use to share reachability info between networks across the whole internet; learn it because it's how packets find their way between autonomous networks (and how outages like the 2021 Facebook one happen).
-- **ARP (Address Resolution Protocol)** — the L2 helper that maps an IP address to a MAC (Media Access Control) hardware address on the local network; matters because every packet leaving your machine needs the next hop's MAC, and `arp -a` is a real debugging step.
-- **Encapsulation with byte counts** — a worked example showing each header's actual size (Ethernet ~14 bytes, IP ~20, TCP ~20) added as data goes down the stack; helps because it makes "overhead per packet" and MTU (Maximum Transmission Unit) limits concrete instead of abstract.
-- **TCP/IP 4-layer model** — the simpler model (Link, Internet, Transport, Application) that real-world docs and tools actually use; worth mapping side-by-side since interviewers and RFCs switch between it and OSI freely.
-- **QUIC (Quick UDP Internet Connections)** — Google's transport that bundles TLS and connection setup into one handshake over UDP; deserves its own note because it deliberately breaks the clean layering and underlies HTTP/3 (→ see Tradeoffs).
-- **HTTP/3** — the latest version of HTTP that runs on QUIC over UDP instead of TCP; matters because it sidesteps TCP head-of-line blocking and is now widely deployed, yet doesn't fit the textbook layer stack.
+- No coverage of specific protocols at each layer beyond names. A focused deep-dive on BGP (L3) and ARP (L2) would strengthen this.
+- The "encapsulation" section deserves a worked example with actual byte counts.
+- I did not cover TCP/IP's 4-layer model in parallel — that would help since most real-world docs use it.
+- QUIC / HTTP/3 deserve their own mini-section because they meaningfully break the traditional layering.
 
-**🔧 How to close:** run `sudo tcpdump -nn -vv -X -c 5 'tcp port 80'` in one terminal, then `curl http://example.com` in another, and watch the Ethernet → IP → TCP → HTTP headers unwrap byte by byte. One afternoon with Wireshark on a localhost HTTP call teaches more about layers than any diagram.
-
----
-
-### 🧭 Guided Deep-Learning Layer
-
-> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
-
-#### 🌐 Gap 1 — How packets *actually* leave your box: ARP (L2) + Encapsulation byte-by-byte
-- 🔹 **What it is**: ARP (Address Resolution Protocol) is the L2 lookup that maps a next-hop IP to a MAC address; encapsulation is each layer wrapping the one above it in its own header (Ethernet ~14B, IP ~20B, TCP ~20B) as data goes down the stack.
-- 🔹 **Why it matters**: It turns the abstract "each layer adds a header" diagram into something you can count and debug — and ARP is the missing link that explains how an IP packet finds the right physical machine on a LAN.
-- 🔹 **Connection**: The Mental Model section showed nested `[Ether|IP|TCP|data]` headers; this gap puts real sizes on them and explains the L2 step (`arp -a`) listed in the debugging script that the diagram glosses over.
-- 🔹 **When needed**: 🟢 **Foundational** — every reader benefits, and it directly demystifies the encapsulation picture you already saw.
-- 🔹 **Intuition**: Encapsulation is a parcel inside a box inside a shipping container — each carrier slaps its own label on the outside and only reads its own label. ARP is asking "who on this street owns mailbox 12?" before you can hand the parcel to a truck.
-- 🔹 **If you go deeper**: Read RFC 826 (ARP), then capture an `arp-request`/`arp-reply` pair in Wireshark; compute the per-packet overhead and tie it to the 1500-byte Ethernet MTU and why TCP picks a ~1460-byte MSS.
-- 🔹 **Interview hook**: *"You ping an IP on your LAN — what happens at L2 before the ICMP packet goes out?"* → the host broadcasts an ARP request for the target's MAC, caches the reply, then frames the packet with that destination MAC.
-
----
-
-#### 🛰️ Gap 2 — BGP: how packets find their way *between* networks (L3 at internet scale)
-- 🔹 **What it is**: BGP (Border Gateway Protocol) is the L3 routing protocol that autonomous networks (ASes) use to advertise which IP ranges they can reach, so routers across the whole internet know where to send a packet next.
-- 🔹 **Why it matters**: It's the glue of the internet and the cause of its most famous outages — a bad BGP advertisement is how Facebook took itself fully offline in 2021 and how traffic gets accidentally (or maliciously) hijacked.
-- 🔹 **Connection**: The L3 layer section names "routing protocols (BGP, OSPF)" in one line; this gap explains what BGP actually does and why "routing decisions" at L3 is a global, trust-based system, not a single lookup table.
-- 🔹 **When needed**: 🟡 **Mid-level** for backend/SRE roles; 🔴 **Senior** for network/infra interviews where outage post-mortems come up.
-- 🔹 **Intuition**: Every regional post office tells its neighbors "send me anything addressed to these zip codes." If one office lies (or stops announcing), mail to whole regions silently vanishes — exactly a BGP withdrawal.
-- 🔹 **If you go deeper**: Read Cloudflare's "How BGP works" and the 2021 Facebook outage post-mortem; explore RPKI (Resource Public Key Infrastructure) as the fix for route hijacks, then watch live route changes on `bgp.tools` or a looking-glass server.
-- 🔹 **Interview hook**: *"How can a single misconfiguration take an entire company off the internet?"* → withdrawing its BGP route advertisements makes its IP ranges unreachable globally, even though the servers are still running.
-
----
-
-#### ⚡ Gap 3 — QUIC and HTTP/3: when the layered model gets deliberately broken
-- 🔹 **What it is**: QUIC (Quick UDP Internet Connections) is a transport that runs over UDP and folds TLS encryption and connection setup into a single handshake; HTTP/3 is HTTP carried over QUIC instead of TCP.
-- 🔹 **Why it matters**: It eliminates TCP head-of-line blocking (one lost packet no longer stalls every stream) and cuts handshake round-trips, which is why it's now default in Chrome, Cloudflare, and Google — and why the clean 7-layer story no longer maps onto modern traffic.
-- 🔹 **Connection**: The Tradeoffs section flags that "QUIC replaces both TCP and parts of TLS" and "HTTP/3 runs on QUIC over UDP"; this gap explains *why* designers fused L4 and L6 on purpose and what they bought by violating the layering.
-- 🔹 **When needed**: 🟡 **Mid-level** — increasingly expected once you can explain TCP vs UDP and TLS handshakes.
-- 🔹 **Intuition**: TCP is one shared highway lane — one stalled car (lost packet) blocks everyone behind it. QUIC gives each conversation its own lane, so one stall doesn't freeze the rest, and it merges the "show ID at the gate" and "find your seat" steps into one.
-- 🔹 **If you go deeper**: Read RFC 9000 (QUIC) and RFC 9114 (HTTP/3); enable HTTP/3 against a Cloudflare site and compare connection setup in Chrome DevTools vs an HTTP/2-over-TCP request.
-- 🔹 **Interview hook**: *"HTTP/3 runs over UDP — doesn't UDP lose the reliability TCP gave us?"* → QUIC rebuilds reliability, ordering, and congestion control itself in userspace, per-stream, avoiding TCP's single-stream head-of-line blocking.
-
----
-
-### 🏆 Start here if you have limited time
-1. **ARP + encapsulation byte-by-byte** — it's 🟢 foundational and makes the headers you already saw in the diagram concrete; pairs perfectly with the `tcpdump` exercise in "How to close."
-2. **QUIC / HTTP/3** — the highest-leverage modern topic; it's what real traffic uses now and a common "explain how this breaks OSI" interview prompt.
-
----
-
-### 🧭 Suggested Deep Dive Order
-1. **ARP + encapsulation** (~30 min; cements the encapsulation model and the L2 debugging step).
-2. **QUIC / HTTP/3** (~1h; modern, high-frequency, ties L4/L6 tradeoffs together).
-3. **BGP** (~1–2h; deeper infra payoff, explains real internet outages and senior-level routing questions).
+**How to close these:** run `tcpdump -nn -vv -X` on a local curl request and watch the headers unwrap. One afternoon with Wireshark on a localhost HTTP call teaches more about layers than any diagram.

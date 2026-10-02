@@ -72,18 +72,12 @@ API gateway rate limit: 100 req/s per API key. Token bucket in Redis via Lua. If
 - [ ] Knows fail-open vs fail-closed tradeoff.
 
 ## L. Potential Gaps & Improvements
-- **Distributed token bucket via gossip** — when many rate-limiter nodes share one limit, they swap counter state over a peer-to-peer gossip protocol instead of a central store, so no single node becomes a bottleneck; matters for any "rate-limit at global scale" question.
-- **Weighted limits by plan/tier** — charge expensive endpoints more "tokens" and give paying customers bigger buckets, so a free user and an enterprise user hit different ceilings; common product requirement in API design.
-- **Centralized counter store (Redis INCR + EXPIRE)** — a shared Redis key with atomic increment and a TTL gives all app servers one source of truth for a request count; simplest way to make limits consistent across a fleet (→ see Interview Lens).
-- **Sliding window log vs fixed window counter** — the log keeps every request timestamp for exact limits but costs memory, while the fixed window just counts per interval and is cheap but allows burst spikes at boundaries; pick based on accuracy-vs-cost tradeoff.
-
-**🔧 How to close:** Spin up Redis locally and watch a fixed-window limiter in action: `docker run -d --rm -p 6379:6379 redis`, then in another terminal run `redis-cli` and try `INCR ratelimit:user1`, `EXPIRE ratelimit:user1 10`, and hammer `INCR ratelimit:user1` repeatedly within 10 seconds — once your returned count exceeds your chosen limit (say 5) you would reject the request; observe how the counter resets after the key expires.
+- Distributed token bucket via gossip.
+- Weighted limits by plan/tier.
 
 ---
 
 ### 🧭 Guided Deep-Learning Layer
-
-> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
 
 #### 🗣️ Gap 1 — Distributed Token Bucket via Gossip
 - 🔹 **What it is**: Each node maintains a local token bucket + gossips its consumption to peers; global limit is enforced approximately without central Redis dependency.
@@ -100,7 +94,7 @@ API gateway rate limit: 100 req/s per API key. Token bucket in Redis via Lua. If
 - 🔹 **What it is**: Different rate limits per user tier (free vs pro vs enterprise), endpoint priority (read vs write), or time-of-day.
 - 🔹 **Why it matters**: Real SaaS products monetize rate limits. Simplistic flat limits leave money on the table and annoy power users.
 - 🔹 **Connection**: This file treats rate limits as uniform. Real products multiply per-plan, per-endpoint, per-tenant.
-- 🔹 **When needed**: 🟡 **Mid-level** — useful once basics are solid; common in mid-level and SaaS product design interviews.
+- 🔹 **When needed**: 🟡 **Useful for mid-level**, 🔴 **Important for SaaS product design interviews**.
 - 🔹 **Intuition**: Airline seats — economy, business, first. Same airplane, different quotas on WiFi, drinks, legroom. Rate limits work the same way.
 - 🔹 **If you go deeper**: Study Stripe's tiered limit architecture — limits stored in user plan metadata, looked up at authn time, applied at gateway. Think about fair-share within a tenant's quota.
 - 🔹 **Interview hook**: *"Design rate limits for a SaaS with free/pro/enterprise tiers."* → tier-aware bucket capacity + per-endpoint priorities.

@@ -17,12 +17,9 @@ Read this file first. Then read topics **in order**. Every topic is a single `.m
 9. **Mini Design Problem** — a small-scale version of the concept
 10. **Cross-Topic Connections** — how this links to other topics
 11. **Confidence Checklist** — red flags that mean you should re-read
-12. **Potential Gaps & Improvements** — what *this file* still does not cover, each gap glossed in plain English and ending with a concrete "🔧 How to close" action
-13. **🧭 Guided Deep-Learning Layer** — an *optional* deep dive on those gaps. It opens with a "you are not ready yet" gate and tags every item 🟢 foundational / 🟡 mid-level / 🔴 senior, so you always know whether it's for you yet. **Beginners can skip this safely.**
+12. **Potential Gaps & Improvements** — what *this file* still does not cover
 
 If any of those sections feels too fast, **slow down, do not skip**. The whole thing is built so that a concept introduced later never assumes you silently understood something earlier.
-
-> **Section contract (for maintainers):** the Gaps + Guided layers in every topic file conform to [`_TEMPLATE_gaps_and_guided.md`](_TEMPLATE_gaps_and_guided.md). Keep new content matching that spec.
 
 ### 📚 Scaffolding files (read these in parallel with the layers)
 - [`00_evaluation.md`](00_evaluation.md) — scorecard + gap analysis + enhancement log.

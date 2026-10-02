@@ -287,25 +287,21 @@ This is a microcosm of a real Twitter-scale feed.
 ---
 
 ## L. Potential Gaps & Improvements
-- **Read-through / lazy-loading** — the cache library fetches from the source on a miss instead of your app code; matters because it hides miss-handling but reduces your control (→ see Guided Deep-Learning Layer).
-- **Cache-aside (lazy population)** — your app checks the cache, and on a miss reads the DB then writes back; it is the most common real-world pattern, so you should be able to defend it in interviews.
-- **Negative caching** — storing "this key does NOT exist" with a short TTL (Time To Live); matters because it stops scanners probing nonexistent IDs from hammering your database.
-- **Cache partitioning / sharding** — splitting keys across many Redis nodes (Redis Cluster uses 16384 hash slots); matters because one node caps at limited RAM and QPS (Queries Per Second), so scale needs many.
-- **Secondary indexes inside cache** — extra lookup keys (e.g. email → user_id) so you can find data by a non-primary field; matters because Redis is primary-key oriented and otherwise forces a DB hit.
-
-**🔧 How to close:** Run `docker run -p 6379:6379 redis`, then in `redis-cli` build a tiny cache-aside flow: `SET user:1 alice EX 60` (positive entry with 60s TTL), `SET miss:user:999 NULL EX 10` (negative cache), and `TTL user:1` to watch expiry. Then add a secondary index with `SET email:alice@x.com 1` and resolve it with `GET email:alice@x.com` followed by `GET user:1`.
+- **Read-through / lazy-loading** patterns deserve explicit sections (I implied but did not contrast explicitly).
+- **Cache-aside** vs write-through — cache-aside is the most common pattern in practice; deserves formal coverage.
+- **Negative caching** (caching NOT-FOUND answers) — missing.
+- **Cache partitioning / sharding** across Redis cluster — deserves math treatment.
+- **Secondary indexes inside cache** — real pattern, not covered.
 
 ---
 
 ### 🧭 Guided Deep-Learning Layer
 
-> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
-
 #### 🔄 Gap 1 — Cache-aside vs Read-through
 - 🔹 **What they are**: Two read-path strategies. **Cache-aside**: app explicitly checks cache, on miss fetches from DB, populates cache. **Read-through**: cache library transparently fetches from source on miss.
 - 🔹 **Why it matters**: Cache-aside is the de-facto default (~80% of real deployments). Read-through hides complexity at the cost of less control.
 - 🔹 **Connection**: The "write-through / around / back" trio in this file are about writes; this gap is the missing read-side counterpart.
-- 🔹 **When needed**: 🟢 **Foundational** — you will be asked "what cache pattern would you use and why?"
+- 🔹 **When needed**: 🔴 **Important for any interview** — you will be asked "what cache pattern would you use and why?"
 - 🔹 **Intuition**: Cache-aside = you as the chef check the fridge, then the pantry. Read-through = you ask a butler who handles both; you never know where the food came from.
 - 🔹 **If you go deeper**: Understand the Caffeine / Guava `Loader` pattern (read-through) vs typical Redis usage (cache-aside). Read why most teams prefer cache-aside: visibility, control, no library lock-in.
 - 🔹 **Interview hook**: *"Which cache pattern for a read-heavy feed?"* → cache-aside with 5-min TTL + active invalidation on write. Justify: control + debuggability.
@@ -349,7 +345,7 @@ This is a microcosm of a real Twitter-scale feed.
 - 🔹 **What it is**: Another name for cache-aside. Data only reaches the cache on first read. Popular/important data stays; rarely-accessed data stays out.
 - 🔹 **Why it matters**: Minimizes cache size; self-tuning. The natural default for applications.
 - 🔹 **Connection**: Complements the "write-through populates on write" approach — lazy loading populates on read.
-- 🔹 **When needed**: 🟢 **Foundational** — interviewers use "lazy loading" and "cache-aside" interchangeably.
+- 🔹 **When needed**: 🟡 **Useful to know the terminology** — interviewers use "lazy loading" and "cache-aside" interchangeably.
 - 🔹 **Intuition**: You don't pre-fetch every book in the library; you fetch when asked and keep a copy if it might be asked again.
 - 🔹 **If you go deeper**: Combine with active invalidation on write — "lazy read, active write". This is basically the default pattern across modern apps.
 - 🔹 **Interview hook**: Usually comes up during *"describe your cache strategy"* — use the term confidently.

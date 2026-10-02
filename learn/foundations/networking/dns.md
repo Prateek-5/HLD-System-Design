@@ -276,21 +276,17 @@ A real resolver (Unbound, Knot, Bind) looks exactly like this.
 ---
 
 ## L. Potential Gaps & Improvements
-- **DNSSEC (DNS Security Extensions)** — cryptographic signatures on DNS records so resolvers can detect tampering; matters because plain DNS can be spoofed to hijack you to a fake site (→ see Interview Lens).
-- **DoH / DoT (DNS over HTTPS / DNS over TLS)** — encrypts your lookups so ISPs and on-path snoopers can't read or block them; the modern privacy frontier browsers now default to.
-- **Anycast DNS** — the same IP announced from many locations so packets reach the nearest one; explains how `1.1.1.1` and the 13 root servers serve the whole planet fast.
-- **BGP (Border Gateway Protocol) for failover** — the internet routing protocol that makes anycast work; understanding it explains why anycast failover beats DNS failover for speed.
-- **Worked `dig +trace` example** — actual hop-by-hop output (root → TLD → authoritative) turns the abstract diagram into concrete bytes you can't un-see.
-- **EDNS0 (Extension Mechanisms for DNS)** — raises the old 512-byte UDP response cap to ~4096 bytes; matters because DNSSEC and big record sets need it to avoid slow TCP fallback.
-- **DNS cookies & client subnet** — small EDNS0 extras that fight spoofing and let CDNs geo-route by approximate client location; useful for "how does GeoDNS know where I am?" questions.
+- **DNSSEC** mechanism (signed records, chain of trust) is skipped — it deserves its own section.
+- **DoH / DoT** (DNS over HTTPS / TLS) — the privacy frontier, relevant for modern interviews.
+- **Anycast DNS** — explained briefly in IP, deserves more here.
+- No worked example with `dig +trace` output, which is a teaching goldmine.
+- EDNS0 (extended DNS) and the 512-byte → 4096-byte jump — missing.
 
-**🔧 How to close:** run `dig +trace google.com` and read every line top to bottom — you will watch the recursion happen root → `.com` TLD → authoritative in real time. Then re-run on a CDN-fronted host like `www.netflix.com` to see the CNAME hop appear, and `dig +dnssec example.com` to see the signature (`RRSIG`) records.
+**How to close:** run `dig +trace google.com` and read every line. You'll see the actual recursion happen in real time.
 
 ---
 
 ### 🧭 Guided Deep-Learning Layer
-
-> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
 
 #### 🔐 Gap 1 — DNSSEC
 - 🔹 **What it is**: Cryptographic signatures on DNS records so resolvers can verify answers weren't tampered with in flight.

@@ -115,25 +115,19 @@ Multi-region write system. CP: primary in one region, replicas in others, writes
 - ❌ Ignoring that P is effectively required.
 
 ## L. Potential Gaps & Improvements
-- **CRDTs (Conflict-free Replicated Data Types)** — data structures that merge concurrent edits automatically so replicas always converge; the clean way to do AP (Available + Partition-tolerant) without writing conflict-resolution code (→ see Guided Deep-Learning Layer).
-- **Linearizability vs eventual consistency** — linearizability means every read sees the latest write as if on one global clock, while eventual means replicas only agree *some time later*; knowing the difference lets you answer "how consistent is it, exactly?" precisely instead of hand-waving "strongly consistent."
-- **LWW (Last-Write-Wins)** — a conflict-resolution rule that keeps the write with the newest timestamp and discards the rest; cheap but silently loses data, so learners should know when it is and isn't safe.
-- **Vector clocks** — per-replica counters that tag each write so the system can tell which updates are causally newer vs truly concurrent; the basis for detecting (not just hiding) conflicts.
-- **Jepsen (Kyle Kingsbury / Aphyr)** — an open-source test suite that hammers real databases with partitions to check if their advertised guarantees actually hold; teaches you that vendor claims often overstate consistency (→ see Guided Deep-Learning Layer).
-
-**🔧 How to close:** Run a 3-node Cassandra cluster locally and watch AP vs CP behavior firsthand: `docker run --name cas1 -d cassandra:latest`, then start `cas2`/`cas3` joined to it, insert a row at `CONSISTENCY ONE`, use `docker network disconnect` to partition one node, write conflicting values on each side, reconnect, and run `SELECT writetime(col) FROM t` to see Last-Write-Wins pick a winner and silently drop the other update.
+- CRDTs deserve a standalone section.
+- Linearizability vs eventual — more formal coverage.
+- Jepsen findings on real DBs (Aphyr) — great reading.
 
 ---
 
 ### 🧭 Guided Deep-Learning Layer
 
-> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
-
 #### 🧮 Gap 1 — CRDTs (Conflict-free Replicated Data Types)
 - 🔹 **What they are**: Data structures mathematically designed so any replica can apply updates in any order and still converge to the same final state.
 - 🔹 **Why it matters**: Enable **AP + eventual consistency** without conflict resolution code. Figma uses them for multi-user canvas. Redis has CRDT-backed "active-active" Enterprise.
 - 🔹 **Connection**: The "reconcile via LWW, vector clocks, CRDTs, or app logic" line in this file — CRDTs are the mathematically clean option for those scenarios.
-- 🔹 **When needed**: 🟡 **Mid-level** — useful once basics are solid, and common in collaborative-editing / real-time / multi-region systems.
+- 🔹 **When needed**: 🔴 **Important for senior interviews** in collaborative-editing / real-time / multi-region systems.
 - 🔹 **Intuition**: A counter where +1 anywhere, processed in any order, always yields the right total. Achieved by encoding updates commutatively.
 - 🔹 **If you go deeper**: Learn G-Counter (grow-only), PN-Counter (+/-), G-Set, 2P-Set, OR-Set (with tombstones), RGA (for text). Read Marc Shapiro's papers. Yjs/Automerge libraries for hands-on.
 - 🔹 **Interview hook**: *"Design Figma's collaborative canvas"* → CRDT per object + WebSocket transport + eventual convergence. Alternative: operational transform (Google Docs) — know both.
@@ -144,7 +138,7 @@ Multi-region write system. CP: primary in one region, replicas in others, writes
 - 🔹 **What it is**: **Linearizability** = every op appears to execute atomically at some point between invocation and response, consistent with a real-time global clock. **Eventual** = replicas converge given no writes; no bound on when.
 - 🔹 **Why it matters**: Interviewers distinguish candidates who confuse these from those who don't. "Strongly consistent" is ambiguous; linearizability is precise.
 - 🔹 **Connection**: "CP" in this file is loosely "linearizable under partition". The precise definition distinguishes real behaviors.
-- 🔹 **When needed**: 🟢 **Foundational** — most readers benefit; this precise vocabulary is reachable soon after the basics.
+- 🔹 **When needed**: 🔴 **Important for senior distributed-systems interviews**.
 - 🔹 **Intuition**: Linearizable = "as if every op happened in real-time order with a single shared clock". Eventual = "replicas agree on the final state, but not when".
 - 🔹 **If you go deeper**: Study the **consistency spectrum**: eventual < causal < sequential < linearizable. Read "Consistency Explained" (Jepsen). Understand that Raft gives linearizability for writes + leader reads, but replica reads are stale unless you do leader-leased reads.
 - 🔹 **Interview hook**: *"Is Raft always linearizable?"* → Writes yes. Reads on followers no, unless using read-index or leader-lease.
@@ -155,7 +149,7 @@ Multi-region write system. CP: primary in one region, replicas in others, writes
 - 🔹 **What it is**: Kyle Kingsbury's open-source framework that tests distributed DBs under realistic partitions + failures, checking if their advertised guarantees hold.
 - 🔹 **Why it matters**: Has found serious correctness bugs in Mongo, Cassandra, Elasticsearch, etcd, RabbitMQ, and others. Vendor claims ≠ reality until Jepsen-tested.
 - 🔹 **Connection**: CAP theory is easy; *real* DB behavior under partition is often worse than advertised. Jepsen tells you which DBs actually deliver.
-- 🔹 **When needed**: 🔴 **Senior** — genuinely deep/infra; shows depth of thinking beyond docs, mostly for database-infra roles.
+- 🔹 **When needed**: 🟡 **Useful for senior interviews** — shows depth of thinking beyond docs.
 - 🔹 **Intuition**: The Consumer Reports of distributed DBs — brutal testing publishes what actually works.
 - 🔹 **If you go deeper**: Read Jepsen analyses on jepsen.io (pick 3: Mongo, Cassandra, etcd). Learn what "stale reads", "lost updates", "aborted reads" mean precisely.
 - 🔹 **Interview hook**: *"You're picking a DB for a financial ledger — how do you validate its consistency claims?"* → check Jepsen reports before prod.

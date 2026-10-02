@@ -97,24 +97,18 @@ Fallback: serve cached / degraded response while open.
 - [ ] Knows to combine with timeout, retry+backoff, and fallback.
 
 ## L. Potential Gaps & Improvements
-- **Bulkheads (resource isolation)** — give each downstream its own thread/connection pool so one sick dependency can't starve the rest; matters because a breaker alone still lets a slow call hog shared threads (→ see Guided Deep-Learning Layer).
-- **Hedging (duplicate requests)** — fire the same request at two backends and take the first reply; trims tail (p99) latency at ~2x load cost, useful when slow-but-successful calls hurt UX (→ see Guided Deep-Learning Layer).
-- **Backoff with jitter** — randomize retry delays so 1000 clients don't all retry on the same tick; prevents the self-inflicted DDoS (Distributed Denial of Service) that breakers are meant to avoid (→ see Interview Lens).
-- **Timeouts** — cap how long a call may block; without one, a breaker still waits forever on a hung downstream and threads pile up.
-
-**🔧 How to close:** Build a 30-line circuit breaker yourself. Write a Python script with a `call(fn)` wrapper that counts failures, flips to OPEN after 3 fails, and after a 5s cooldown lets one probe through (HALF-OPEN). Point it at a fake downstream (`def flaky(): raise if random.random() < 0.7`), run it in a loop, and print the state on each call so you can watch Closed → Open → Half-Open → Closed live.
+- Bulkheads (resource isolation).
+- Hedging (send duplicate requests to multiple backends).
 
 ---
 
 ### 🧭 Guided Deep-Learning Layer
 
-> ⚠️ **Come here only after the rest of this file feels solid.** These are deliberately-skipped advanced topics — they are *not* prerequisites. If the basics above are shaky, go back; you are not behind.
-
 #### 🚢 Gap 1 — Bulkheads (Resource Isolation)
 - 🔹 **What it is**: Partition your thread pools / connection pools per downstream dependency, so one sick dependency can't exhaust shared resources starving healthy dependencies.
 - 🔹 **Why it matters**: Circuit breakers protect you *after* failures accumulate. Bulkheads prevent one slow downstream from starving threads used by other (healthy) downstreams.
 - 🔹 **Connection**: Circuit breakers stop calls to a sick downstream. Bulkheads ensure the "sick downstream" doesn't burn shared resources while the breaker is deciding to open.
-- 🔹 **When needed**: 🟡 **Mid-level** — once breaker/timeout basics are solid; common in mid-level resilience discussions.
+- 🔹 **When needed**: 🔴 **Important for senior interviews** on resilience.
 - 🔹 **Intuition**: Ships have compartments — one flooding doesn't sink the ship. Your app has thread pools — one slow dependency shouldn't freeze the rest.
 - 🔹 **If you go deeper**: Study Hystrix's bulkhead pattern (now in Resilience4j). Per-dependency thread pool sized to concurrency need + some headroom. Combine with timeouts + circuit breakers.
 - 🔹 **Interview hook**: *"A slow dependency freezes your entire service even with a circuit breaker. Why?"* → All shared threads are waiting for it. Fix: bulkhead per-dep thread pool.
@@ -125,7 +119,7 @@ Fallback: serve cached / degraded response while open.
 - 🔹 **What it is**: Send the request to multiple backends; use the first response; cancel the rest. Trades some extra load for reduced p99 latency.
 - 🔹 **Why it matters**: Tail latency (p99, p999) kills perceived performance. Hedging can shave p99 from 500ms to 100ms at ~2× resource cost.
 - 🔹 **Connection**: Circuit breakers and retries don't help with *tail latency* (slow-but-succeeded calls). Hedging does.
-- 🔹 **When needed**: 🔴 **Senior** — genuinely deep, latency-critical infra (ads, search, real-time); senior signaling only.
+- 🔹 **When needed**: 🔴 **Important for senior latency-critical interviews** (ads, search, real-time).
 - 🔹 **Intuition**: If you're in a hurry, call 3 Ubers and take the first one. Cancel the rest. More cost, less waiting.
 - 🔹 **If you go deeper**: Read Google's "Tail at Scale" paper (Dean, 2013). Study hedged requests at replica level (send to 2 replicas, take first response). Understand the cost model: extra 2× load for 1 second is worth it for a fraction of the requests.
 - 🔹 **Interview hook**: *"Your p99 is 500ms but p50 is 50ms. How do you reduce p99?"* → hedging to 2 replicas after e.g., 100ms delay.
