@@ -4,19 +4,7 @@
 
 ---
 
-## 🎯 Start Here — Intuition
-
-> **In one line:** your CPU doesn't read memory one byte at a time — it copies fixed-size chunks into fast on-chip caches, and when two threads keep touching the same chunk, the chunk ping-pongs between cores and your "parallel" code crawls.
->
-> **Analogy:** four cooks share one pantry. Nobody grabs a single egg; each grabs a whole tray of nearby items (a cache line) and works at their own station. The catch: if two cooks need *different* things off the *same* tray, every time one changes something the other's tray is declared stale and has to be fetched fresh. They're doing unrelated work, yet they keep waiting on each other — because they share a tray, not the food. That wasted shuttling is false sharing.
->
-> **Assumes you already know:** what a thread is, that multiple CPU cores run in parallel, and roughly how a struct lays out its fields in memory. *(These are runtime/systems fundamentals; the `learn/` track is interview-focused and has no concurrency counterpart, so there's no prerequisite link to follow — start here.)*
->
-> **Level:** this file is 🔴 overall — it's a senior/staff runtime-engineering topic, well below the system-design interview line. The intuition and the false-sharing example are very approachable; the MESI states, NUMA, and data-oriented internals are deep. If those tags make you slow down, that's expected — **you are not behind.**
-
----
-
-## Topic Overview 🟢
+## Topic Overview
 
 Modern CPUs have multiple levels of cache between the cores and main memory: L1 (32-64 KB per core; 1ns); L2 (256KB-1MB per core; 3ns); L3 (megabytes shared across cores; 10ns); main memory (gigabytes; 100ns). The 100× speed gap between L1 and main memory means cache behavior dominates real-world performance.
 
@@ -26,7 +14,7 @@ This is the topic where the abstraction "memory is one big array" finally leaks.
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Imagine four chefs sharing one pantry.
 
@@ -42,7 +30,7 @@ That's false sharing. The threads aren't really sharing data; the *cache line* i
 
 ---
 
-## Historical Evolution 🟡
+## Historical Evolution
 
 **Era 1 — Caches in the 1980s.**
 Early multi-CPU systems. Coherence was a problem; hardware solutions emerged.
@@ -60,15 +48,32 @@ Multi-socket systems with non-uniform memory access. Programmer concerns deepen.
 Performance-conscious code routinely considers cache effects.
 
 **Era 6 — Modern accelerators.**
-GPUs, TPUs (Tensor Processing Units) have their own memory hierarchies; same principles, different specifics.
+GPUs, TPUs have their own memory hierarchies; same principles, different specifics.
 
 The pattern: cache hierarchy has been a constant; programmer awareness has grown.
 
 ---
 
-## Deep Technical Explanation 🔴
+## Core Mental Models
 
-⚠️ The rest assumes the basics above are solid.
+**1. Memory access is not uniform.**
+L1 cache: 1ns. Main memory: 100ns. The hierarchy matters profoundly.
+
+**2. Cache lines are the unit of transfer.**
+Typically 64 bytes. Reading 1 byte loads 64.
+
+**3. Coherence has a cost.**
+When one core writes a line, others' copies are invalidated. Subsequent reads on those cores stall.
+
+**4. False sharing is silent.**
+Threads with no logical sharing can suffer if their data colocates in cache lines.
+
+**5. NUMA adds another dimension.**
+Cross-socket memory access is much slower than local.
+
+---
+
+## Deep Technical Explanation
 
 ### Cache hierarchy
 
@@ -86,33 +91,23 @@ The 100:1 latency ratio between L1 and main memory means a code path's memory pa
 
 ### Cache lines
 
-Typical line size: **64 bytes** on x86-64 (Intel, AMD) and on most ARM cores including Apple Silicon's data cache. Some architectures differ — POWER and certain ARM designs use 128 bytes — and Apple Silicon notably uses a 128-byte *effective* coherence/prefetch granularity on some paths, which is why portable code that pads "to a cache line" often pads to 128 bytes to be safe (Rust's `crossbeam` `CachePadded`, for example, uses 128 bytes on aarch64).
+Typical line size: 64 bytes (Intel, AMD); 128 bytes (some POWER, Apple Silicon for some scenarios).
 
-Because the line is 64 bytes, the low 6 bits of an address are the *offset within the line*; the rest selects the line. When you read one byte, the entire 64-byte line is loaded — so a 64-byte struct touches one line, a 65-byte struct can straddle two. Sequential access (good cache behavior) is much faster than random access.
+When you read one byte, the entire line is loaded. Sequential access (good cache behavior) is much faster than random access.
 
 Spatial locality: nearby data tends to be accessed together; cache lines exploit this.
 
 Temporal locality: recently-accessed data tends to be re-accessed; caches retain it.
 
-### MESI protocol 🔴
+### MESI protocol
 
-Coherence is maintained by a hardware protocol that tags **every cache line, in every core's cache, with one of four states**. The classic protocol is MESI (extensions add **O**wned → MOESI on AMD, and **F**orward → MESIF on Intel, which optimize cache-to-cache transfers, but the four MESI states are the conceptual core):
+Cache coherence states (per cache line, per core):
+- **M (Modified)**: this core has the only modified copy.
+- **E (Exclusive)**: this core has the only clean copy.
+- **S (Shared)**: multiple cores have clean copies.
+- **I (Invalid)**: this cache's copy is stale.
 
-- **M (Modified)**: this core holds the only copy, and it is *dirty* (differs from memory). Memory is stale; this cache is responsible for writing back.
-- **E (Exclusive)**: this core holds the only copy, and it is *clean* (matches memory). No write-back needed; can transition to M silently (no bus traffic) on a write.
-- **S (Shared)**: one or more cores hold clean copies. A write here requires permission first.
-- **I (Invalid)**: this line is stale/empty; a read or write here is a miss.
-
-**The two invariants** the protocol enforces: (1) at most one core may be in M or E for a given line (single writer), and (2) if any core is M, no other core may hold a valid copy.
-
-**How a write invalidates other cores.** This is the mechanism interviewers probe. Cores snoop a shared bus / interconnect (or consult a directory in larger systems):
-
-1. Core A wants to write a line currently in **S** (also cached by cores B, C). A write to a Shared line is *not* allowed directly — A must first gain exclusive ownership.
-2. A issues a **Read-For-Ownership (RFO)** / "invalidate" request on the bus.
-3. Cores B and C snoop it, transition their copies **S → I**, and acknowledge. (If a core had the line in **M**, it must write back / forward the dirty data first.)
-4. Only once A has sole ownership does its line go **S → M** and the store completes.
-
-So a single store to shared data is not a local operation — it is a bus transaction that round-trips to other cores, costing tens to hundreds of cycles. The next time B reads that address, B's copy is **I**, so B takes a coherence miss and must pull the line from A's cache (a *cache-to-cache transfer*, which MESIF/MOESI accelerate) or from memory, transitioning the line back to **S** on both. This invalidate-then-refetch cycle is exactly what makes false sharing expensive.
+State transitions: when one core writes, others' copies become Invalid. Reading an Invalid line requires fetching from another cache or memory.
 
 The overhead: coherence traffic between cores. Visible in performance metrics; invisible in code.
 
@@ -190,11 +185,11 @@ NUMA-aware programming:
 - Per-socket data structures.
 - Reduce cross-socket coordination.
 
-For HPC (High-Performance Computing), low-latency systems, NUMA is critical. For general-purpose servers, often less so.
+For HPC, low-latency systems, NUMA is critical. For general-purpose servers, often less so.
 
 ### Cache-friendly data structures
 
-- **Array of structures vs structure of arrays.** SoA (Structure of Arrays) often better for cache when iterating over one field.
+- **Array of structures vs structure of arrays.** SoA often better for cache when iterating over one field.
 - **Linked lists**: bad cache behavior (pointers point everywhere).
 - **Hash tables with open addressing**: better cache than chained.
 - **Packed bitfields**: more data per cache line.
@@ -217,21 +212,18 @@ A famous false-sharing demo: increment 16 separate counters in 16 threads.
 
 The same code; the layout matters.
 
-### False-sharing mitigation across languages 🔴
+### Cache effects in higher-level languages
 
-Every fix is the same idea — force contended fields onto **separate cache lines** — but the idiom differs by language:
+Java, Go, C# have padding annotations:
+- Java's `@Contended` (JEP 142).
+- Go's struct field padding manually.
+- C# `[StructLayout(LayoutKind.Explicit)]` and padding.
 
-- **C/C++**: `alignas(64)` on the field (C++11), or `#pragma`/`__attribute__((aligned(64)))`. C++17 also exposes `std::hardware_destructive_interference_size` (the line size to pad *to*, to avoid false sharing) and `std::hardware_constructive_interference_size` (the size to pack *within*, to keep co-accessed data together).
-- **Java**: `@jdk.internal.vm.annotation.Contended` (originally `sun.misc.Contended`, from **JEP 142**). The JVM inserts padding (default 128 bytes via `-XX:ContendedPaddingWidth`) around the annotated field/class. Requires `-XX:-RestrictContended` for application code. Used internally by `ConcurrentHashMap`'s per-bin counter cells (`@Contended static final class CounterCell`) and by `LongAdder`/`Striped64`.
-- **Rust**: `crossbeam_utils::CachePadded<T>` (and `crossbeam::utils::CachePadded`) wraps a value with alignment to the platform's line size — 64 bytes on most targets, 128 on aarch64/powerpc64/x86-64-with-adjacent-line-prefetch — so each padded value sits alone in its line. The Tokio/`std` ecosystem uses it heavily in queues and counters.
-- **Go**: no annotation; insert explicit padding fields, e.g. `_ [64]byte` (or `cpu.CacheLinePad` from `golang.org/x/sys/cpu`) between hot fields.
-- **C#**: `[StructLayout(LayoutKind.Explicit)]` with `[FieldOffset(64)]`, or `PaddedHeadAndTail`-style structs as in `System.Threading.Channels`.
-
-A subtlety: alignment alone is necessary but not sufficient — if a padded counter is only **4 bytes** in a 64-byte slot, two *adjacent* aligned counters won't false-share, but you must also pad the *trailing* space when objects can be allocated back-to-back. `@Contended` and `CachePadded` handle both leading and trailing padding for you.
+Common in concurrent data structures (ConcurrentHashMap internals, sync primitives).
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The communal kitchen with shared shelves.**
 (Already used.) Multiple chefs sharing shelves; cache lines are shelves; modification invalidates everyone's view of the shelf.
@@ -241,7 +233,7 @@ A library where readers must copy whole shelves of books to their tables. If two
 
 ---
 
-## Production Engineering Perspective 🟡
+## Production Engineering Perspective
 
 What goes wrong:
 
@@ -260,13 +252,13 @@ The senior performance engineer's habits:
 
 ---
 
-## Failure Scenarios 🔴
+## Failure Scenarios
 
 **Scenario 1 — The 16-thread counter.**
 Concurrent counter array; performance scales to 4 threads then plateaus. Investigation: false sharing on cache lines. Pad each counter to 64 bytes; scaling restored.
 
 **Scenario 2 — The lock-free queue regression.**
-SPSC (Single Producer Single Consumer) queue (single producer single consumer); claimed fast. Actual performance: meh. Cause: producer's tail pointer same line as consumer's head. Padding fixes.
+SPSC queue (single producer single consumer); claimed fast. Actual performance: meh. Cause: producer's tail pointer same line as consumer's head. Padding fixes.
 
 **Scenario 3 — The NUMA pin.**
 Latency-critical service. Random NUMA placement causes cross-socket allocations. p99 variance. Fix: pin thread to NUMA node; allocate locally.
@@ -279,25 +271,17 @@ Loop accessing array with stride that hits cache line conflicts; slower than exp
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
-Realistic figures for a modern ~3 GHz x86-64 core (1 cycle ≈ 0.3 ns). Latency is what hurts a dependent access; throughput can be higher because loads pipeline. Numbers are order-of-magnitude — they vary by microarchitecture — but the *ratios* are the durable insight.
-
-| Access | Latency (cycles) | Latency (ns) |
-|---|---|---|
-| Register | 0 (in pipeline) | <0.5 |
-| L1 data cache hit | ~4-5 | ~1 |
-| L2 cache hit | ~12-14 | ~3-4 |
-| L3 cache hit (shared) | ~30-45 | ~10-15 |
-| Main memory (DRAM, local) | ~200-300 | ~60-100 |
-| NUMA remote (cross-socket) | ~400-600 | ~150-200 |
-| Coherence miss / cache-line bounce | ~100s | ~100-300 |
-
-Reading these as ratios: an L1 hit is the "free" baseline, L2 ~3×, L3 ~10×, DRAM ~70-100×, and a remote-NUMA or cache-line-bounce access can be 200×+. A false-sharing bounce costs roughly a cross-core round trip *on every contended write* — which is why a loop that "just increments a counter" can collapse to a fraction of single-threaded speed when the counter false-shares.
+- **L1 hit**: ~1ns.
+- **L3 hit**: ~10ns.
+- **Main memory**: ~100ns.
+- **NUMA remote**: ~200ns.
+- **Cache line bounce**: 100s of ns per bounce.
 
 ---
 
-## Scaling Perspective 🟡
+## Scaling Perspective
 
 - **Single core**: cache hierarchy dominates.
 - **Multi-core**: false sharing matters.
@@ -306,7 +290,7 @@ Reading these as ratios: an L1 hit is the "free" baseline, L2 ~3×, L3 ~10×, DR
 
 ---
 
-## Cross-Domain Connections 🔴
+## Cross-Domain Connections
 
 - **Locks**: contention often manifests as cache effects. (See [locks-mutexes-and-lock-free.md](./locks-mutexes-and-lock-free.md).)
 - **Parallelism**: cache effects limit scaling. (See [parallelism-vs-concurrency.md](./parallelism-vs-concurrency.md).)
@@ -317,7 +301,7 @@ The unifying observation: **the abstraction 'memory is uniform' is a useful lie.
 
 ---
 
-## Real Production Scenarios 🟡
+## Real Production Scenarios
 
 - **Java ConcurrentHashMap**: extensive cache-line padding internally.
 - **Linux kernel**: per-CPU variables; explicit cache discipline.
@@ -326,20 +310,60 @@ The unifying observation: **the abstraction 'memory is uniform' is a useful lie.
 
 ---
 
-## Key Takeaways 🟢
+## What Junior Engineers Usually Miss
 
-- **Memory access is not uniform.** The hierarchy is registers → L1 (~1ns) → L2 (~3ns) → L3 (~10ns) → main memory (~100ns), with NUMA remote at ~200ns. The ~100:1 L1-to-memory gap means memory layout often dominates performance.
-- **Cache lines (typically 64 bytes) are the unit of transfer.** Reading one byte loads the whole line. Spatial locality is what makes sequential access fast and linked lists cache-hostile.
-- **Coherence (MESI: Modified/Exclusive/Shared/Invalid) has a cost.** A write to a Shared line first issues a Read-For-Ownership that invalidates (S→I) every other core's copy via the bus/directory before the store can complete (the line goes →M). The next read on those cores is a coherence miss — the line bounces between cores, costing a cross-core round trip per contended write.
-- **False sharing is silent.** Different, logically-unrelated variables that land in the same 64-byte cache line force this coherence traffic even with no real sharing. Fix by padding/aligning hot data to cache-line boundaries: C/C++ `alignas(64)` (or `std::hardware_destructive_interference_size`), Java `@Contended`, Rust `CachePadded`, Go `_ [64]byte` padding — pad to 128 bytes for cross-platform safety (aarch64/Apple Silicon).
-- **NUMA matters on multi-socket machines.** Cross-socket access is far slower than local; pin threads and memory to the same node, use per-core/per-socket data structures.
-- **Measure, don't guess.** Profile with cache-aware tools (`perf c2c`, Intel VTune); sublinear scaling on more cores is a classic false-sharing or NUMA symptom.
+- That **memory access is not uniform**.
+- That **cache lines are 64 bytes**.
+- That **false sharing exists**.
+- That **NUMA matters** on big servers.
+- That **alignment can dramatically affect performance**.
 
-## Interview angle 🟢
+---
 
-- **"What's a cache line?"** A 64-byte block — the unit loaded on any memory access.
-- **"What's false sharing?"** Different variables in the same cache line, causing coherence invalidations between cores that touch them.
-- **"What is MESI?"** The cache-coherence protocol with Modified/Exclusive/Shared/Invalid line states.
-- **"What is NUMA?"** Non-uniform memory access — memory latency depends on which socket owns the memory relative to the accessing core.
-- **"How do you fix false sharing?"** Pad/align the contending data so each lands in its own cache line.
-- **Common traps:** not knowing cache lines exist; assuming multi-core code automatically scales linearly.
+## What Senior Engineers Instinctively Notice
+
+- They **align hot data**.
+- They **pad thread-local data**.
+- They **use cache-aware tools** (perf c2c).
+- They **NUMA-pin** when needed.
+
+---
+
+## Interview Perspective
+
+What gets tested:
+
+1. **"What's a cache line?"** 64-byte block.
+2. **"What's false sharing?"** Different vars same line.
+3. **"MESI?"** Coherence protocol states.
+4. **"NUMA?"** Non-uniform memory access.
+5. **"How to fix false sharing?"** Padding/alignment.
+
+Common traps:
+- Not knowing about cache lines.
+- Treating multi-core as automatically scalable.
+
+---
+
+## 20% Knowledge Giving 80% Understanding
+
+1. **Cache hierarchy**: registers → L1 → L2 → L3 → memory.
+2. **64-byte cache lines** are the unit.
+3. **False sharing** = different vars same line.
+4. **MESI** maintains coherence.
+5. **Pad hot data** to cache lines.
+6. **NUMA** matters on multi-socket.
+7. **Spatial locality** matters.
+8. **Linked lists are cache-hostile**.
+9. **Per-core data** for scaling.
+10. **Profile with cache-aware tools**.
+
+---
+
+## Final Mental Model
+
+> **The CPU's cache hierarchy is the silicon-level reality your multi-threaded code runs on. False sharing, NUMA effects, cache contention — these aren't edge cases; they're the everyday performance reality at scale. Engineers who understand the hardware write code that scales; those who don't keep wondering why more cores don't help.**
+
+The senior performance engineer thinks about layout. They pad. They align. They profile cache effects. The result: code that scales to many cores instead of plateauing.
+
+That's CPU caches. That's false sharing. That's the layer below the language — the layer that determines whether your concurrent code actually runs in parallel.

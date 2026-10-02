@@ -4,21 +4,9 @@
 
 ---
 
-## 🎯 Start Here — Intuition
+## Topic Overview
 
-> **In one line:** when the same data lives on several machines and the network between them breaks, you have to choose: answer fast with a possibly-stale value, or refuse to answer until everyone agrees — this file is about how to make that choice on purpose.
->
-> **Analogy:** picture a single bank account with branches in three cities, each keeping its own copy of your balance. The phone line to one branch drops. You walk in and ask "how much do I have?" The branch can either hand you the number it last heard (fast, but maybe wrong) or make you wait until it can phone the others (correct, but you're stuck at the counter). There's no third option that's both instant and guaranteed-correct while the line is down.
->
-> **New to this?** Build the basics first in [`learn/data/cap-theorem.md`](../../learn/data/cap-theorem.md) (and its companion [`learn/data/pacelc-theorem.md`](../../learn/data/pacelc-theorem.md)) — *then* come back for the depth.
->
-> **Level:** this file is 🟡 overall, climbing to 🔴 in the consensus, clock, and CRDT internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
-
----
-
-## Topic Overview 🟢
-
-You can't talk about distributed databases for ten minutes without someone mentioning CAP (Consistency, Availability, Partition tolerance). You also can't talk about CAP for ten minutes without someone misquoting it. The theorem is simple, profound, and almost always cited at the wrong moment by people who haven't internalized what it actually says.
+You can't talk about distributed databases for ten minutes without someone mentioning CAP. You also can't talk about CAP for ten minutes without someone misquoting it. The theorem is simple, profound, and almost always cited at the wrong moment by people who haven't internalized what it actually says.
 
 The deeper truth: distributed systems are not about choosing two of three letters. They're about **making a contract with your application about what it sees during failures**, and that contract is the *consistency model*. CAP is the impossibility result that frames the conversation. Consistency models are the menu. Replication and consensus are the machinery.
 
@@ -26,7 +14,7 @@ This is the topic where databases, networks, and distributed systems collapse in
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Three nodes hold a copy of your bank balance. You have $100.
 
@@ -46,7 +34,7 @@ Now stretch the picture: 50 nodes, geographic distribution, varying latency, par
 
 ---
 
-## Historical Evolution 🟡
+## Historical Evolution
 
 **Era 1 — Single-master replication.**
 Postgres, MySQL pre-2010: one primary, N read replicas. Writes go to the primary. Replicas trail asynchronously. Strong consistency on the primary, eventual consistency on replicas. The whole architecture is built around a single point of write coordination — and a single point of failure.
@@ -55,22 +43,39 @@ Postgres, MySQL pre-2010: one primary, N read replicas. Writes go to the primary
 "Just make replication synchronous!" Each write waits for replicas to ack. Now your write latency = network latency to the slowest replica. Cross-continent? 100ms+ on every write. The cure becomes worse than the disease.
 
 **Era 3 — Eventual consistency at scale.**
-Amazon Dynamo (2007), Cassandra, Riak. Drop strong consistency entirely. Multi-master, write to any replica, anti-entropy converges later. Massive write throughput. Application-level pain — concurrent writes can conflict, and the application now has to think about *vector clocks*, *last-write-wins*, *CRDTs (Conflict-free Replicated Data Types)*. The problem moved up the stack.
+Amazon Dynamo (2007), Cassandra, Riak. Drop strong consistency entirely. Multi-master, write to any replica, anti-entropy converges later. Massive write throughput. Application-level pain — concurrent writes can conflict, and the application now has to think about *vector clocks*, *last-write-wins*, *CRDTs*. The problem moved up the stack.
 
 **Era 4 — Consensus protocols mature.**
 Paxos was published in 1989; nobody understood it. Raft (2013) made consensus comprehensible. ZooKeeper, etcd, Consul ship. Suddenly *strong consistency on a small subset of state* (configuration, leadership) is a primitive engineers can build on.
 
 **Era 5 — NewSQL and global consistency.**
-Spanner (2012, paper 2013) cracked the global-consistency-at-scale problem with TrueTime — atomic clocks plus GPS in every datacenter. CockroachDB, FoundationDB, YugabyteDB followed without TrueTime, using HLCs (Hybrid Logical Clocks) and clever protocols. Strong consistency at planet scale, at the cost of latency and operational complexity.
+Spanner (2012, paper 2013) cracked the global-consistency-at-scale problem with TrueTime — atomic clocks plus GPS in every datacenter. CockroachDB, FoundationDB, YugabyteDB followed without TrueTime, using HLCs (hybrid logical clocks) and clever protocols. Strong consistency at planet scale, at the cost of latency and operational complexity.
 
 **Era 6 — The "right tool for the job" era.**
 Modern architectures use multiple consistency models in one system. Consensus for metadata; eventual consistency for high-volume write paths; strong consistency for financial transactions; CRDTs for collaborative editing. The single-model database is a museum piece for serious infrastructure.
 
 ---
 
-## Deep Technical Explanation 🔴
+## Core Mental Models
 
-⚠️ The rest assumes the basics above are solid.
+**1. CAP is about partitions specifically.**
+The "you must give up A or C" choice only applies *during a network partition*. When the network is healthy, you can have all three. The interesting design question is "what happens during a partition?" — not "what do I optimize for in steady state?"
+
+**2. Consistency is a continuum, not a binary.**
+Linearizable > sequential > causal > eventual > none. Each step down is a small lie about reality in exchange for a real performance gain. Pick the strongest consistency you can afford for the values you're storing. Stronger consistency for money; weaker for likes.
+
+**3. Replication is a copy problem; consensus is an agreement problem.**
+You can replicate without consensus (async streaming). You can have consensus without classical replication (single-leader systems use it for leader election). The two compose into the systems we actually ship.
+
+**4. Latency is the tax on consistency.**
+Every consistency guarantee costs round trips. Synchronous replication = 1 RTT to replicas. Quorum reads/writes = depends on quorum size. Linearizability = at least 1 RTT to the leader. There is no consistency model that's both strong and free of latency.
+
+**5. The clock problem is at the heart of everything.**
+"Did A happen before B?" is the question every distributed system spends its life answering. Physical clocks drift. Logical clocks (Lamport) lose causality. Vector clocks scale poorly. Hybrid clocks (HLCs), TrueTime, and consensus-derived ordering are all attempts to give a globally meaningful answer.
+
+---
+
+## Deep Technical Explanation
 
 ### CAP, precisely
 
@@ -83,7 +88,7 @@ Three terms with specific meanings:
 
 The "choose 2 of 3" framing is misleading. **P is not optional in real systems** — partitions happen. So the real choice is C-or-A *during a partition*. The "CA" point on the triangle is largely fictional in a multi-machine system.
 
-### PACELC (Partition: Availability/Consistency, Else: Latency/Consistency) — the better framing
+### PACELC — the better framing
 
 Daniel Abadi's refinement (2010):
 - **If Partition: A or C?**
@@ -119,7 +124,7 @@ The art is matching the model to the value. Bank balance: linearizable. Profile 
 
 **Multi-leader:**
 - Multiple nodes accept writes; they replicate to each other.
-- Consistency: needs conflict resolution (LWW (Last-Write-Wins), CRDTs, application logic).
+- Consistency: needs conflict resolution (LWW, CRDTs, application logic).
 - Failure mode: concurrent writes on different leaders create conflicts.
 
 **Leaderless (Dynamo-style):**
@@ -140,7 +145,7 @@ In practice:
 
 **Raft's contribution:** decomposed Paxos into "leader election + log replication + safety" with clear phase boundaries. The papers are readable. The implementations are still hard.
 
-**FLP (Fischer-Lynch-Paterson) impossibility result (1985):** in a fully asynchronous system with even one faulty process, no deterministic consensus algorithm can guarantee progress. Real systems sidestep this with timeouts and randomized protocols — accepting "almost always" liveness.
+**FLP impossibility result (1985):** in a fully asynchronous system with even one faulty process, no deterministic consensus algorithm can guarantee progress. Real systems sidestep this with timeouts and randomized protocols — accepting "almost always" liveness.
 
 ### Quorum reads and writes (Dynamo-style)
 
@@ -165,7 +170,7 @@ Conflict-free Replicated Data Types: data structures designed so that *any* sequ
 - **OR-Set**: tag each insert/delete with a unique ID; merges are union/intersection over tags.
 - **LWW-Element-Set**: each operation tagged with timestamp; last write wins.
 
-Used in: Riak, Redis Enterprise (Active-Active / CRDB), collaborative editing (Yjs, Automerge). Where the math works, CRDTs eliminate the conflict-resolution problem entirely.
+Used in: Riak, Redis (some types), collaborative editing (Yjs, Automerge), Figma, Linear, AWS DynamoDB Streams patterns. Where the math works, CRDTs eliminate the conflict-resolution problem entirely.
 
 ### Time and ordering
 
@@ -178,7 +183,7 @@ Whoever owns the clock owns the consistency story.
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The orchestra without a conductor.**
 A symphony with one conductor (single leader) — everyone plays at the same tempo, but if the conductor falls, the music stops. A jam session (multi-leader, eventual consistency) — everyone improvises and the music *mostly* works, but occasional discords need to be resolved later. A military band (consensus) — everyone watches everyone else and synchronizes through agreed-upon signals; works without a single conductor but has overhead in coordination.
@@ -194,13 +199,13 @@ This is a real pattern in financial systems. The choices have names like "synchr
 
 ---
 
-## Production Engineering Perspective 🟡
+## Production Engineering Perspective
 
 What actually breaks in distributed systems:
 
 - **Partial partitions.** The textbook diagram is "two halves of the cluster can't talk." Reality: node A can talk to B but not C; B can talk to A and C; C can talk to B but not A. Half the consensus protocols you read about become hostile under partial partitions. (Jepsen tests reveal this routinely.)
 - **Network is not eventual; it's adversarial.** Packet loss, reordering, duplication, asymmetric latency, full corruption. Anything you assume the network won't do, it will eventually.
-- **Clock skew is real and dangerous.** A node with a fast clock can claim writes are "newer" than they are, winning LWW conflicts unfairly. Default clock-sync (NTP (Network Time Protocol)) is precise to ~10ms; not precise enough for fine-grained ordering.
+- **Clock skew is real and dangerous.** A node with a fast clock can claim writes are "newer" than they are, winning LWW conflicts unfairly. Default clock-sync (NTP) is precise to ~10ms; not precise enough for fine-grained ordering.
 - **Replication lag is invisible until it's a 4-hour outage.** A read replica falls behind by hours; nobody notices because the metric isn't dashboarded; an admin promotes the replica during failover; data loss.
 - **Quorum sizing under failures.** If you tune for `R+W > N` and one node is down, your quorum requirements may not be satisfiable. The system goes from "available" to "throwing errors" silently.
 - **Split-brain.** Two leaders, both accepting writes, both convinced they're the only leader. Recovery is a manual diff-and-merge. This is the operational nightmare of multi-leader replication done wrong.
@@ -215,7 +220,7 @@ The senior operator's habits:
 
 ---
 
-## Failure Scenarios 🟡
+## Failure Scenarios
 
 **Scenario 1 — Split-brain at 3am.**
 A network partition isolates the primary in MySQL replication. Failover script promotes a replica. Network heals. Now there are two primaries with diverging data. Resolution: a 12-hour manual data reconciliation, plus a partial customer refund.
@@ -234,9 +239,9 @@ A distributed database advertises "linearizable consistency." A Jepsen test unde
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
-- **Latency is paid in round trips.** Each consistency level costs a specific number of RTTs (Round-Trip Times). Linearizable read = at least 1 RTT to leader. Quorum write = 1 RTT to quorum size. Multi-region write = inter-region RTT (typically 50–150ms).
+- **Latency is paid in round trips.** Each consistency level costs a specific number of RTTs. Linearizable read = at least 1 RTT to leader. Quorum write = 1 RTT to quorum size. Multi-region write = inter-region RTT (typically 50–150ms).
 - **Throughput is bounded by the slowest replica** in synchronous replication; the *coordinator* in single-leader; the *quorum* in Dynamo-style.
 - **Read scalability** is straightforward via replicas; **write scalability** is the hard problem. Sharding is the usual answer.
 - **Consensus has a per-operation lower bound** of 1 RTT to a quorum. Scaling consensus often means partitioning *the consensus group itself* (Raft groups per shard).
@@ -244,11 +249,11 @@ A distributed database advertises "linearizable consistency." A Jepsen test unde
 
 ---
 
-## Scaling Perspective 🟡
+## Scaling Perspective
 
 - **Vertical:** add bigger nodes. Helps until coordination overhead dominates.
 - **Horizontal reads:** trivial via replicas.
-- **Horizontal writes:** sharding. Each shard's consistency is local; cross-shard transactions require 2PC (Two-Phase Commit), sagas, or weaker guarantees.
+- **Horizontal writes:** sharding. Each shard's consistency is local; cross-shard transactions require 2PC, sagas, or weaker guarantees.
 - **Geographic scale:** different consistency choices per region. Strong locally, eventual across regions, with explicit conflict resolution.
 - **Operational scale:** as the cluster grows, the probability of *some* node being down at any moment approaches 1. Design for this.
 
@@ -256,20 +261,20 @@ The hardest scaling jump is **regional → global**. Latency goes from sub-ms to
 
 ---
 
-## Cross-Domain Connections 🔴
+## Cross-Domain Connections
 
-- **MVCC (Multi-Version Concurrency Control):** snapshot isolation is the single-node ancestor of distributed consistency. Linearizability ≈ "real-time + serializable." The same anomalies (stale reads, write skew) generalize to distributed settings.
+- **MVCC:** snapshot isolation is the single-node ancestor of distributed consistency. Linearizability ≈ "real-time + serializable." The same anomalies (stale reads, write skew) generalize to distributed settings.
 - **Caching:** every cache is a small distributed system with its own consistency model. Cache invalidation is Phil Karlton's hardest problem because it's *distributed consistency in disguise*.
 - **Event loop:** within a process, the single-threaded event loop gives you trivial linearizability — no two operations interleave. Distribution is the act of giving up that property.
-- **Filesystems:** distributed filesystems (HDFS (Hadoop Distributed File System), Ceph, GFS (Google File System)) are entire distributed systems with their own CAP positions. Same theory, file-shaped.
-- **Networking:** TCP (Transmission Control Protocol) is a "consistency model" for a byte stream — ordered, no gaps, eventually delivered. UDP (User Datagram Protocol) is "eventual" or worse. Application protocols layer on top.
-- **OS scheduling:** SMP (Symmetric Multiprocessing) scheduling deals with cache coherence (MESI (Modified, Exclusive, Shared, Invalid) protocol), which is essentially a hardware-level eventual consistency problem. The same theory recurs at the silicon layer.
+- **Filesystems:** distributed filesystems (HDFS, Ceph, GFS) are entire distributed systems with their own CAP positions. Same theory, file-shaped.
+- **Networking:** TCP is a "consistency model" for a byte stream — ordered, no gaps, eventually delivered. UDP is "eventual" or worse. Application protocols layer on top.
+- **OS scheduling:** SMP scheduling deals with cache coherence (MESI protocol), which is essentially a hardware-level eventual consistency problem. The same theory recurs at the silicon layer.
 
 The unifying observation: **consistency is the price of replication, replication is the price of availability, and availability is the price of partition tolerance.** The same triangle keeps appearing because it reflects a fundamental property of information systems with state and physical separation.
 
 ---
 
-## Real Production Scenarios 🟡
+## Real Production Scenarios
 
 - **GitHub's MySQL split-brain (2018):** a network glitch + Orchestrator failover + replication topology changes ⇒ 24 hours of data inconsistency. A textbook case of how multi-leader replication's pathologies manifest at scale.
 - **Cloudflare's Postgres replica lag during AWS region issues:** documented postmortems of read replicas falling behind under write surges, surfacing the eventual-consistency-as-bug class.
@@ -280,7 +285,51 @@ The unifying observation: **consistency is the price of replication, replication
 
 ---
 
-## Worked Example — Designing the Consistency Model for an Inventory System 🔴
+## What Junior Engineers Usually Miss
+
+- That **CAP isn't a steady-state choice** — it only applies during partitions.
+- That **eventual consistency is not a synonym for "broken"** — it's a contract, with specific semantics, and applications can be designed for it.
+- That **synchronous replication isn't a free upgrade** to single-leader async — it can multiply write latency by 10× and reduce write availability to the AND of all replicas.
+- That **even-numbered consensus clusters are an anti-pattern**.
+- That **clock-based ordering is fragile** and silently wrong under skew.
+- That **multi-leader without conflict resolution is split-brain waiting to happen**.
+- That **reads from replicas can be stale**, even on systems advertising "strong consistency on the primary."
+
+---
+
+## What Senior Engineers Instinctively Notice
+
+- They classify systems by **PACELC**, not CAP.
+- They ask **"what's the consistency model?"** before "what database is this?"
+- They check **replication lag dashboards** as part of routine health monitoring.
+- They **never run consensus clusters with even node counts** without knowing exactly why they're doing it.
+- They reach for **CRDTs or sagas** when 2PC is the obvious-but-wrong answer.
+- They know which **operations cross consistency boundaries** in their system and design retry/idempotency accordingly.
+- They **read Jepsen reports** before adopting a database.
+- They distinguish **failover automation that's been tested** from failover automation that exists in a wiki.
+
+---
+
+## Interview Perspective
+
+What gets tested:
+
+1. **"Explain CAP."** Mid-level: states A, C, P. Senior: explains it only applies under partition, mentions PACELC, names systems on each side.
+2. **"How does Raft work?"** Senior candidates explain leader election, log replication, and the safety property (committed entries are never lost). They mention the role of quorums and the cost of even-sized clusters.
+3. **"Design a globally-distributed counter."** Tests whether the candidate reaches for CRDTs, accepts eventual consistency, or naively says "use a database transaction."
+4. **"What is linearizability?"** Test: can the candidate distinguish it from sequential consistency? Bonus for explaining why linearizability is composable across objects but sequential is not.
+5. **"Your replica is 30 minutes behind. What do you do?"** Tests operational instinct. Right answers: investigate why (long-running query? disk slow? network issue?), don't just promote it; check whether replication can catch up; consider whether the application is reading from the lagged replica.
+6. **"Two-phase commit vs sagas?"** Senior reasoning: 2PC blocks resources and has a coordinator-failure problem; sagas are eventually consistent with explicit compensations. Pick based on whether you can tolerate intermediate inconsistency.
+
+Common traps:
+- Saying "we'll use synchronous replication" without noting the latency and availability cost.
+- Confusing linearizability with serializability (related but distinct).
+- Recommending eventual consistency for inherently transactional data.
+- Not knowing that consensus is the foundation of "leader election."
+
+---
+
+## Worked Example — Designing the Consistency Model for an Inventory System
 
 A multi-region e-commerce service tracking inventory. Multiple regions accept orders. Question: how to handle "is this item in stock?" when the answer changes constantly across regions.
 
@@ -348,11 +397,11 @@ The CAP/PACELC framework guides each decision; the system as a whole exists acro
 
 ---
 
-## Recent Production References (2023-2024) 🟡
+## Recent Production References (2023-2024)
 
-- **Cloudflare's R2 (Cloudflare's S3-compatible object storage) object store**: published architecture documents. Strong consistency on metadata (consensus); eventual on data replication. PACELC: PC/EC for metadata; PA/EL for content.
+- **Cloudflare's R2 object store**: published architecture documents. Strong consistency on metadata (consensus); eventual on data replication. PACELC: PC/EC for metadata; PA/EL for content.
 - **CockroachDB Serverless (2022-2023)**: pay-per-request distributed SQL. Documented the trade-offs of multi-tenant isolation atop strongly-consistent infrastructure.
-- **The 2023 GCP (Google Cloud Platform) IAM (Identity and Access Management) outage**: a CP-system whose unavailability cascaded across services. Postmortem available.
+- **The 2023 GCP IAM outage**: a CP-system whose unavailability cascaded across services. Postmortem available.
 - **DynamoDB Global Tables**: Amazon's pattern for multi-region eventual consistency with conflict resolution. Well-documented.
 - **Discord's ScyllaDB migration (2023)**: tunable consistency in production at very high scale.
 - **Spanner's external consistency**: continues to be the gold standard. Public engineering on TrueTime hardware.
@@ -360,7 +409,7 @@ The CAP/PACELC framework guides each decision; the system as a whole exists acro
 
 ---
 
-## Reference Architecture — Tunable Consistency 🔴
+## Reference Architecture — Tunable Consistency
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -394,29 +443,27 @@ Most modern large-scale systems sit in this hybrid. The art is drawing the line 
 
 ---
 
-## Key Takeaways
+## 20% Knowledge Giving 80% Understanding
 
-- **CAP applies only during partitions; PACELC is the better framing** — it adds the steady-state latency-vs-consistency tradeoff. Classify systems by PACELC, not CAP. P is not optional in real systems; the "CA" point is largely fictional. The hardest part is never the steady state — it's the partition behavior, so test partitions explicitly.
-- **Consistency is a continuum, not a binary.** Linearizable > sequential > causal > read-your-writes > monotonic reads > eventual. Each step down trades a small lie about reality for a real performance gain. Pick the strongest model you can afford for each piece of data — money gets consensus, likes get gossip, profile pictures get last-write-wins.
-- **Replication is "copy"; consensus is "agree."** They compose: you can replicate without consensus (async streaming) and use consensus without classical replication (leader election).
-- **Quorums (R + W > N) give strong-ish consistency in leaderless systems.** Cassandra's `QUORUM` is exactly W = R = ⌈(N+1)/2⌉.
-- **Consensus clusters must be odd-sized** (3, 5, 7; never 4) — you can't form a majority of an even number, and adding a node "for capacity" can lower fault tolerance.
-- **Eventual consistency is a contract, not a bug.** It has specific semantics; design for it explicitly. Reads from replicas can be stale even on systems advertising "strong consistency on the primary."
-- **CRDTs eliminate conflicts where the algebra works.** Reach for CRDTs or sagas when 2PC is the obvious-but-wrong answer.
-- **Clock-based ordering is fragile** and silently wrong under skew (NTP is only ~10ms-precise). Use logical clocks (HLCs, vector clocks) for ordering that matters. Whoever owns the clock owns the consistency story.
-- **Latency is the tax on consistency.** Every consistency level costs round trips; there is no model that's both strong and latency-free.
-- **Synchronous replication is not a free upgrade** to single-leader async — it can multiply write latency by 10x and reduce write availability to the AND of all replicas.
-- **Multi-leader without conflict resolution is split-brain waiting to happen.**
-- **Operate by it:** ask "what's the consistency model?" before "what database is this?"; monitor replication lag and clock skew as primary metrics; know which operations cross consistency boundaries and add retry/idempotency there; read Jepsen reports before adopting a database; and trust only failover automation that has actually been tested, not the kind that lives in a wiki.
+1. **CAP applies during partitions; PACELC adds the steady-state latency-vs-consistency tradeoff.**
+2. **Consistency models form a hierarchy.** Pick the strongest you can afford for each piece of data.
+3. **Replication is "copy"; consensus is "agree."** They compose.
+4. **Quorums (R+W > N) give you strong-ish consistency in leaderless systems.**
+5. **Consensus clusters must be odd-sized.** 3, 5, 7. Never 4.
+6. **Eventual consistency is a contract, not a bug.** Design for it explicitly.
+7. **CRDTs eliminate conflicts where the algebra works.**
+8. **Clock-based ordering is fragile.** Use logical clocks (HLCs, vector clocks) for ordering that matters.
+9. **Latency is the tax on consistency.** Every consistency level costs round trips.
+10. **The hardest part is not the steady state — it's the partition behavior.** Test partitions explicitly.
 
-The unifying idea: distributed systems are applications making promises about state in a world where messages get lost. The promise is the consistency model; the cost is latency and complexity; the bug is what happens when the promise is louder than the implementation. Don't pick "AP" or "CP" off a chart — look at the data, decide what must be true, and pick the *cheapest* mechanism that delivers that truth.
+---
 
-## Interview angle
+## Final Mental Model
 
-- **"Explain CAP."** Mid-level states A, C, P. Senior explains it only applies under partition, mentions PACELC, names systems on each side.
-- **"How does Raft work?"** Cover leader election, log replication, and the safety property (committed entries are never lost); mention the role of quorums and the cost of even-sized clusters.
-- **"Design a globally-distributed counter."** Tests whether you reach for CRDTs / accept eventual consistency, versus naively saying "use a database transaction."
-- **"What is linearizability?"** Can you distinguish it from sequential consistency? Bonus: linearizability is composable across objects; sequential is not.
-- **"Your replica is 30 minutes behind. What do you do?"** Investigate why (long-running query? slow disk? network?) before promoting; check whether it can catch up; consider whether the app is reading from the lagged replica.
-- **"Two-phase commit vs sagas?"** 2PC blocks resources and has a coordinator-failure problem; sagas are eventually consistent with explicit compensations. Choose based on tolerance for intermediate inconsistency.
-- **Common traps:** proposing synchronous replication without noting its latency/availability cost; confusing linearizability with serializability; recommending eventual consistency for inherently transactional data; not knowing consensus underpins leader election.
+> **Distributed systems are not about computers talking to each other. They're about applications making promises about state in a world where messages get lost. The promise is the consistency model. The cost is the latency and complexity. The bug is what happens when the promise is louder than the implementation.**
+
+Every design choice in distributed systems is downstream of a promise to the application. *"Your reads will see your writes." "Your transactions will be atomic globally." "Your counter will eventually be correct."* Each promise is a contract paid for in coordination.
+
+The senior engineer doesn't pick "AP" or "CP" off a chart. They look at the data, decide what the application needs to be true, and pick the *cheapest* mechanism that delivers that truth. Money gets consensus. Likes get gossip. Profile pictures get last-write-wins.
+
+That's distributed systems engineering. Everything else is implementation detail.

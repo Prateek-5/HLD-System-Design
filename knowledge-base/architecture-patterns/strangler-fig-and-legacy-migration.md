@@ -4,19 +4,7 @@
 
 ---
 
-## 🎯 Start Here — Intuition
-
-> **In one line:** how to replace an old, critical system that's still in daily use — without a scary "big bang" rewrite that risks breaking everything at once.
->
-> **Analogy:** renovating a house while you still live in it. You don't demolish the whole place and move into a hotel for two years; you redo one room at a time, keep using the rest, and only knock down the old part once the new part works.
->
-> **New to this?** Build the basics first in [`learn/architecture/monolith-vs-microservices.md`](../../learn/architecture/monolith-vs-microservices.md) — *then* come back for the depth.
->
-> **Level:** this file is 🟡 overall, leaning 🔴 in the database and validation sections. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
-
----
-
-## Topic Overview 🟢
+## Topic Overview
 
 The "Big Rewrite" is the classic engineering disaster. A team decides the legacy system is unfixable; they'll write a clean replacement; in 18 months, they'll switch over. Two years later, the rewrite is 60% done, the legacy system has continued evolving with new features the rewrite doesn't have, and the team is exhausted. This story has played out at thousands of companies — Netscape, Microsoft, countless less-famous teams — almost always with the same ending.
 
@@ -26,7 +14,7 @@ This is the topic where engineering humility meets organizational strategy. Most
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Imagine you must replace the engine of a moving car.
 
@@ -40,7 +28,7 @@ That's the strangler fig pattern. Each migration is small and reversible. The le
 
 ---
 
-## Historical Evolution 🟡
+## Historical Evolution
 
 **Era 1 — Big rewrites and their failures.**
 1990s, 2000s. Famous failures: Netscape's Mozilla rewrite (Joel Spolsky's "Things You Should Never Do" essay, 2000); Microsoft's countless code-base rewrites; thousands of un-named startup catastrophes. The pattern is well-documented; the failures keep recurring.
@@ -61,9 +49,26 @@ The pattern: each generation produced more sophisticated migration techniques, o
 
 ---
 
-## Deep Technical Explanation 🔴
+## Core Mental Models
 
-⚠️ The rest assumes the basics above are solid.
+**1. The legacy system is alive; treat it that way.**
+You cannot freeze the old system while you build the new one. Users keep using it; bugs keep getting fixed; features keep getting added. The migration must coexist with ongoing development.
+
+**2. Migrations are routes, not blocks.**
+Replace one route, function, or capability at a time. Each migration is small enough to ship and rollback in a day, not a year.
+
+**3. There is no "switchover day."**
+The cutover is gradual. Users move to the new system imperceptibly, by URL, by feature flag, by traffic split. There's no single moment of risk; there are many small moments of small risk.
+
+**4. The old system survives until it's empty.**
+Don't aim for a deletion date. Aim for "the old system has nothing left that anyone uses." Then delete it. Often the last 10% takes longer than the first 90% — that's normal.
+
+**5. Migration is a project of decommissioning, not building.**
+The win condition isn't "new system has all features." It's "old system can be turned off." Frame the work that way.
+
+---
+
+## Deep Technical Explanation
 
 ### The strangler fig pattern
 
@@ -143,15 +148,15 @@ Application writes the same data to both old and new stores. Critical: dual writ
 
 **Change Data Capture (CDC):**
 
-The new system subscribes to changes in the old system's data (via WAL (Write-Ahead Log) streaming, Debezium, etc.). The new system stays in sync with the old without dual writes. Migration completes when the new system can serve reads correctly.
+The new system subscribes to changes in the old system's data (via WAL streaming, Debezium, etc.). The new system stays in sync with the old without dual writes. Migration completes when the new system can serve reads correctly.
 
-### The long-tail of migration effort
+### The 80/90/95 rule
 
-Migrations tend to follow a predictable shape — effort is heavily back-loaded:
-- **First chunk** (the bulk of traffic): rapidly handled. Common cases, well-understood code.
-- **Next chunk**: harder. Edge cases, less-trafficked endpoints.
-- **Next chunk**: very hard. Strange features, poorly-documented integrations.
-- **Final sliver**: appears insurmountable. Often takes as long as everything before it combined.
+Migrations follow a predictable pattern:
+- **First 80%**: rapidly handled. Common cases, well-understood code.
+- **Next 10% (to 90%)**: harder. Edge cases, less-trafficked endpoints.
+- **Next 5% (to 95%)**: very hard. Strange features, poorly-documented integrations.
+- **Last 5%**: appears insurmountable. Often takes as long as the first 80%.
 
 Two responses:
 - **Push through**: dedicated effort to migrate the last 5%.
@@ -211,21 +216,44 @@ Many proposed migrations don't survive cost-benefit analysis. Saying no is somet
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The hospital renovation.**
 A hospital can't close for a year while it renovates. Instead, they renovate one wing while patients use other wings. Slowly the new wings replace old ones. Patients are gradually moved. Eventually, the original building is demolished — but only after every function has been moved.
 
 That's strangler. The hospital remains functional throughout. Risk per step is small. The transformation is gradual but complete.
 
-**Incremental water-main replacement.**
-Cities replace aging water mains a segment at a time: new pipe is laid alongside the old, service is switched over section by section, and the old pipe is decommissioned only once the new run is proven. The system never goes fully offline, and old segments sometimes stay in the ground for decades because removing them isn't worth the cost.
+**The roman aqueduct replacement.**
+Roman aqueducts supplied water for centuries. When they were replaced, engineers built new pipes alongside, valve-by-valve switching the water source. The old aqueducts weren't demolished until the new system was proven. Some Roman aqueducts still exist because they were never decommissioned — the new system was built around them.
 
-This is the long-tail outcome: the new system handles current load; the old system persists for legacy reasons; over decades, the old becomes effectively a museum piece.
+This is the long-tail outcome: the new system handles current load; the old system persists for legacy reasons; over decades, the old becomes a museum.
 
 ---
 
-## Failure Scenarios 🟡
+## Production Engineering Perspective
+
+What goes wrong:
+
+- **The big rewrite that took 4 years.** Started as 18-month project. Old system kept evolving; new system always 6 months behind on features. Eventually scrapped. Years of work lost.
+- **The long-tail trap.** New system handles 95% of traffic. Last 5% is too painful. Both systems run for 5 more years. Maintenance cost doubles indefinitely.
+- **The data migration disaster.** Data backfill from old to new took 3 days; during which business decisions were made on incomplete data. Reports were wrong; financial implications.
+- **The façade that became permanent.** Façade introduced as temporary; nobody ever removed it. New system lives "behind" a translation layer that imposes the legacy system's awkward shape on it.
+- **The buy-in failure.** Engineering "migrated"; product team added new features to the old system in parallel. Migration never catches up. Eventually abandoned.
+- **The shadow-traffic side-effect bug.** Parallel run sent same payment to old and new systems; old charged the card; new tried to charge again; idempotency saved most cases but not all. Customer refunds.
+- **The "we'll add tests later" disaster.** Migration shipped without comprehensive tests. Subtle regressions in edge cases. Customer complaints accumulate.
+
+The senior architect's habits:
+- **Explicitly choose strangler over big rewrite**, every time.
+- **Invest in observability** before the migration starts.
+- **Define "done"** as old system decommissioned, not new system shipped.
+- **Plan the long-tail** explicitly.
+- **Avoid permanent façades.**
+- **Get cross-functional buy-in** before starting.
+- **Test exhaustively** in parallel run before cutover.
+
+---
+
+## Failure Scenarios
 
 **Scenario 1 — The two-year migration that never finished.**
 Started as "rewrite in microservices." Two years in: 60% migrated. New features go to old system because that's faster. Migration never catches up. Eventually project is killed; some pieces stay migrated, most don't. Mixed-architecture mess.
@@ -244,7 +272,7 @@ New system migrated 95% of features. Last 5% is "we don't think anyone uses thes
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
 - **Migration cost**: significant engineering investment over months/years.
 - **Parallel run cost**: doubled compute during validation phases.
@@ -253,7 +281,7 @@ New system migrated 95% of features. Last 5% is "we don't think anyone uses thes
 
 ---
 
-## Scaling Perspective 🟡
+## Scaling Perspective
 
 - **Small monoliths**: strangler is straightforward; one team can manage.
 - **Large monoliths**: multi-team coordination; long timelines (years).
@@ -262,53 +290,96 @@ New system migrated 95% of features. Last 5% is "we don't think anyone uses thes
 
 ---
 
-## Cross-Domain Connections 🟡
+## Cross-Domain Connections
 
 - **Microservices vs monolith**: extracting services from a monolith is the canonical strangler use case. (See [microservices-vs-monolith.md](./microservices-vs-monolith.md).)
 - **Feature flags**: strangler routes are typically flag-controlled. (See [feature-flags-and-progressive-delivery.md](../system-failures/feature-flags-and-progressive-delivery.md).)
 - **API design**: the façade is an API; designing it well matters. (See [api-design-rest-vs-grpc.md](./api-design-rest-vs-grpc.md).)
 - **Database internals**: schema migrations during strangler use expand-contract. (See [wal-and-crash-recovery.md](../database-internals/wal-and-crash-recovery.md).)
 - **Observability**: comparing old vs new requires excellent metrics. (See [metrics-logs-traces.md](../observability/metrics-logs-traces.md).)
-- **CQRS (Command Query Responsibility Segregation)**: sometimes the migration target uses CQRS where the legacy didn't. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
+- **CQRS**: sometimes the migration target uses CQRS where the legacy didn't. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
 
 The unifying observation: **legacy migration is engineering's hardest problem, not because of the code but because of organizational dynamics. The strangler fig works because it aligns engineering pace with the reality that the legacy system isn't going to wait for you.**
 
 ---
 
-## Real Production Scenarios 🟡
+## Real Production Scenarios
 
 - **Shopify's monolith preservation**: extensive public engineering on extracting bounded contexts from a Rails monolith over a decade.
 - **Stripe's API migrations**: documented patterns for evolving APIs with thousands of customers.
 - **Netflix's monolith decomposition**: famous public talks on the multi-year journey.
-- **GitHub's online schema migrations**: GitHub runs MySQL (SQL = Structured Query Language) at scale and built/open-sourced `gh-ost` for online, low-lock schema changes — a documented case study of safe, incremental database migration.
-- **Bank legacy modernizations**: many banks running 40-year-old COBOL (Common Business-Oriented Language) systems alongside modern microservices, with strangler-fig migration strategies measured in decades.
+- **GitHub's MySQL → MariaDB migration**: documented case study of database migration at scale.
+- **Bank legacy modernizations**: many banks running 40-year-old COBOL systems alongside modern microservices, with strangler-fig migration strategies measured in decades.
 - **The Joel Spolsky essay**: "Things You Should Never Do, Part I" remains required reading.
 
 ---
 
-## Key Takeaways
+## What Junior Engineers Usually Miss
 
-- **Migration is the discipline of replacing a system that's still running.** The legacy system is alive — users use it, bugs get fixed, features get added — so the migration must coexist with ongoing development rather than freezing the old system.
-- **Big rewrites usually fail.** Default to the strangler fig: grow the new system around the old one until the old withers.
-- **Migrate routes, not blocks.** Replace one route, function, or capability at a time — each step small enough to ship and roll back in a day, not a year.
-- **There is no "switchover day."** Cutover is gradual (by URL, feature flag, traffic split); many small moments of small risk instead of one big one.
-- **A façade routes traffic** between old and new — API gateway, reverse proxy, feature-flagged code path, or service mesh. Avoid permanent façades that impose the legacy system's awkward shape on the new one.
-- **Branch by abstraction** is the in-process variant: introduce an interface, swap the implementation behind it, then delete the old one.
-- **Expand-contract** is the safe pattern for database schema migration; each step is independently deployable and reversible.
-- **Parallel run / shadow traffic** validates the new system in production with no customer impact — but watch compute cost (doubled load) and non-idempotent side effects (don't charge the card twice).
-- **Observability is mandatory** — per-route, per-cohort comparison of old vs new is part of the migration cost, not an extra.
-- **Define "done" as the old system decommissioned**, not the new system shipped. Measure progress by what's *deleted*, not what's built.
-- **The long tail is real** — the last 5-10% can take as long as everything before it. Explicitly choose between pushing through and running two systems indefinitely; don't drift into the long-tail trap by accident.
-- **Cross-team buy-in is mandatory** before starting; without it, product keeps adding features to the old system and the migration never catches up.
-- **Saying no is sometimes the senior move.** "It's old" or "we don't like the framework" rarely justifies migration cost; old code that works is precious.
-- **Migrations take months to years.** If you estimate less, you're being optimistic.
+- That **big rewrites usually fail.**
+- That **migrations are routes, not blocks.**
+- That **the old system survives during migration.**
+- That **observability investment is part of migration cost.**
+- That **the long tail is real** and must be planned.
+- That **shadow traffic catches bugs** parallel run wouldn't.
+- That **expand-contract** for database migrations.
+- That **buy-in across teams is mandatory.**
 
-## Interview angle
+---
 
-- "How would you migrate a legacy system?" → strangler fig, not rewrite.
-- "What's a strangler fig?" / "What's branch by abstraction?" → pattern literacy; the latter is the in-process variant.
-- "How do you handle database schema migration?" → expand-contract.
-- "What's parallel run / shadow traffic?" → safety-technique awareness.
-- "When wouldn't you migrate?" → old code that works is often best left alone.
-- "How long should a migration take?" → months to years.
-- Common traps: recommending big rewrites, underestimating timelines, not planning the long tail.
+## What Senior Engineers Instinctively Notice
+
+- They **prefer strangler over rewrite** by default.
+- They **invest in observability** before starting.
+- They **define done** as old system decommissioned.
+- They **plan the long tail** explicitly.
+- They **avoid permanent façades.**
+- They **get cross-team alignment** before starting.
+- They **test exhaustively** during parallel run.
+- They **choose carefully which migrations to do**, often saying no.
+
+---
+
+## Interview Perspective
+
+What gets tested:
+
+1. **"How would you migrate a legacy system?"** Senior answer: strangler fig; not rewrite.
+2. **"What's a strangler fig?"** Tests pattern literacy.
+3. **"How do you handle database schema migration?"** Expand-contract.
+4. **"What's parallel run / shadow traffic?"** Tests safety-technique awareness.
+5. **"When wouldn't you migrate?"** Old code that works is often best left alone.
+6. **"What's branch by abstraction?"** In-process variant of strangler.
+7. **"How long should a migration take?"** Months to years; if estimating less, you're optimistic.
+
+Common traps:
+- Recommending big rewrites.
+- Underestimating migration timelines.
+- Not planning the long tail.
+
+---
+
+## 20% Knowledge Giving 80% Understanding
+
+1. **Big rewrites usually fail.** Default to strangler.
+2. **Façade routes traffic** between old and new.
+3. **Each migration step is small and reversible.**
+4. **Define done** as old system decommissioned.
+5. **Expand-contract** for database schemas.
+6. **Parallel run / shadow traffic** validates new system.
+7. **Observability is mandatory** for migration.
+8. **Long tail is real**; plan for it.
+9. **Buy-in across teams** before starting.
+10. **Saying no to migrations** is sometimes correct.
+
+---
+
+## Final Mental Model
+
+> **Migration is the discipline of replacing a system that's still running. The strangler fig is the only pattern that consistently works at scale — because it accepts the legacy system as a peer that won't pause while you build, and grows the new system around it gradually until the old one withers.**
+
+The senior architect doesn't propose rewrites. They propose strangler-fig migrations with explicit phases, observability, rollback plans, and decommissioning targets. They negotiate buy-in across product and engineering. They measure progress by what's *deleted*, not what's built.
+
+Migrations that succeed are the ones treated as projects with discipline equal to feature work. Migrations that fail are the ones treated as engineering side-quests. The pattern works; the discipline is hard. The teams that internalize this can transform their systems gracefully; the teams that don't keep producing legacy that future engineers will need to migrate.
+
+That's the strangler fig. That's legacy migration. That's the most under-appreciated pattern in software architecture — and the one that has saved more engineering organizations than any other.

@@ -4,21 +4,9 @@
 
 ---
 
-## 🎯 Start Here — Intuition
+## Topic Overview
 
-> **In one line:** when one business action spans several separate systems that can't share a single all-or-nothing transaction, a saga lets you do it step by step and cleanly undo the earlier steps if a later one fails.
->
-> **Analogy:** booking a vacation across separate airline, hotel, and car-rental websites. You book each one in turn; if the car rental falls through, you don't have a magic "cancel everything" button — you phone the hotel and the airline and cancel those bookings yourself. Each "cancel" is a compensation for a step you already committed.
->
-> **New to this?** Build the basics first in [`learn/data/distributed-transactions.md`](../../learn/data/distributed-transactions.md) — *then* come back for the depth.
->
-> **Level:** this file is 🟡/🔴 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
-
----
-
-## Topic Overview 🟢
-
-A transaction, in a single database, is a beautiful thing. ACID (Atomicity, Consistency, Isolation, Durability) guarantees you a clean abstraction: a unit of work that either fully succeeds or fully reverses, with no in-between states visible. Two-decade-old SQL syntax — `BEGIN; …; COMMIT;` — gives you a primitive that's mathematically rigorous and operationally robust.
+A transaction, in a single database, is a beautiful thing. ACID guarantees you a clean abstraction: a unit of work that either fully succeeds or fully reverses, with no in-between states visible. Two-decade-old SQL syntax — `BEGIN; …; COMMIT;` — gives you a primitive that's mathematically rigorous and operationally robust.
 
 A *distributed* transaction — across multiple databases, services, or systems — is a different beast. The classical answer (Two-Phase Commit, 2PC) works in theory, fails in practice. Coordinator failures hold resources indefinitely. Network partitions block forever. Performance is unacceptable. Most distributed systems quietly abandoned 2PC two decades ago.
 
@@ -28,7 +16,7 @@ This is the topic where distributed systems theory, transaction semantics, and b
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Imagine booking a vacation: flight, hotel, rental car, all from different providers.
 
@@ -45,13 +33,13 @@ That's a saga. A sequence of local commitments, each with a way to back out sema
 
 ---
 
-## Historical Evolution 🟡
+## Historical Evolution
 
 **Era 1 — Single-database transactions.**
-ACID transactions on a single RDBMS (Relational Database Management System). Beautiful, well-understood. Solved most application needs through the 1990s.
+ACID transactions on a single RDBMS. Beautiful, well-understood. Solved most application needs through the 1990s.
 
 **Era 2 — XA and 2PC.**
-The X/Open XA (eXtended Architecture) standard formalized distributed transactions in the 1990s. JTA (Java Transaction API) in Java. Microsoft DTC (Distributed Transaction Coordinator). The promise: ACID across multiple resource managers. The practice: blocking, slow, brittle.
+The X/Open XA standard formalized distributed transactions in the 1990s. JTA in Java. Microsoft DTC. The promise: ACID across multiple resource managers. The practice: blocking, slow, brittle.
 
 **Era 3 — The saga paper.**
 Hector Garcia-Molina and Kenneth Salem publish "Sagas" in 1987 — a long-transaction technique using compensation. Largely ignored in transactional database literature, rediscovered as foundational by the microservices community decades later.
@@ -60,7 +48,7 @@ Hector Garcia-Molina and Kenneth Salem publish "Sagas" in 1987 — a long-transa
 Service-per-database becomes idiomatic. 2PC across services is rejected as too coupled. Teams reach for sagas, often without naming them. Compensation handlers, idempotency keys, retry queues become part of the operational toolkit.
 
 **Era 5 — Orchestration vs choreography.**
-Two saga patterns emerge: an explicit *orchestrator* directs the sequence; or *choreography* via events lets each service react. Both have advantages; both have failure modes. Dedicated tools emerge: Temporal, Camunda, AWS (Amazon Web Services) Step Functions, Zeebe.
+Two saga patterns emerge: an explicit *orchestrator* directs the sequence; or *choreography* via events lets each service react. Both have advantages; both have failure modes. Dedicated tools emerge: Temporal, Camunda, AWS Step Functions, Zeebe.
 
 **Era 6 — The mature view.**
 Distributed transactions exist on a spectrum. ACID 2PC for tightly-bounded use cases (cross-shard within a database). Sagas for cross-service workflows. Eventual consistency with reconciliation jobs for data sync. The decision is about coupling, latency, and consistency requirements — not about a single "right answer."
@@ -69,9 +57,26 @@ The pattern: each generation realized that ACID guarantees across distrust bound
 
 ---
 
-## Deep Technical Explanation 🔴
+## Core Mental Models
 
-⚠️ The rest assumes the basics above are solid.
+**1. Atomicity is a property bought with coordination.**
+2PC achieves atomicity by holding locks across nodes until everyone agrees. This is expensive and fragile. Sagas achieve a *weaker* property — eventual consistency with semantic recovery — at much lower coordination cost.
+
+**2. Compensation is not rollback.**
+A rolled-back transaction is invisible. A compensated saga is *visible* — both the committed step and the compensating step are recorded. If you charged a customer and refunded them, the books show both. This is fundamental and often missed by teams transitioning from monolith.
+
+**3. Idempotency is the prerequisite.**
+Every saga step must be idempotent. Re-running it must produce the same effect. Without idempotency, retries create duplicates. With idempotency, retries are safe.
+
+**4. Saga steps must commit local state changes immediately.**
+Unlike 2PC, sagas don't hold locks across steps. Each step commits. The world sees intermediate state. Designs must accept this — there is no "isolation" property, full stop.
+
+**5. Failure is normal, not exceptional.**
+A saga is a recipe for handling failures, not just for happy-path flow. The compensation logic is *most* of the engineering effort. Treating it as an afterthought guarantees production pain.
+
+---
+
+## Deep Technical Explanation
 
 ### Two-Phase Commit (2PC) — for context
 
@@ -88,7 +93,7 @@ The classical algorithm:
 Properties:
 - **Atomicity**: either all commit or all abort.
 - **Blocking**: participants holding "prepared" state cannot release until coordinator decides. If coordinator dies, they wait. Forever, in the worst case.
-- **Performance**: 2 RTTs (Round-Trip Times) per transaction; locks held for both rounds.
+- **Performance**: 2 RTTs per transaction; locks held for both rounds.
 - **Failure modes**: coordinator failure leaves participants in *prepared* state; participant failure aborts the transaction.
 
 3PC (Three-Phase Commit) adds a "pre-commit" round to avoid the blocking failure. In practice, 3PC's added complexity isn't worth it; modern systems either do 2PC carefully (with consensus-backed coordinators) or skip distributed transactions entirely.
@@ -214,7 +219,7 @@ This guarantees at-least-once delivery without requiring distributed transaction
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The travel agent.**
 Booking a multi-leg trip: flight, hotel, car rental. The travel agent doesn't expect everyone to coordinate atomically. They book each leg, knowing that if a later leg falls through, they'll call earlier providers and cancel — usually with a fee. That fee is the compensation cost.
@@ -226,7 +231,7 @@ You don't pour the foundation atomically with the walls and the roof. Each phase
 
 ---
 
-## Production Engineering Perspective 🔴
+## Production Engineering Perspective
 
 What goes wrong in distributed transactions:
 
@@ -248,7 +253,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios 🔴
+## Failure Scenarios
 
 **Scenario 1 — The 2PC hang at scale.**
 A team uses XA transactions across two SQL databases. Under load, network blips cause coordinator timeouts. Prepared transactions accumulate. Each holds locks. Throughput plummets. Within hours, both databases are nearly unusable. Recovery: manually `ROLLBACK PREPARED` for thousands of stuck transactions. Migration to a saga-based design takes 6 months.
@@ -263,11 +268,11 @@ A retry queue retries failed events. A new version of the consumer changes busin
 Three services consume an event. Two finish quickly; one is slow. The slow one's downstream effect arrives after a later event has been processed. Out-of-order causality. Discovered only because a user happens to refresh at the wrong moment. Fix: per-key serialization, or move to orchestration.
 
 **Scenario 5 — The orchestrator outage.**
-Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sagas were at step 3 of 5; their pivot transactions are committed; the world has visible intermediate state. When the orchestrator returns, sagas resume — but the customer has already been notified of "order placed" and is wondering why nothing's happened. Lesson: orchestrator durability and HA (High Availability) matter.
+Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sagas were at step 3 of 5; their pivot transactions are committed; the world has visible intermediate state. When the orchestrator returns, sagas resume — but the customer has already been notified of "order placed" and is wondering why nothing's happened. Lesson: orchestrator durability and HA matter.
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
 - **Sagas have higher latency than 2PC** for the happy path — each step is a separate transaction, with separate latency.
 - **Sagas have lower latency variance** — no waiting for slow participants in a prepare phase.
@@ -277,7 +282,7 @@ Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sag
 
 ---
 
-## Scaling Perspective 🟡
+## Scaling Perspective
 
 - **Vertical**: orchestrator and event bus capacity bound the saga rate.
 - **Horizontal**: sagas scale by partition (per-customer, per-order). Dedicated workflow engines (Temporal, Cadence) handle horizontal scaling natively.
@@ -286,11 +291,11 @@ Orchestrator service goes down for 2 hours. All in-flight sagas paused. Some sag
 
 ---
 
-## Cross-Domain Connections 🟡
+## Cross-Domain Connections
 
-- **CAP (Consistency, Availability, Partition tolerance)**: sagas are the practical answer to "we need cross-shard semantics, but partitions exist." Eventual consistency with explicit recovery. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
+- **CAP**: sagas are the practical answer to "we need cross-shard semantics, but partitions exist." Eventual consistency with explicit recovery. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Event sourcing**: orchestrator state is naturally event-sourced; choreography uses events as the saga's coordination medium. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
-- **MVCC (Multi-Version Concurrency Control)**: snapshot isolation within an aggregate is the local-transaction semantics that each saga step depends on.
+- **MVCC**: snapshot isolation within an aggregate is the local-transaction semantics that each saga step depends on.
 - **Backpressure**: saga retries must respect downstream backpressure; otherwise compensations storm during outages. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Cascading failures**: a saga without compensation handling cascades through dependent services on failure. Sagas with proper compensation contain the blast radius. (See [cascading-failures-and-circuit-breakers.md](../system-failures/cascading-failures-and-circuit-breakers.md).)
 - **Idempotency**: the saga's prerequisite. Without idempotent operations, retries create chaos.
@@ -299,7 +304,7 @@ The unifying observation: **sagas are how systems handle change across boundarie
 
 ---
 
-## Real Production Scenarios 🟡
+## Real Production Scenarios
 
 - **Stripe's payment infrastructure**: extensive use of idempotency keys and what amounts to sagas for payment flows. Public engineering posts describe the patterns in detail.
 - **Uber's Cadence (now Temporal)**: born from operational pain managing complex workflows at Uber's scale. Used for ride matching, dispatch, financial flows. Open-sourced; widely adopted.
@@ -310,7 +315,53 @@ The unifying observation: **sagas are how systems handle change across boundarie
 
 ---
 
-## Worked Example — Travel Booking Saga 🔴
+## What Junior Engineers Usually Miss
+
+- That **compensation is a separate transaction**, not a rollback.
+- That **idempotency is a hard prerequisite** for every saga step.
+- That **2PC blocks under coordinator failure** — not "edge case," routine.
+- That **intermediate states are visible** in saga execution.
+- That **compensation can itself fail** and must be designed for.
+- That **the pivot transaction** is a real concept and matters.
+- That **choreography looks simpler but is harder to debug** at scale.
+- That **distributed transactions across organizations** are essentially impossible — you must use sagas.
+
+---
+
+## What Senior Engineers Instinctively Notice
+
+- They **design compensations alongside transactions**, not after.
+- They **identify pivots** in every multi-step flow.
+- They **reach for idempotency keys** by reflex.
+- They **prefer orchestration for complex flows**, choreography for simple ones.
+- They **monitor incomplete sagas** as a primary signal.
+- They **avoid 2PC across services** without exception.
+- They **use the outbox pattern** for reliable event publication.
+- They **recognize that "we need a transaction across these services" usually means "we need to redesign these services' boundaries."**
+
+---
+
+## Interview Perspective
+
+What gets tested:
+
+1. **"Why not 2PC?"** Senior candidates discuss blocking, coordinator failure, performance.
+2. **"What's a saga?"** Tests basic literacy. Bonus for explaining compensation as semantic undo, not rollback.
+3. **"Orchestration vs choreography?"** Both have merits; the candidate should articulate when each fits.
+4. **"How do you handle a payment failure mid-saga?"** Tests practical thinking. Right answer: compensate prior steps; design pivot to make payment late or first.
+5. **"What's an idempotency key?"** Tests retry-safety awareness. Right answer: a unique ID per operation that lets the receiver dedupe retries.
+6. **"What's the outbox pattern?"** Senior candidates explain the dual-write problem and how the outbox solves it.
+7. **"Design a checkout flow."** Tests applied saga design — order, payment, inventory, shipping, with compensation for each.
+
+Common traps:
+- Recommending 2PC for cross-service transactions.
+- Treating saga compensation as rollback.
+- Missing idempotency keys.
+- Not handling compensation failures.
+
+---
+
+## Worked Example — Travel Booking Saga
 
 A real-shaped saga: book flight + hotel + car rental for a trip. Each is a separate service. Each can fail. Money is involved.
 
@@ -424,27 +475,21 @@ async def book_travel_saga(request: TravelBookingRequest):
 ```python
 async def compensate(state: TravelBookingSagaState):
     """Compensate in reverse order of completed steps."""
-
-    # The pivot is the payment charge. Once it has committed, the saga MUST
-    # roll forward (retry confirmations until they succeed) — we never refund a
-    # post-pivot charge here. Compensation therefore only applies BEFORE the
-    # pivot, i.e. when payment has not been charged. If we somehow reach this
-    # path with payment already committed, that is a roll-forward / manual-ops
-    # situation, not a refund.
-    if "payment" in state.completed_steps:
-        alert_ops(state, "payment")
-        state.status = "needs_manual_intervention"
-        save_saga_state(state)
-        raise UnrecoverableCompensationError(
-            "payment already committed (post-pivot); roll forward, do not refund"
-        )
-
     completed = list(reversed(state.completed_steps))
 
-    # Only PRE-PIVOT reservation holds are compensated (released) here.
+    # Note: only PRE-PIVOT steps need compensation here.
+    # Post-pivot (after payment), we keep retrying forward.
+
     for step in completed:
         try:
-            if step == "car":
+            if step == "payment":
+                await retry_until_success(
+                    lambda: payment_service.refund(
+                        state.payment_charge_id,
+                        idempotency_key=f"saga-{state.booking_id}-refund",
+                    )
+                )
+            elif step == "car":
                 await retry_until_success(
                     lambda: car_service.cancel_reservation(
                         state.car_reservation,
@@ -506,7 +551,7 @@ Hand-rolling is educational; production usually warrants a framework.
 
 ---
 
-## Recent Production References (2023-2024) 🟡
+## Recent Production References (2023-2024)
 
 - **Stripe's payment-saga patterns**: extensive public engineering on saga-based payment flows.
 - **Temporal's adoption (2023-2024)**: documented case studies at Coinbase, Snapchat, Box. Workflow engine has matured.
@@ -517,7 +562,7 @@ Hand-rolling is educational; production usually warrants a framework.
 
 ---
 
-## Reference Architecture 🔴
+## Reference Architecture
 
 ```
                        ┌──────────────────────────┐
@@ -558,32 +603,27 @@ Each service owns its database. Coordination is via the orchestrator's message-p
 
 ---
 
-## Key Takeaways
+## 20% Knowledge Giving 80% Understanding
 
-- **2PC blocks under coordinator failure** — not an edge case, routine. A prepared participant holds locks until the coordinator decides; if it dies, they wait, potentially forever. Don't use 2PC across services or organizations; across orgs, distributed transactions are essentially impossible, so sagas are mandatory.
-- **A saga = a sequence of local transactions + compensations.** Atomicity is a property bought with coordination; sagas trade it for eventual consistency with semantic recovery at far lower coordination cost.
-- **Compensation is semantic undo, not rollback.** A rolled-back transaction is invisible; a compensated saga is *visible* — both the committed step and the compensating step are recorded (charge and refund both show in the ledger). Compensation is a separate transaction, often missed by teams coming from monoliths.
-- **Compensation can itself fail** — design for it (retry, then alert an operator / manual tools). Compensation idempotency is required just like forward idempotency.
-- **Idempotency keys are mandatory** for every step and every retryable external call. A unique ID per operation lets the receiver dedupe retries; keys must be globally unique and stable across consumer versions.
-- **Saga steps commit immediately** — no locks held across steps, so intermediate states are visible. There is no isolation property; UIs and downstream consumers must accommodate "partway through" states.
-- **Pivot transactions mark the point of no return.** Before the pivot all steps are reversible; after it, the saga must roll forward (retry until success). Design the pivot in — e.g. reserve inventory before charging so charging is the pivot.
-- **Outbox pattern** for reliable event emission: write business state and the event row in one local transaction, then a separate poller publishes. Solves the dual-write problem; with idempotent consumers gives effective exactly-once semantics.
-- **Orchestration for complex flows; choreography for simple ones.** Choreography looks simpler but is harder to debug and reason about (ordering, "where's the saga?") at scale.
-- **Failure is the normal path, not the exception.** Compensation logic is most of the engineering effort; treating it as an afterthought guarantees production pain. The right design question is "how do I handle each failure point?" not "how do I make this atomic?" And often "we need a transaction across these services" really means "these services' boundaries are wrong and need redesigning."
-- **Workflow engines** (Temporal, AWS Step Functions, Camunda, Cadence) make sagas easier at scale — state, retries, compensation, and deterministic replay are handled for you.
+1. **2PC blocks under coordinator failure.** Don't use across services.
+2. **Sagas = sequence of local transactions + compensations.**
+3. **Compensation is semantic undo**, not rollback.
+4. **Idempotency keys are mandatory** for every step.
+5. **Outbox pattern** for reliable event emission.
+6. **Pivot transactions** mark the point of no return.
+7. **Orchestration** for complex flows; **choreography** for simple ones.
+8. **Compensation can fail** — design for that.
+9. **Visible intermediate states** are inherent; UI must accommodate.
+10. **Workflow engines** (Temporal, Step Functions) make sagas easier at scale.
 
-> Mental model: a distributed transaction is a comforting lie; a saga is the engineering work of telling the truth — "things happen in steps; sometimes steps fail; here's how we recover" — with that recovery written as code. ACID across a single database is a gift; ACID across services is a fantasy. The result isn't worse than ACID — it's *honest* about the realities of distribution.
+---
 
-## Interview angle 🟡
+## Final Mental Model
 
-Commonly tested questions:
+> **A distributed transaction is a comforting lie. A saga is the engineering work of telling the truth: "things happen in steps; sometimes steps fail; here's how we recover." That recovery, written as code, is the architecture.**
 
-1. **"Why not 2PC?"** Discuss blocking, coordinator failure, performance.
-2. **"What's a saga?"** Tests basic literacy. Bonus for explaining compensation as semantic undo, not rollback.
-3. **"Orchestration vs choreography?"** Both have merits; articulate when each fits.
-4. **"How do you handle a payment failure mid-saga?"** Compensate prior steps; design the pivot so payment is late or first.
-5. **"What's an idempotency key?"** A unique ID per operation that lets the receiver dedupe retries.
-6. **"What's the outbox pattern?"** Explain the dual-write problem and how the outbox solves it.
-7. **"Design a checkout flow."** Applied saga design — order, payment, inventory, shipping, with compensation for each.
+The senior engineer designing a system that crosses boundaries doesn't ask "how do I make this atomic?" — they ask "how do I handle each failure point?" The saga is the answer in code form. Compensation logic is engineering work, not a footnote.
 
-Common traps: recommending 2PC for cross-service transactions; treating compensation as rollback; missing idempotency keys; not handling compensation failures.
+ACID across a single database is a gift. ACID across services is a fantasy. The mature system accepts intermediate states, designs idempotent steps, plans compensations, and uses workflow engines or careful choreography to manage the long-running flow. The result isn't worse than ACID — it's *honest* about the realities of distribution.
+
+That's sagas. That's how distributed transactions actually work in production. That's the pattern beneath every well-designed multi-service workflow that has ever survived its first major failure.

@@ -121,11 +121,6 @@ These artifacts depend on one or two Tier-0 concepts.
 - **Related**: [Cardinality](observability/cardinality-and-the-economics-of-monitoring.md), [Metrics, Logs & Traces](observability/metrics-logs-traces.md).
 - **Followups**: [SLOs](observability/slos-error-budgets-and-alerting.md).
 
-### Postgres Internals
-- **Prerequisites**: [MVCC](database-internals/mvcc-and-isolation-levels.md), [WAL](database-internals/wal-and-crash-recovery.md), [Indexing](database-internals/indexing-and-storage-engines.md), [Query Optimization](database-internals/query-optimization-and-execution-plans.md).
-- **Related**: [Replication](database-internals/replication-strategies.md) (streaming/logical), [Sharding](scalability/sharding-and-partitioning-strategies.md) (partitioning/Citus).
-- **Followups**: [Disaster Recovery](system-failures/disaster-recovery-and-rto-rpo.md) (PITR via WAL).
-
 ### CAP, Consistency Models & Replication
 - **Prerequisites**: [Replication](database-internals/replication-strategies.md), [TCP](networking/tcp-and-network-fundamentals.md).
 - **Related**: [MVCC](database-internals/mvcc-and-isolation-levels.md), [Clocks](distributed-systems/clocks-time-and-ordering.md).
@@ -175,16 +170,6 @@ These artifacts depend on one or two Tier-0 concepts.
 - **Prerequisites**: [TCP](networking/tcp-and-network-fundamentals.md), [HTTP/2 & HTTP/3](networking/http-2-and-http-3.md), [TLS](networking/tls-and-mtls.md).
 - **Related**: [Idempotency](architecture-patterns/idempotency-receivers-and-exactly-once-semantics.md), [Caching](caching/caching-hierarchy.md).
 - **Followups**: [Microservices](architecture-patterns/microservices-vs-monolith.md), [Sagas](architecture-patterns/saga-pattern-and-distributed-transactions.md).
-
-### gRPC Internals & Streaming
-- **Prerequisites**: [API Design](architecture-patterns/api-design-rest-vs-grpc.md), [HTTP/2 & HTTP/3](networking/http-2-and-http-3.md), [TLS](networking/tls-and-mtls.md).
-- **Related**: [Backpressure](concurrency/backpressure-and-queues.md) (streaming flow control), [Load Balancing](scalability/load-balancing-strategies.md) (client-side LB), [Distributed Tracing](observability/distributed-tracing-deep-dive.md) (deadline/metadata propagation).
-- **Followups**: [Microservices](architecture-patterns/microservices-vs-monolith.md), [Cascading Failures](system-failures/cascading-failures-and-circuit-breakers.md) (deadlines bound the blast radius).
-
-### GraphQL Deep Dive
-- **Prerequisites**: [API Design](architecture-patterns/api-design-rest-vs-grpc.md), [HTTP/2 & HTTP/3](networking/http-2-and-http-3.md).
-- **Related**: [Caching](caching/caching-hierarchy.md) (harder than REST), [WebSockets](networking/websockets-and-realtime-protocols.md) (subscriptions), [CQRS](architecture-patterns/cqrs-and-event-sourcing.md) (read models).
-- **Followups**: [Edge Computing](scalability/edge-computing-and-cdns.md) (persisted queries at edge), [Microservices](architecture-patterns/microservices-vs-monolith.md) (federation).
 
 ### Distributed Tracing — A Deep Dive
 - **Prerequisites**: [Metrics, Logs & Traces](observability/metrics-logs-traces.md), [API Design](architecture-patterns/api-design-rest-vs-grpc.md).
@@ -341,12 +326,7 @@ These artifacts depend on one or two Tier-0 concepts.
 
 ### LLM Serving & Vector Databases
 - **Prerequisites**: [API Design](architecture-patterns/api-design-rest-vs-grpc.md), [Caching](caching/caching-hierarchy.md), [Edge Computing](scalability/edge-computing-and-cdns.md), [Backpressure](concurrency/backpressure-and-queues.md).
-- **Related**: [Capacity Planning](scalability/auto-scaling-and-capacity-planning.md), [SLOs](observability/slos-error-budgets-and-alerting.md), [GPU & Accelerator Computing](scalability/gpu-and-accelerator-computing.md).
-- **Followups**: AI/ML infrastructure work.
-
-### GPU & Accelerator Computing
-- **Prerequisites**: [Parallelism vs Concurrency](concurrency/parallelism-vs-concurrency.md), [Capacity Planning](scalability/auto-scaling-and-capacity-planning.md).
-- **Related**: [LLM Serving](architecture-patterns/llm-serving-and-vector-databases.md) (GPUs are the substrate), [Edge Computing](scalability/edge-computing-and-cdns.md) (edge inference), [Profiling](observability/profiling-and-flame-graphs.md) (GPU profiling tools).
+- **Related**: [Capacity Planning](scalability/auto-scaling-and-capacity-planning.md), [SLOs](observability/slos-error-budgets-and-alerting.md).
 - **Followups**: AI/ML infrastructure work.
 
 ---

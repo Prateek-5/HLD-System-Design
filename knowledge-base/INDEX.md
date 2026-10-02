@@ -14,8 +14,6 @@
 - **[FAQ.md](FAQ.md)** — recurring questions with short answers and pointers to deeper coverage.
 - **[COMMON-MISTAKES.md](COMMON-MISTAKES.md)** — production-engineer's checklist of mistakes that recur across teams and decades.
 - **[WORKED-EXAMPLES.md](WORKED-EXAMPLES.md)** — concrete end-to-end scenarios that walk through patterns with code.
-- **[CROSS-REF-LEARNING-PATH.md](CROSS-REF-LEARNING-PATH.md)** — maps each `learn/` interview-track topic to its knowledge-base deep-dive (and flags what each side lacks).
-- **[_AUDIT/README.md](_AUDIT/README.md)** — quality scorecard + per-directory review and improvement notes for this corpus.
 
 ---
 
@@ -85,7 +83,7 @@ The patterns and primitives of doing multiple things at once.
 - [Python Runtime & the GIL](concurrency/python-runtime-and-the-gil.md) — Python's defining concurrency constraint.
 - [CPU Caches & False Sharing](concurrency/cpu-caches-and-false-sharing.md) — the silicon-level reality under multi-threaded code.
 
-### JavaScript Runtime (6)
+### JavaScript Runtime (5)
 The internals of V8, Node.js, and the JavaScript execution model.
 
 - [The Event Loop & Async Runtime](js-runtime/event-loop-and-async-runtime.md) — single-threaded async fundamentals.
@@ -228,9 +226,10 @@ The format is consistent so that artifacts can be read individually or as a corp
 
 ## Stats
 
-- **66 topic files** spanning 10 domains, plus **10 navigation aids** (incl. the cross-reference and the audit).
+- **60 artifacts** spanning 10 domains, plus **8 navigation aids**.
+- **~210,000 words** of curriculum + reference content.
+- **~10 cross-references** per artifact, forming a dense web.
 - **Mentor-style prose**, not textbook summary.
-- Counts are verified by [`_AUDIT/check-parity.sh`](_AUDIT/check-parity.sh) — run it after adding a topic so this stays truthful.
 - **Production-oriented**, not academic.
 - **No copyrighted reproductions**; original synthesis.
 

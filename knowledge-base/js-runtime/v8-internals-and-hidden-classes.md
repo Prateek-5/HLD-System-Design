@@ -4,17 +4,7 @@
 
 ---
 
-## 🎯 Start Here — Intuition
-
-> **In one line:** the engine that runs your JavaScript watches how your code behaves and rewrites it into fast machine code — but only if you feed it predictable, consistently-shaped data; surprise it and it throws the fast version away.
->
-> **Analogy:** a barista who memorizes your usual order. Order the same thing every morning and they start it the moment you walk in — instant. Suddenly change to a complicated custom drink and they have to stop, re-learn, and go slow again. V8 does this with the *shape* of your objects and the *types* of your variables.
->
-> **Assumes you already know:** solid JavaScript fundamentals (objects, functions, prototypes) and *why* performance matters at scale — for the latter, see [`learn/foundations/scaling/scalability.md`](../../learn/foundations/scaling/scalability.md). This is a 🔴 runtime-internals deep dive with no beginner learning-path counterpart; it's an optional senior/specialist extra, not a first-pass system-design topic.
->
-> **Level:** this file is 🔴 overall. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
-
-## Topic Overview 🟢
+## Topic Overview
 
 V8 is the JavaScript engine in Chrome, Node.js, Deno, Edge, and Cloudflare Workers. It's the most-deployed runtime in computing history. And yet, most engineers writing JavaScript professionally know almost nothing about how it actually executes their code.
 
@@ -24,7 +14,7 @@ This isn't trivia. The performance difference between "hot loop runs in TurboFan
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Imagine a translator at the UN.
 
@@ -38,16 +28,16 @@ The entire performance story of V8 is "the JIT learns from runtime behavior, and
 
 ---
 
-## Historical Evolution 🟡
+## Historical Evolution
 
 **Era 1 — Pure interpreters.**
-Early JavaScript engines (Mozilla's SpiderMonkey 1.0, IE's JScript) interpreted the AST (Abstract Syntax Tree) node-by-node. Slow, but simple. JavaScript on the web was a toy.
+Early JavaScript engines (Mozilla's SpiderMonkey 1.0, IE's JScript) interpreted the AST node-by-node. Slow, but simple. JavaScript on the web was a toy.
 
 **Era 2 — V8's launch (2008).**
 Lars Bak and team at Google ship V8 with Chrome. Innovation: skip the AST, compile JS directly to machine code on first execution. Add hidden classes (an old idea from Self in the 1980s). Make property access fast. Suddenly JS is 10× faster than competitors.
 
 **Era 3 — The compiler arms race.**
-SpiderMonkey adds JägerMonkey, then IonMonkey. JavaScriptCore (Apple) adds DFG (Data Flow Graph) and FTL (Faster Than Light). V8 adds Crankshaft (2010), then TurboFan (2017). Each generation: more aggressive speculation, more inlining, more SIMD (Single Instruction, Multiple Data)-style optimizations. The gap between optimized JS and C narrows from 10× to 2× for hot code.
+SpiderMonkey adds JägerMonkey, then IonMonkey. JavaScriptCore (Apple) adds DFG and FTL. V8 adds Crankshaft (2010), then TurboFan (2017). Each generation: more aggressive speculation, more inlining, more SIMD-style optimizations. The gap between optimized JS and C narrows from 10× to 2× for hot code.
 
 **Era 4 — Ignition + TurboFan (2017).**
 V8's modern architecture: Ignition (a fast bytecode interpreter that's also where type feedback is collected) and TurboFan (the optimizing compiler). Code starts in the interpreter; hot functions tier up to TurboFan. This pipeline is still the V8 you're running today.
@@ -58,11 +48,11 @@ A non-optimizing baseline compiler that sits between Ignition and TurboFan. Igni
 **Era 6 — Maglev (2023).**
 Another tier between Sparkplug and TurboFan. The pipeline is now Ignition → Sparkplug → Maglev → TurboFan, each successive tier costing more to compile but generating better code. V8's latency vs throughput tradeoff is now solved by *tiering*.
 
-The pattern across eras: **V8 spends compute to make later compute faster, and the architecture is increasingly about choosing which tier of compilation makes sense for which code**. JavaScript is no longer "interpreted" in any meaningful sense — it's a tiered JIT (Just-In-Time) with type speculation.
+The pattern across eras: **V8 spends compute to make later compute faster, and the architecture is increasingly about choosing which tier of compilation makes sense for which code**. JavaScript is no longer "interpreted" in any meaningful sense — it's a tiered JIT with type speculation.
 
 ---
 
-## Core Mental Models 🟡
+## Core Mental Models
 
 **1. JavaScript is dynamic at the language level, monomorphic in practice.**
 The language allows any property to be added or removed from any object. In *practice*, most code uses objects in stable, type-stable shapes. V8 bets aggressively on that practice. When the bet wins, code is fast. When it loses, code is slow.
@@ -77,13 +67,11 @@ At every property access site, V8 caches the hidden class it saw last time. Same
 TurboFan generates code assuming "this argument is always an integer," "this object always has property X." If those assumptions break, the generated code is wrong. V8 must detect this and *deoptimize* — fall back to a less-specialized version. Deoptimization is expensive; repeated deoptimization is performance-destroying.
 
 **5. Memory is generational and segmented.**
-Most allocations die young. V8's GC (Garbage Collector) reflects this: a small "young generation" collected frequently, a larger "old generation" collected rarely. The GC's design assumes typical object lifetimes; pathological allocation patterns defeat it.
+Most allocations die young. V8's GC reflects this: a small "young generation" collected frequently, a larger "old generation" collected rarely. The GC's design assumes typical object lifetimes; pathological allocation patterns defeat it.
 
 ---
 
-## Deep Technical Explanation 🔴
-
-⚠️ The rest assumes the basics above are solid.
+## Deep Technical Explanation
 
 ### Hidden classes (a.k.a. shapes, maps)
 
@@ -168,7 +156,7 @@ You can see deopts directly: run Node with `--trace-deopt` or `--trace-opt`. The
 ### Garbage collection — generational
 
 V8's heap is divided:
-- **Young generation (new space)**, ~1–8 MB (Megabytes). Most allocations land here. Collected frequently with a fast copying collector (Scavenge). Surviving objects are promoted to old space.
+- **Young generation (new space)**, ~1–8 MB. Most allocations land here. Collected frequently with a fast copying collector (Scavenge). Surviving objects are promoted to old space.
 - **Old generation (old space)**, gigabytes. Collected with a mark-sweep-compact, mostly concurrent and incremental, in modern V8 (Orinoco).
 
 Why generational works: **the weak generational hypothesis**. Most objects die young. Closures created in a request handler, intermediate strings, temporary arrays — all dead by the end of the function. Collecting the young generation costs almost nothing because most of it is garbage by the time you look.
@@ -186,7 +174,7 @@ V8's GC is *mostly* incremental and concurrent — it does work in small slices 
 - **Memory leaks** force more frequent old-gen collection.
 - **Large object allocations** can trigger full collections.
 
-For latency-sensitive servers, GC pauses are *the* tail-latency villain. You can have a service with p50 (50th percentile) of 5ms and p99 (99th percentile) of 200ms purely because of GC. Mitigations:
+For latency-sensitive servers, GC pauses are *the* tail-latency villain. You can have a service with p50 of 5ms and p99 of 200ms purely because of GC. Mitigations:
 - Reduce allocations in hot paths (object pooling, buffer reuse).
 - Avoid creating closures in tight loops.
 - Avoid large temporary objects.
@@ -218,7 +206,7 @@ String operations *flatten* lazily. A loop that builds a string with `+=` may pr
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The custom-built shop floor.**
 Imagine a factory where every machine is custom-built for the specific product it produces. As long as you keep producing the same product, output is incredibly fast — every motion is optimized. The moment you change products, the machinery has to be rebuilt. Most teams change products constantly without realizing it, and the factory spends most of its time rebuilding instead of producing.
@@ -230,7 +218,7 @@ The simultaneous interpreter at the UN listens to a few seconds of speech, predi
 
 ---
 
-## Production Engineering Perspective 🔴
+## Production Engineering Perspective
 
 What V8-related issues look like in production:
 
@@ -269,7 +257,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios 🔴
+## Failure Scenarios
 
 **Scenario 1 — The optional-field hidden-class explosion.**
 A user-record builder creates objects with 12 optional fields. Each combination produces a different hidden class. The application hits 4096 hidden classes for a single object type. Property access throughout the application falls into megamorphic mode. Latency mystery for weeks. Fix: initialize all fields uniformly with defaults.
@@ -288,7 +276,7 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
 - **Hot paths must have monomorphic call sites.** This is the single biggest lever.
 - **Object shape consistency** is non-negotiable in hot code.
@@ -300,29 +288,29 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## Scaling Perspective 🔴
+## Scaling Perspective
 
-- **Per-process memory ceiling.** The old-space limit is not a flat 2GB: the historical fixed default was ~1.5GB, but modern Node (since ~v12) derives `--max-old-space-size` from available physical memory (roughly half of RAM, up to a cap, raised for large-memory machines). For Node servers, explicitly setting 4–8GB is common. Beyond that, GC costs grow superlinearly.
+- **Per-process memory ceiling.** Default `--max-old-space-size` is 2GB on 64-bit. For Node servers, 4–8GB is common. Beyond that, GC costs grow superlinearly.
 - **Many small Node processes** often beat one big one — smaller heaps, faster GCs, simpler isolation.
 - **Worker threads** share the parent process but have isolated heaps. CPU-intensive work without polluting the main heap.
 - **CPU profiling at scale** requires sampling, not tracing. `--prof` produces tick logs you process offline.
 
 ---
 
-## Cross-Domain Connections 🟡
+## Cross-Domain Connections
 
-- **CPU caches.** Hidden classes are L1/L2 (Level 1/Level 2)-cache-friendly because they're small and frequently accessed. Inline caches are *literally* caches, with similar hit/miss dynamics.
+- **CPU caches.** Hidden classes are L1/L2-cache-friendly because they're small and frequently accessed. Inline caches are *literally* caches, with similar hit/miss dynamics.
 - **Database query plans.** V8's IC states (mono → poly → mega) mirror database query planners' decisions about cached vs replanned execution. Same theory: speculate based on observed types, fall back when speculation fails.
 - **Branch prediction.** TurboFan's speculative optimizations are software-level branch prediction. The hardware does the same thing on every conditional jump.
-- **Garbage collection vs MVCC.** Generational GC and MVCC (Multi-Version Concurrency Control) vacuum solve the same problem (reclaim dead versions/objects) at different layers. Both have "long-lived references prevent reclamation" failure modes.
+- **Garbage collection vs MVCC.** Generational GC and MVCC vacuum solve the same problem (reclaim dead versions/objects) at different layers. Both have "long-lived references prevent reclamation" failure modes.
 - **Caching.** V8's optimization tiers are a cache hierarchy for code: Ignition is the source of truth; TurboFan is the L1 cache.
 - **Event loop.** A function that triggers heavy GC pauses *blocks the event loop* for the pause duration. V8 internals are upstream of every Node performance concern.
 
 ---
 
-## Real Production Scenarios 🔴
+## Real Production Scenarios
 
-- **Bun's V8-vs-JavaScriptCore choice.** Bun chose JSC (JavaScriptCore) in part because of startup time differences. The tradeoff: JSC's tiered system has different characteristics than V8's, particularly for short-lived processes.
+- **Bun's V8-vs-JavaScriptCore choice.** Bun chose JSC in part because of startup time differences. The tradeoff: JSC's tiered system has different characteristics than V8's, particularly for short-lived processes.
 - **Node.js worker threads' adoption.** Driven partly by V8 heap-size limits — multiple worker threads scale better than one giant heap.
 - **Cloudflare Workers' V8 isolate model.** Each Worker runs in a V8 isolate (a sandboxed instance) for sub-millisecond cold starts. Demonstrates V8's flexibility as an embeddable runtime.
 - **The Lodash 4 → modern era.** Why Lodash isn't always faster than native: native methods are JIT-friendly; Lodash's generic helpers can be polymorphic. Replacing Lodash with native often produces measurable wins in hot code.
@@ -330,7 +318,54 @@ Lodash-style utility used across the codebase. In one part of the app, it's call
 
 ---
 
-## Worked Example — Optimizing a Hot Path 🔴
+## What Junior Engineers Usually Miss
+
+- That **JavaScript is JIT-compiled**, not interpreted.
+- That **object property order matters** for performance.
+- That **`delete` is a performance footgun** in hot code.
+- That **deoptimization is a real, measurable cost**.
+- That **closures retain everything in their lexical scope**, even unused variables.
+- That **`for...in` is slower than indexed iteration** by an order of magnitude.
+- That **generational GC means temporary allocations are usually free** — *until* they survive long enough to be promoted.
+- That **typed arrays exist** and are wildly faster for numeric work.
+
+---
+
+## What Senior Engineers Instinctively Notice
+
+- They **profile before guessing** — both CPU and heap.
+- They **suspect polymorphism** when a hot function is unexpectedly slow.
+- They **read deoptimization traces** when chasing performance regressions.
+- They **shape data uniformly** across callers of hot functions.
+- They **monitor GC pause time** as a tail-latency indicator.
+- They **prefer typed arrays** for numeric hot paths.
+- They **know that object pooling matters** at high allocation rates.
+- They **avoid `delete` and dynamic property addition** in performance-sensitive code.
+- They **distinguish startup performance from steady-state performance** — different optimization tiers, different concerns.
+
+---
+
+## Interview Perspective
+
+What gets tested:
+
+1. **"Explain hidden classes."** Tests basic V8 literacy. Bonus for explaining how property addition order creates different classes.
+2. **"What's an inline cache and what are its states?"** Senior candidates name mono/poly/megamorphic and explain the performance impact.
+3. **"Why is this code slow?"** Given a function with conditional property addition or polymorphic argument types, the candidate should diagnose IC degradation.
+4. **"Explain V8's GC."** Generational, mostly concurrent, with copy-collect young gen and mark-sweep-compact old gen. Bonus for naming Orinoco.
+5. **"How do you debug a memory leak?"** Heap snapshots, retainer paths, the three-snapshot technique.
+6. **"What's deoptimization?"** Speculative optimization based on observed types; fall back when assumption breaks. Bonus for naming `--trace-deopt`.
+7. **"How would you optimize this hot path?"** Tests practical V8 awareness: monomorphic shapes, avoid closures-in-loops, typed arrays, object pooling.
+
+Common traps:
+- Believing JS is "interpreted."
+- Thinking GC is uniformly expensive (it's mostly free for young allocations).
+- Assuming all object shapes are equivalent.
+- Not knowing that `delete` is dangerous in hot code.
+
+---
+
+## Worked Example — Optimizing a Hot Path
 
 A Node.js service computes invoices. After tracing, the team identifies `calculateInvoice()` as the bottleneck — called 10K times/sec; takes 2ms each. Walk through V8-aware optimization.
 
@@ -398,15 +433,17 @@ Then the loop adds a *new* property (`subtotal`) to each, creating *another* 8 h
 
 ### V8 measurement
 
-Run with `--trace-ic`. Real `--trace-ic` output is terse and references map (hidden-class) addresses, not pretty field sets — the IC at `item.subtotal = ...` transitions through states as it sees more shapes. Schematic (not literal) output:
+Run with `--trace-ic`:
 
 ```
-[ic] StoreIC at calc.js:25:20 (subtotal): MONOMORPHIC -> POLYMORPHIC
-  maps: 0x123abc, 0x456def, 0x789012, 0xabcdef
-[ic] StoreIC at calc.js:25:20 (subtotal): POLYMORPHIC -> MEGAMORPHIC
+[ic] update: PROPERTY at calc.js:25:20 [polymorphic]
+  - hidden class 0x123abc: {id, name, qty, unitPrice, tax}
+  - hidden class 0x456def: {id, name, qty, unitPrice, discount, subtotal}
+  - hidden class 0x789012: {id, name, qty, unitPrice, tax, subtotal}
+  - hidden class 0xabcdef: {id, name, qty, unitPrice, tax, discount, subtotal}
 ```
 
-Each map address corresponds to one of the input shapes from `buildLineItem`. As the count of distinct maps at this site grows past ~4, the IC degrades from monomorphic to polymorphic to megamorphic — slower than monomorphic by roughly 5-20×.
+Polymorphic IC. Slower than monomorphic by 5-20×.
 
 ### The fix — uniform shape
 
@@ -535,7 +572,7 @@ function getStatus(order) {
 
 ---
 
-## Recent Production References (2023-2024) 🟡
+## Recent Production References (2023-2024)
 
 - **V8's Maglev tier (2023)**: middle-tier compiler between Sparkplug and TurboFan; faster warm-up.
 - **Bun's JavaScriptCore choice (2023)**: alternative engine with different performance characteristics.
@@ -546,34 +583,27 @@ function getStatus(order) {
 
 ---
 
-## Key Takeaways
+## 20% Knowledge Giving 80% Understanding
 
-**The core contract.** V8 is a deal: give it code with stable types and stable object shapes and it generates machine code that runs nearly as fast as C; give it chaos and it falls back to interpretation. Most JavaScript lives in the slow lane not because the language is slow, but because the code doesn't provide the predictability the engine needs. The difference between "Node is fine" and "Node is amazing" is measured in monomorphic call sites and stable hidden classes.
+1. **V8 is a tiered JIT** (Ignition → Sparkplug → Maglev → TurboFan).
+2. **Hidden classes** make property access fast; consistent object shape is mandatory.
+3. **Inline caches** state matters — monomorphic >> polymorphic >> megamorphic.
+4. **Deoptimization is expensive**; type stability prevents it.
+5. **Generational GC** makes short-lived allocations cheap; long-lived ones expensive.
+6. **`delete` causes hidden-class transitions to slow modes.** Avoid in hot paths.
+7. **Closures retain captured variables** — leak source if held by long-lived references.
+8. **Typed arrays** are 5–50× faster than regular arrays for numeric work.
+9. **Strings have multiple representations**; concatenation patterns matter.
+10. **Profile, then optimize.** Guesses are usually wrong.
 
-**Mental models that pay off:**
-- **JavaScript is a tiered JIT, not interpreted** (Ignition -> Sparkplug -> Maglev -> TurboFan), each tier costing more to compile but generating better code.
-- **Hidden classes** make property access a single memory load; consistent object shape is mandatory in hot code, and **property-addition order matters** (same fields, different insertion order = different hidden class).
-- **Inline cache state matters**: monomorphic >> polymorphic >> megamorphic. Suspect polymorphism first when a hot function is unexpectedly slow.
-- **Deoptimization is a real, measurable cost**; type stability prevents it. Mixed argument/return types and runtime shape changes trigger it.
-- **Generational GC makes short-lived allocations nearly free** — until they survive long enough to be promoted, then they pressure old-gen and drive pauses. Monitor GC pause time as a tail-latency indicator.
-- **`delete` causes a hidden-class transition to slow dictionary mode** — a footgun in hot code; prefer destructuring to a new object.
-- **Closures retain everything in their lexical scope**, even unused variables — a leak source when held by long-lived references.
-- **Typed arrays are 5-50x faster than regular arrays** for numeric work (contiguous buffer vs. potentially holey/boxed).
-- **`for...in` is roughly an order of magnitude slower** than indexed iteration; structure data in arrays for hot paths.
-- **Strings have multiple representations** (Seq/Cons/Sliced/External); concatenation patterns matter, and lazy flattening can surprise you.
-- **Distinguish startup performance from steady-state performance** — different optimization tiers, different concerns.
-- **Profile before optimizing.** Use CPU and heap profilers; read `--trace-opt`/`--trace-deopt`/`--trace-ic` output; use heap snapshots (and the three-snapshot technique) to find retainers. Guesses are usually wrong. Then keep shapes uniform, prefer monomorphic call sites (split overloaded functions if needed), and reuse buffers/objects in hot loops.
+---
 
-## Interview angle 🟡
+## Final Mental Model
 
-What gets tested:
+> **V8 is a contract: "give me code with stable types and stable shapes, and I'll generate machine code that runs nearly as fast as C. Give me chaos, and I'll fall back to interpretation."**
 
-1. **"Explain hidden classes."** Tests basic V8 literacy. Bonus for explaining how property addition order creates different classes.
-2. **"What's an inline cache and what are its states?"** Senior candidates name mono/poly/megamorphic and explain the performance impact.
-3. **"Why is this code slow?"** Given a function with conditional property addition or polymorphic argument types, the candidate should diagnose IC degradation.
-4. **"Explain V8's GC."** Generational, mostly concurrent, with copy-collect young gen and mark-sweep-compact old gen. Bonus for naming Orinoco.
-5. **"How do you debug a memory leak?"** Heap snapshots, retainer paths, the three-snapshot technique.
-6. **"What's deoptimization?"** Speculative optimization based on observed types; fall back when assumption breaks. Bonus for naming `--trace-deopt`.
-7. **"How would you optimize this hot path?"** Tests practical V8 awareness: monomorphic shapes, avoid closures-in-loops, typed arrays, object pooling.
+Most JavaScript code, written by people who've never thought about V8, lives in the slow lane — not because the language is slow, but because the engine's optimizations require *predictability* the code doesn't provide. The few teams who internalize hidden classes, inline caches, and deoptimization end up with JavaScript code that runs at speeds Java engineers would respect.
 
-Common traps: believing JS is "interpreted"; thinking GC is uniformly expensive (it's mostly free for young allocations); assuming all object shapes are equivalent; not knowing that `delete` is dangerous in hot code.
+You don't have to think about V8 to write working JavaScript. You do have to think about V8 to write *fast* JavaScript at scale. The difference between "Node is fine" and "Node is amazing" is measured in monomorphic call sites and stable hidden classes. Once you see it, you can't unsee it.
+
+That's V8 internals. That's the engine humming under every browser and most modern servers. That's the difference between using JavaScript and *exploiting* it.

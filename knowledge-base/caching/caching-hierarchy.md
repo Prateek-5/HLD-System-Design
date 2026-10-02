@@ -4,29 +4,17 @@
 
 ---
 
-## 🎯 Start Here — Intuition
-
-> **In one line:** Keep a copy of slow-to-fetch data somewhere fast and close, so you don't pay the full cost of looking it up every single time.
->
-> **Analogy:** Your kitchen. You don't walk to the grocery store every time you want milk — you keep some in the fridge (fast, small, nearby) and restock from the store (slow, huge, far) only when you run out. A cache is the fridge; the database is the store. The tricky part: if the store changes the price and your fridge label is old, you're now wrong without knowing it.
->
-> **New to this?** Build the basics first in [`learn/foundations/scaling/caching.md`](../../learn/foundations/scaling/caching.md) — *then* come back for the depth.
->
-> **Level:** this file is 🟡 overall, climbing to 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
-
----
-
-## Topic Overview 🟢
+## Topic Overview
 
 Caching is the most powerful performance technique in software, and the most dangerous. Done well, it turns a 200ms database query into a 200μs in-memory lookup. Done badly, it gives you correct answers 99% of the time and a 1% chance of showing one customer another customer's billing data.
 
-The discipline isn't really one technique — it's a *hierarchy* of caches at every layer of every system, each making the same fundamental tradeoff: **trade some freshness for a lot of speed**. CPU caches (L1/L2/L3), TLB (Translation Lookaside Buffer), page cache, application-level memoization, in-memory key-value stores (Redis), CDN (Content Delivery Network), browser cache. Same idea, six orders of magnitude apart.
+The discipline isn't really one technique — it's a *hierarchy* of caches at every layer of every system, each making the same fundamental tradeoff: **trade some freshness for a lot of speed**. CPU caches (L1/L2/L3), TLB, page cache, application-level memoization, in-memory key-value stores (Redis), CDN, browser cache. Same idea, six orders of magnitude apart.
 
 The senior engineer's job is not to know "how Redis works." It's to know **where in the hierarchy a given piece of data should live**, and what the cost of getting it wrong looks like at 3am.
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Imagine your desk.
 
@@ -45,10 +33,10 @@ The hard part isn't the desk. The hard part is when someone *changes the book in
 
 ---
 
-## Historical Evolution 🟢
+## Historical Evolution
 
 **Era 1 — CPU caches.**
-Mainframes had memory hierarchies before "cache" was a software word. SRAM (Static Random-Access Memory) close to the CPU, DRAM (Dynamic Random-Access Memory) further out, disk further still. The principle: locality of reference. Programs tend to access the same memory repeatedly (temporal locality) and nearby memory next (spatial locality). The hardware exploits this with on-chip caches measured in kilobytes.
+Mainframes had memory hierarchies before "cache" was a software word. SRAM close to the CPU, DRAM further out, disk further still. The principle: locality of reference. Programs tend to access the same memory repeatedly (temporal locality) and nearby memory next (spatial locality). The hardware exploits this with on-chip caches measured in kilobytes.
 
 **Era 2 — Operating system page cache.**
 Filesystems learned to cache disk blocks in RAM. A file read might never touch the disk if the same data was read recently. This is invisible to applications and accounts for a huge fraction of "fast" file I/O on modern systems.
@@ -60,7 +48,7 @@ Web 1.0 era. Memcached (2003). LiveJournal needed to scale a database-backed sit
 Redis (2009). Multi-purpose: cache, queue, pub/sub, primary store. Suddenly you have a cache that supports complex data types, transactions, persistence, replication. The line between "cache" and "database" blurs.
 
 **Era 5 — CDN and edge caching.**
-Akamai (1998), CloudFront, Cloudflare, Fastly. Move static assets — and increasingly dynamic ones — to edge nodes geographically close to users. Cuts cross-continent latency from 150ms to 5ms. The economics: serve once from origin, cache at every PoP (Point of Presence).
+Akamai (1998), CloudFront, Cloudflare, Fastly. Move static assets — and increasingly dynamic ones — to edge nodes geographically close to users. Cuts cross-continent latency from 150ms to 5ms. The economics: serve once from origin, cache at every PoP.
 
 **Era 6 — The reactive era and cache-aside everywhere.**
 Service meshes, function-level memoization, GraphQL response caching, edge computing with cache-aware logic. The hierarchy now reaches from the CPU up to the user's browser, with caches at every hop.
@@ -69,9 +57,26 @@ The pattern: each generation pushed the cache *closer to the consumer* of the da
 
 ---
 
-## Deep Technical Explanation 🔴
+## Core Mental Models
 
-⚠️ The rest assumes the basics above are solid.
+**1. A cache is a deal: faster read, possibly stale data.**
+Every cache makes the same tradeoff. If you can't tolerate any staleness, you don't have a cache — you have a slower indirection.
+
+**2. The hit rate is everything.**
+A cache with 99% hit rate is fast on average. A cache with 90% hit rate is *barely faster than no cache* — because the 10% miss path probably checks the cache first, then falls through to the source. The economics depend on the asymmetry between hit cost and miss cost.
+
+**3. There are only three meaningful cache patterns.**
+Cache-aside (lazy load). Read-through (cache loads on miss). Write-through / write-behind (cache absorbs writes). Every "design pattern" library page is variations on these three.
+
+**4. Invalidation is a distributed systems problem.**
+The instant your cache lives outside the same memory space as the source of truth, you have a *consistency problem*. Cache invalidation is just consistency-model design with a different name.
+
+**5. The cost of staleness varies wildly by data type.**
+Stale rendering of a marketing page: nobody cares. Stale balance on a checkout page: someone is suing you. The same caching infrastructure can be right or wrong depending on the data.
+
+---
+
+## Deep Technical Explanation
 
 ### The full hierarchy (modern web app)
 
@@ -88,9 +93,9 @@ The pattern: each generation pushed the cache *closer to the consumer* of the da
 │  ~100 μs       Local in-process cache (object cache)  │
 │  ~500 μs       Local Redis on same host               │
 │  ~1 ms         Redis on same DC                       │
-│  ~5 ms         CDN edge (POP near user)               │
 │  ~10 ms        Database query (warm cache)            │
 │  ~50 ms        Database query (cold)                  │
+│  ~5 ms         CDN edge (POP near user)               │
 │  ~50–200 ms    Origin server cross-continent          │
 └─────────────────────────────────────────────────────┘
 ```
@@ -145,11 +150,11 @@ When the cache is full, which entry leaves?
 | Policy | Mechanism | Best for |
 |---|---|---|
 | **LRU** (least recently used) | Evict the entry not accessed longest | General purpose |
-| **LFU** (least frequently used) | Evict the entry accessed least overall | Stable workloads; plain LFU suffers cache pollution (once-hot keys never evict), so use decay (Redis's `lfu-decay-time`) or W-TinyLFU |
-| **FIFO** (First In, First Out) | Evict in arrival order | Simplistic; rarely best |
-| **TLRU** (Time-aware Least Recently Used) | LRU with TTL (Time To Live) filter | When freshness matters |
-| **W-TinyLFU** (Window TinyLFU) | Hybrid; admission filter + LRU | Modern (Caffeine) |
-| **2Q / ARC** (Adaptive Replacement Cache) | Adaptive between recency and frequency | Mixed workloads |
+| **LFU** (least frequently used) | Evict the entry accessed least overall | Stable workloads |
+| **FIFO** | Evict in arrival order | Simplistic; rarely best |
+| **TLRU** | LRU with TTL filter | When freshness matters |
+| **W-TinyLFU** | Hybrid; admission filter + LRU | Modern (Caffeine) |
+| **2Q / ARC** | Adaptive between recency and frequency | Mixed workloads |
 
 The default in Redis is `noeviction` (errors when full), with `allkeys-lru` and `volatile-lru` as common alternatives. The choice changes hit rate by 10–30% on real workloads — not a small knob.
 
@@ -160,7 +165,7 @@ The default in Redis is `noeviction` (errors when full), with `allkeys-lru` and 
 - **Stale-while-revalidate**: serve stale data while async-refreshing in the background. Hides backend latency.
 - **Dependency-based invalidation**: explicitly invalidate when the source changes. Most correct, hardest to implement.
 
-The TTL is your primary lever on the freshness-vs-throughput tradeoff. A 10-second TTL with 1000 RPS (Requests Per Second) = 99.99% reduction in DB load on that key.
+The TTL is your primary lever on the freshness-vs-throughput tradeoff. A 10-second TTL with 1000 RPS = 99.99% reduction in DB load on that key.
 
 ### The thundering herd / cache stampede problem
 
@@ -190,7 +195,7 @@ The dirty secret: most "cache invalidation bugs" are race conditions in option 3
 ### CDN caching specifics
 
 CDNs add a layer of complexity:
-- **Cache headers** (`Cache-Control`, `ETag` (Entity Tag), `Last-Modified`) drive behavior.
+- **Cache headers** (`Cache-Control`, `ETag`, `Last-Modified`) drive behavior.
 - **Edge cache vs origin shield**: a hierarchy *within* the CDN to reduce origin load.
 - **Purge** is eventually consistent across PoPs — global purge takes seconds to minutes.
 - **Cache key normalization**: query string ordering, cookies, geo headers — getting this wrong causes either zero cache hits or *cross-user data leakage*.
@@ -200,7 +205,7 @@ CDN caching is where "cache invalidation" becomes a distributed-systems problem 
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The grocery store back room.**
 The shelves (cache) are stocked from the back room (database). When a popular item runs out, an employee (the cache miss) goes to the back room and refills. The shelf is faster to access than the back room. If the back room is also empty, an employee drives to the warehouse (origin). The hierarchy continues all the way to the supplier.
@@ -218,16 +223,16 @@ A newspaper has a *morgue* — its archive of every published article. When jour
 
 ---
 
-## Production Engineering Perspective 🔴
+## Production Engineering Perspective
 
 What goes wrong in real caching systems:
 
-- **The stampede when the cache restarts.** Redis OOM (Out Of Memory)-killed and restarted. Cache is empty. Every request misses. Database is overwhelmed. Cascading failure. Mitigation: warm caches before serving traffic; pre-populate from snapshots; rate-limit to backend during cold starts.
+- **The stampede when the cache restarts.** Redis OOM-killed and restarted. Cache is empty. Every request misses. Database is overwhelmed. Cascading failure. Mitigation: warm caches before serving traffic; pre-populate from snapshots; rate-limit to backend during cold starts.
 - **Cache key collisions.** A bug in key generation (`user:{id}` instead of `tenant:{tid}:user:{id}`) leaks data across tenants. Catastrophic security incident.
 - **Memory bloat from large values.** A "cache user profile" key contains the user's *entire post history* by accident. Each key is 5MB. Redis OOMs at 10K users. Always cap value sizes.
 - **TTL drift across replicas.** Multi-region cache replicas have slight clock skew. TTLs expire at different times. Some users see fresh data, others don't.
 - **Thundering herd hidden in seemingly innocent code.** A worker process refreshes a cache key once per second. The worker dies. The TTL expires. 100K concurrent requests all rebuild simultaneously. Database melts.
-- **Cache-as-database sins.** Storing data only in Redis without persistence. Redis crashes. Data lost. "I thought it was a cache." (Redis *can* persist, but the team didn't enable AOF (Append Only File) or RDB (Redis Database snapshot) correctly.)
+- **Cache-as-database sins.** Storing data only in Redis without persistence. Redis crashes. Data lost. "I thought it was a cache." (Redis *can* persist, but the team didn't enable AOF or RDB correctly.)
 - **The "stale forever" bug.** Background refresh has been failing silently for 3 weeks. Cache TTLs are sliding because of access. Users see 3-week-old data. Discovered when prices haven't updated despite the catalog change.
 - **CDN purge eventual consistency.** Marketing announces a launch. Pushed update. Purged CDN. Some users in some regions see the old version for 90 seconds. Complaints flood support.
 
@@ -240,7 +245,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios 🔴
+## Failure Scenarios
 
 **Scenario 1 — Cold start cascade.**
 Black Friday morning. Cache cluster restart deployed Thursday night accidentally cleared persistence. Cache is empty when traffic ramps. Every request misses. Database CPU 100%. Latency goes from 20ms to 5s. Auto-scaler can't help — it's CPU-bound on the database. Site degrades for 90 minutes until cache warms organically.
@@ -252,14 +257,14 @@ Code: write DB, then `DELETE` cache. Two requests arrive nearly simultaneously: 
 A bug in key serialization caused two tenants' user IDs to collide. Cache served Tenant A's data when Tenant B requested it. Discovered when Tenant B saw Tenant A's username. Security incident, customer notifications, regulatory disclosure.
 
 **Scenario 4 — The infinite-TTL silent drift.**
-A migration set certain cache keys to TTL=0 (no expiration) "temporarily." The temporary became permanent. Six months later, a database schema change. Cache still serving old shape. Production errors looked random. RCA (Root Cause Analysis) traced to those zero-TTL keys.
+A migration set certain cache keys to TTL=0 (no expiration) "temporarily." The temporary became permanent. Six months later, a database schema change. Cache still serving old shape. Production errors looked random. RCA traced to those zero-TTL keys.
 
 **Scenario 5 — CDN purge missed a node.**
 Global purge issued. 99.9% of edge nodes purged. One node in São Paulo had a connectivity issue and missed the purge. Brazilian users saw stale content for 6 hours. Discovered through customer reports.
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
 - **Latency reduction is multiplicative through the stack.** Saving 50ms at one layer saves 50ms on every request that hits that layer.
 - **Cache hit rate compounds.** A 90% hit rate means the source sees 10% of traffic. A 99% hit rate means 1%. The capacity savings on the source are usually the biggest economic win, not the user-facing latency.
@@ -269,7 +274,7 @@ Global purge issued. 99.9% of edge nodes purged. One node in São Paulo had a co
 
 ---
 
-## Scaling Perspective 🔴
+## Scaling Perspective
 
 - **Vertical:** add RAM. Redis can hold tens of GB on one node, hundreds on a beefy box.
 - **Horizontal:** Redis Cluster, partitioned across N nodes. Sharding by key hash. Cross-shard transactions become hard.
@@ -282,20 +287,20 @@ Global purge issued. 99.9% of edge nodes purged. One node in São Paulo had a co
 
 ---
 
-## Cross-Domain Connections 🟡
+## Cross-Domain Connections
 
-- **MVCC (Multi-Version Concurrency Control):** the buffer pool is a cache. Bloated indexes lower its hit rate. The principle (keep the working set in fast storage) is identical.
+- **MVCC:** the buffer pool is a cache. Bloated indexes lower its hit rate. The principle (keep the working set in fast storage) is identical.
 - **Distributed consistency:** cache invalidation is consistency-model design. Stale reads in a cache hierarchy are *exactly* the eventual consistency problem from distributed databases. Same theory, different name. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Event loop:** memoization within a request is the smallest cache. Same logic, microsecond timescale.
 - **Operating systems:** TLB is a cache for virtual-to-physical address translations; page cache is a cache for disk blocks; instruction cache is a cache for code. The OS *is* a stack of caches.
-- **Networking:** DNS (Domain Name System) caching at every level (browser, OS, recursive resolver, root). The Internet wouldn't function without this hierarchy.
+- **Networking:** DNS caching at every level (browser, OS, recursive resolver, root). The Internet wouldn't function without this hierarchy.
 - **Database query plans:** prepared statements cache plans. Plan cache invalidation when statistics change is the database's version of cache invalidation.
 
 The unifying observation: **caching is what every layer does when the layer below is too slow to talk to every time.** It's not a technique — it's a *property of layered systems with latency asymmetry*.
 
 ---
 
-## Real Production Scenarios 🔴
+## Real Production Scenarios
 
 - **Facebook/Memcached at scale:** the famous "Scaling Memcache at Facebook" paper covers thundering herds, leases, and cluster-aware caching at billion-user scale. Required reading.
 - **Netflix's EVCache:** distributed Memcached with multi-region replication. Their public engineering posts document the *operational* reality of large-scale caching.
@@ -305,14 +310,59 @@ The unifying observation: **caching is what every layer does when the layer belo
 
 ---
 
-## Worked Example — Multi-Tier Caching for a Product Page 🔴
+## What Junior Engineers Usually Miss
+
+- That **cache invalidation is a distributed systems problem**, not a coding pattern.
+- That **a 90% hit rate is barely worth the complexity** of caching for many workloads.
+- That **storing values without size limits will OOM the cache** at the worst possible time.
+- That **`DELETE` then `SET` ordering creates race conditions** that look like ghosts in production.
+- That **TTLs based on access (sliding) can keep stale data alive forever** under steady load.
+- That **the cache is not always available** — every cache call needs a fallback path.
+- That **cache stampedes are the rule, not the edge case**, on hot keys.
+
+---
+
+## What Senior Engineers Instinctively Notice
+
+- They monitor **cache hit rate as a primary metric**, not as a vanity stat.
+- They reflexively check **what happens when the cache is cold** during capacity planning.
+- They use **single-flight or probabilistic refresh** on hot keys without being asked.
+- They cap **value size and key size** at the cache layer.
+- They distinguish **acceptable staleness** per data type and choose TTLs accordingly.
+- They know whether their cache is **in-process** or **out-of-process** and the cost difference.
+- They treat **cache invalidation as a consistency model** and design it explicitly.
+- They never store data **only in a cache** without explicit persistence guarantees.
+
+---
+
+## Interview Perspective
+
+What gets tested:
+
+1. **"How would you cache user profile data?"** Junior: "use Redis." Senior: "cache-aside with TTL, key by user ID, value-size cap, invalidate on profile updates with versioned keys to avoid the stale-write race, fallback to DB if cache is unavailable."
+2. **"What happens during a cache stampede?"** Tests whether the candidate knows the problem exists and can name a mitigation (mutex, probabilistic refresh, stale-while-revalidate).
+3. **"How do you invalidate a cache?"** A trap. The right answer is "depending on consistency requirements, here are the options" — not a single technique.
+4. **"What's your eviction policy?"** Tests whether the candidate has thought about hit-rate optimization or just defaulted to LRU.
+5. **"How do you handle cache-database write ordering?"** Tests understanding of the race conditions. Bonus for naming the "double delete" pattern or versioned keys.
+6. **"Design a CDN."** Tests whether the candidate sees CDN as a distributed cache hierarchy with edge nodes, origin shields, and invalidation challenges.
+7. **"When wouldn't you cache?"** Tests engineering judgment: cheap-to-compute values, low hit rate, high invalidation cost, security-sensitive data.
+
+Common traps:
+- Treating cache invalidation as trivial.
+- Assuming Redis is always available.
+- Storing complex objects without size limits.
+- Using cache-aside with no protection against stampedes.
+
+---
+
+## Worked Example — Multi-Tier Caching for a Product Page
 
 A high-traffic e-commerce product page. Goal: low latency globally, low origin load, fresh-enough data.
 
 ### Latency budget
 
 - User-perceived: <300ms total.
-- TTFB (Time To First Byte) target: <100ms at edge.
+- TTFB target: <100ms at edge.
 - Backend budget when miss: ~1s.
 
 ### Tier breakdown
@@ -371,11 +421,8 @@ def update_product(product_id, changes):
     publish_event("product.updated", {"id": product_id})
     # Other instances of the service receive event; clear their in-process cache.
 
-    # Clear Redis. There is no native "delete by pattern" command;
-    # iterate with SCAN (non-blocking) and DEL the matches. Never use
-    # KEYS * in production — it's an O(N) blocking scan on a single-threaded server.
-    for key in redis.scan_iter(match=f"product:{product_id}:*"):
-        redis.delete(key)
+    # Clear Redis (immediate, single instance)
+    redis.delete_pattern(f"product:{product_id}:*")
 
     # Purge CDN by surrogate key (eventually consistent globally)
     cdn.purge_surrogate(f"product-{product_id}")
@@ -469,7 +516,7 @@ The hierarchy collapses load by 100×; user-perceived latency is dominated by ne
 
 ---
 
-## Recent Production References (2023-2024) 🟡
+## Recent Production References (2023-2024)
 
 - **Cloudflare's tiered-cache architecture**: published documentation on edge → regional → origin cache hierarchy; reduces origin load dramatically.
 - **The 2022 Fastly outage**: a config bug took down significant fraction of internet briefly. Postmortem covers recovery and customer trust.
@@ -481,86 +528,27 @@ The hierarchy collapses load by 100×; user-perceived latency is dominated by ne
 
 ---
 
-## Negative Caching & Cache Penetration 🔴
+## 20% Knowledge Giving 80% Understanding
 
-Stampede protects against hot keys that *exist*. **Cache penetration** is the opposite failure: requests for keys that *don't* exist. An attacker (or a buggy client) hammers `user:99999999` — a row that isn't in the DB. Cache-aside checks the cache (miss, because there's nothing to store), queries the DB (miss), stores nothing, and returns null. Every single request falls through to the database. The cache provides zero protection precisely because the data is absent. A scripted attack iterating non-existent IDs can drive 100% of traffic to the DB.
-
-**Negative caching** is the fix: cache the *negative result itself*. On a DB miss, store a tombstone (an empty/sentinel value) under the key with a **short TTL** — typically much shorter than positive TTLs, e.g. 10-30s versus 5min.
-
-```python
-def get_user(id):
-    val = cache.get(f"user:{id}")
-    if val is not None:
-        return None if val == NULL_SENTINEL else val
-    user = db.query("SELECT * FROM users WHERE id = ?", id)
-    if user is None:
-        cache.set(f"user:{id}", NULL_SENTINEL, ttl=30)   # negative entry
-        return None
-    cache.set(f"user:{id}", user, ttl=300)
-    return user
-```
-
-The short TTL is the whole design tension: long enough to absorb a penetration burst, short enough that a key created *after* the negative entry isn't invisible for too long. If creation must be instantly visible, explicitly delete the negative entry on the insert path (write-side invalidation of the tombstone).
-
-**Bloom filter as the alternative guard.** Maintain a Bloom filter of all keys that *do* exist. Check it before touching the cache or DB: if the filter says "not present," the key definitively does not exist — short-circuit and return null with no DB query. Bloom filters have **no false negatives** (a real key always passes) but **tunable false positives** (a small fraction of non-existent keys leak through to the DB — acceptable). They are extremely compact: ~1.2 GB holds ~1 billion keys at a 1% false-positive rate (roughly 9.6 bits/key), versus storing a tombstone per probed key. The catch: standard Bloom filters don't support deletion, so a deleted key still reports "present" — use a counting/cuckoo filter or periodic rebuild if keys are removed. Negative caching and a Bloom filter are complementary: the filter blocks the bulk of garbage IDs cheaply; negative entries catch the false-positive remainder.
-
-## Redis vs Memcached — Internals & When to Pick Which 🔴
-
-Both are in-memory key-value stores reached over the network. The architectural differences decide the choice.
-
-| | **Redis** | **Memcached** |
-|---|---|---|
-| **Threading** | Single-threaded command execution on an event loop (epoll/kqueue); I/O threads since 6.0 only offload socket read/write, not command logic | Multi-threaded; scales vertically across cores natively |
-| **Memory mgmt** | jemalloc; per-type encodings (ziplist/listpack, intset) | **Slab allocator** — memory carved into fixed size-classes; objects rounded up to the nearest class |
-| **Data model** | Rich types: strings, hashes, lists, sets, sorted sets, bitmaps, HyperLogLog, streams, geo | Opaque bytes only — string keys to string/blob values |
-| **Persistence** | Optional **RDB** (point-in-time snapshot/fork) and **AOF** (append-only command log, `appendfsync everysec` default) | None — purely volatile |
-| **Eviction** | Configurable (`noeviction`, `allkeys-lru`, `allkeys-lfu`, etc.) | LRU within each slab class |
-| **Replication / HA** | Async primary-replica, Sentinel, Redis Cluster (16384 hash slots) | None natively; client-side sharding (consistent hashing) |
-
-**Why single-threaded matters (Redis).** Command execution is serialized, so individual commands are atomic with no locking — but one slow command (`KEYS *`, a large `SORT`, a big `SMEMBERS`) blocks *every* other client for its full duration. This is why the worked example forbids `KEYS *` and uses `SCAN`. A single Redis instance saturates roughly one core; you scale out with Cluster, not threads.
-
-**Why the slab allocator matters (Memcached).** Fixed size-classes mean a 1.1 KB object lands in (say) a 1.2 KB slab, wasting ~100 bytes — **slab calcification**: memory assigned to one class can't easily move to another, so a workload whose object-size distribution shifts can have free memory it cannot use. Upside: zero fragmentation churn, trivially multi-threaded, very high raw throughput for uniform small objects.
-
-**When to pick which.**
-- **Memcached** when you want a *pure*, volatile, look-aside cache of small uniform objects (rendered fragments, session blobs, query results), need to saturate many cores from a single node, and want operational simplicity. It does one thing.
-- **Redis** when you need anything beyond opaque get/set: server-side data structures (leaderboards via sorted sets, rate-limiter counters, queues, pub/sub), atomic multi-step operations (Lua/`MULTI`), persistence or replication/failover, or eviction-policy control. The cost is a more complex operational surface and the single-threaded hot-path constraint.
-
-The honest senior framing: Memcached is a cache; Redis is a data structure server that is frequently *used* as a cache. If your only requirement is "fast key-value with TTL," both work and Memcached is simpler; the moment a second requirement appears (a counter, a sorted set, durability), it's Redis.
+1. **Caching trades freshness for speed.** Every cache decision is a freshness budget.
+2. **Hit rate is the dominant metric.** 99% hit rate >> 90% hit rate, by orders of magnitude in capacity savings.
+3. **Three patterns: cache-aside, write-through, write-behind.** Everything else is a variant.
+4. **TTL is your primary knob.** Tune per-data-type.
+5. **Cache stampedes are real.** Use single-flight, probabilistic refresh, or stale-while-revalidate.
+6. **Cache invalidation is distributed-systems consistency.** The same theorem applies.
+7. **Always have a fallback.** Cache unavailability ≠ application unavailability.
+8. **Cap value sizes.** OOM at worst time.
+9. **Versioned keys** beat delete-then-write race conditions.
+10. **The cache is at every layer.** CPU, OS, app, Redis, CDN, browser. Same idea, six orders of magnitude.
 
 ---
 
-## Key Takeaways
+## Final Mental Model
 
-- **Caching trades freshness for speed.** Every cache decision is a freshness budget. If you can't tolerate any staleness, you don't have a cache — you have a slower indirection.
-- **The cost of staleness varies wildly by data type.** Stale marketing page: nobody cares. Stale checkout balance: someone is suing you. The same infrastructure is right or wrong depending on the data — distinguish acceptable staleness per data type and choose TTLs accordingly.
-- **Hit rate is the dominant metric, and its biggest payoff is origin-load reduction, not user latency.** 90% hit means the source sees 10% of traffic (10× reduction); 99% means 1% (100× reduction). Monitor it as a primary metric, not a vanity stat.
-- **Three patterns: cache-aside, write-through, write-behind.** Everything else (read-through, refresh-ahead) is a variant.
-- **TTL is your primary knob.** Tune per-data-type. Sliding (access-based) TTLs can keep stale data alive forever under steady load.
-- **Cache stampedes are the rule, not the edge case, on hot keys.** Use single-flight, probabilistic early refresh, or stale-while-revalidate — reach for these on hot keys without being asked.
-- **Cache invalidation is distributed-systems consistency design.** Once the cache lives outside the source's memory space, it's a consistency problem with a different name. Design it explicitly.
-- **Versioned keys beat delete-then-write race conditions.** `DELETE`-then-`SET` ordering creates races that look like ghosts in production.
-- **Always have a fallback.** The cache is not always available; cache unavailability must not equal application unavailability. Every cache call needs a fallback path, and you should reflexively check what happens when the cache is cold during capacity planning.
-- **Cap value sizes (and key sizes) at the cache layer.** Unbounded values OOM the cache at the worst possible time.
-- **Never store data only in a cache** without explicit persistence guarantees.
-- **Cache the misses too.** Requests for non-existent keys (cache penetration) bypass an ordinary cache entirely. Store short-TTL negative entries, or front the cache with a Bloom filter, to stop garbage IDs from hammering the DB.
-- **Redis vs Memcached is an internals decision, not a brand preference.** Memcached: multi-threaded, slab allocator, volatile — a pure cache. Redis: single-threaded command loop, rich data structures, optional RDB/AOF persistence — a data-structure server used as a cache. Default to Memcached for plain volatile key-value at high per-node throughput; reach for Redis the moment you need a second capability (structures, durability, replication, atomic multi-step ops).
-- **Know whether your cache is in-process or out-of-process** and the cost difference — a network-hop cache can be slower than recomputation for cheap values.
-- **The cache is at every layer.** CPU, OS, app, Redis, CDN, browser. Same idea, six orders of magnitude apart. Every cache is a small distributed system; every invalidation is a small consistency problem.
+> **Caching is the answer when the question is "how do I make this faster without rewriting it?" — but the answer always comes with a hidden invoice for staleness, complexity, and the operational risk of cache failure modes.**
 
-The senior instinct, looking at any system, is to scan the latency hierarchy and ask: *where is the slow layer? what's the working set above it? what's the freshness requirement of the data?* The right cache, in the right place, with the right TTL, hides almost any backend problem. The wrong one becomes the next outage. The senior engineer treats cache invalidation as a *design problem*, not an implementation detail.
+Every cache is a small distributed system. Every cache invalidation is a small consistency problem. Every cache hierarchy is a small operating system. The *theory* you need to operate caches well is the same theory you need for everything else in distributed engineering — applied at smaller scales, with prettier APIs.
 
----
+The senior instinct, looking at any system, is to scan the latency hierarchy and ask: *where is the slow layer? what's the working set above it? what's the freshness requirement of the data?* The right cache, in the right place, with the right TTL, hides almost any backend problem. The wrong one becomes the next outage.
 
-## Interview angle 🟡
-
-What gets tested:
-
-1. **"How would you cache user profile data?"** Junior: "use Redis." Senior: "cache-aside with TTL, key by user ID, value-size cap, invalidate on profile updates with versioned keys to avoid the stale-write race, fallback to DB if cache is unavailable."
-2. **"What happens during a cache stampede?"** Tests whether the candidate knows the problem exists and can name a mitigation (mutex, probabilistic refresh, stale-while-revalidate).
-3. **"How do you invalidate a cache?"** A trap. The right answer is "depending on consistency requirements, here are the options" — not a single technique.
-4. **"What's your eviction policy?"** Tests whether the candidate has thought about hit-rate optimization or just defaulted to LRU.
-5. **"How do you handle cache-database write ordering?"** Tests understanding of the race conditions. Bonus for naming the "double delete" pattern or versioned keys.
-6. **"Design a CDN."** Tests whether the candidate sees CDN as a distributed cache hierarchy with edge nodes, origin shields, and invalidation challenges.
-7. **"When wouldn't you cache?"** Tests engineering judgment: cheap-to-compute values, low hit rate, high invalidation cost, security-sensitive data.
-
-Common traps: treating cache invalidation as trivial; assuming Redis is always available; storing complex objects without size limits; using cache-aside with no protection against stampedes.
+Phil Karlton was right. Cache invalidation is hard. The senior engineer is the one who treats it as a *design problem*, not an implementation detail.

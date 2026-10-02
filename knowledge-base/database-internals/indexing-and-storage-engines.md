@@ -4,29 +4,17 @@
 
 ---
 
-## 🎯 Start Here — Intuition
-
-> **In one line:** how a database finds the exact rows you asked for without reading the whole table, and how it physically arranges data on disk so that finding and updating it stay fast.
->
-> **Analogy:** the index at the back of a textbook. To find every page that mentions "photosynthesis," you don't read all 800 pages — you flip to the alphabetized index, jump straight to the entry, and it tells you the exact pages. A database index is that back-of-book index, kept sorted and updated every time a page (row) changes.
->
-> **New to this?** Build the basics first in [`learn/data/indexes.md`](../../learn/data/indexes.md) — *then* come back for the depth.
->
-> **Level:** this file is 🟡/🔴 overall — it starts with friendly analogies but quickly goes into storage-engine internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
-
----
-
-## Topic Overview 🟢
+## Topic Overview
 
 Every database is, at heart, two things stacked on top of each other: a *storage engine* that decides how bytes are laid out on disk and how to find them again, and a *query layer* that decides what to ask the storage engine for. Most performance conversations are about query layers. Most performance *problems* are about storage engines.
 
 Indexes are how a storage engine answers the question "where is the data I want?" without reading every page. They are the difference between a 50ms point lookup and a 50-second sequential scan. They are also the reason your write throughput is half of what you expected — because every index is a parallel data structure that has to be maintained in lockstep with the table.
 
-The two dominant storage engine families — **B+ tree based** (Postgres, InnoDB, SQL Server, Oracle) and **LSM (Log-Structured Merge) tree based** (Cassandra, RocksDB, ScyllaDB, modern Mongo) — are not competing implementations of the same idea. They are *different bets about the future shape of your workload*. Understanding which bet they made, and why, is what separates engineers who tune databases from engineers who guess at parameters.
+The two dominant storage engine families — **B+ tree based** (Postgres, InnoDB, SQL Server, Oracle) and **LSM tree based** (Cassandra, RocksDB, ScyllaDB, modern Mongo) — are not competing implementations of the same idea. They are *different bets about the future shape of your workload*. Understanding which bet they made, and why, is what separates engineers who tune databases from engineers who guess at parameters.
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Imagine a phone book.
 
@@ -44,7 +32,7 @@ Indexes are sub-instances of the same idea. A secondary index is a smaller, sepa
 
 ---
 
-## Historical Evolution 🟡
+## Historical Evolution
 
 **Era 1 — Heap files and sequential scans.**
 Early databases stored rows in arrival order. Finding anything specific meant scanning. This was fine when datasets fit in core memory and "big" meant a megabyte.
@@ -53,24 +41,41 @@ Early databases stored rows in arrival order. Finding anything specific meant sc
 Constant-time lookups, beautiful for equality. Useless for range queries. Doesn't survive memory pressure well — collision chains explode. Still alive in Postgres `hash` indexes and, more importantly, in in-memory caches like Redis.
 
 **Era 3 — B-trees and B+ trees.**
-Bayer & McCreight, 1970. Designed specifically for *block-oriented storage*: each node holds many keys, fanout is wide (hundreds per node), depth stays shallow (3–5 levels for billions of rows). The B+ tree refinement keeps all data in leaf pages, linked together for range scans. This single data structure is the workhorse of OLTP (Online Transaction Processing) for fifty years and counting.
+Bayer & McCreight, 1970. Designed specifically for *block-oriented storage*: each node holds many keys, fanout is wide (hundreds per node), depth stays shallow (3–5 levels for billions of rows). The B+ tree refinement keeps all data in leaf pages, linked together for range scans. This single data structure is the workhorse of OLTP for fifty years and counting.
 
 **Era 4 — Log-structured storage.**
 Researchers in the 90s noticed that *random writes are catastrophically slow* on rotating disks compared to sequential writes. The idea: turn random updates into sequential appends, defer the sorting work until later. Log-structured filesystems came first; log-structured merge trees (O'Neil et al., 1996) brought the idea to indexes.
 
 **Era 5 — LSM-tree dominance for write-heavy workloads.**
-Bigtable, Cassandra, HBase, LevelDB, RocksDB. The rise of timeseries, IoT (Internet of Things), social, and cloud-scale workloads — all heavily write-skewed — made LSM the natural fit. RocksDB became a building block for everything from CockroachDB to Kafka Streams to ML (Machine Learning) feature stores.
+Bigtable, Cassandra, HBase, LevelDB, RocksDB. The rise of timeseries, IoT, social, and cloud-scale workloads — all heavily write-skewed — made LSM the natural fit. RocksDB became a building block for everything from CockroachDB to Kafka Streams to ML feature stores.
 
 **Era 6 — Convergence and specialization.**
-Modern systems blur the lines. SQL Server has columnstore indexes (column-oriented storage). Postgres has BRIN (Block Range Index), GIN (Generalized Inverted Index), GiST (Generalized Search Tree), SP-GiST (Space-Partitioned GiST) for specialized cases. ClickHouse uses sparse indexes optimized for OLAP (Online Analytical Processing). Storage engines are no longer one-size-fits-all — they're a portfolio.
+Modern systems blur the lines. SQL Server has columnstore indexes (column-oriented storage). Postgres has BRIN, GIN, GiST, SP-GiST for specialized cases. ClickHouse uses sparse indexes optimized for OLAP. Storage engines are no longer one-size-fits-all — they're a portfolio.
 
-The pattern across eras: **the disk's physics shaped the data structures, and as the disk changed (HDD → SSD → NVMe → cloud block storage), the optimal data structures shifted.** (HDD = Hard Disk Drive; SSD = Solid-State Drive; NVMe = Non-Volatile Memory Express.)
+The pattern across eras: **the disk's physics shaped the data structures, and as the disk changed (HDD → SSD → NVMe → cloud block storage), the optimal data structures shifted.**
 
 ---
 
-## Deep Technical Explanation 🔴
+## Core Mental Models
 
-⚠️ The rest assumes the basics above are solid.
+**1. The storage engine answers two questions: where is row X, and what's near it?**
+Indexes are the answer-keys. Different index types optimize for different question shapes.
+
+**2. Every index is a tax on writes.**
+Insert one row, update N indexes. This is not optional. The tax is paid in I/O, in CPU, in WAL volume, and in lock contention. The right number of indexes is the *minimum* set that makes your hot read paths fast — not "every column someone might filter on."
+
+**3. Random vs sequential I/O is the hidden ruler.**
+On HDDs, random I/O was 100× slower than sequential. On SSDs, the gap shrinks to ~10×. On NVMe, ~3×. But it never goes to zero, and the *write amplification* of random small writes still wears out flash. Storage engine design is downstream of this single ratio.
+
+**4. Reads and writes are zero-sum at some layer.**
+You can be fast at reads (B-tree) by paying on writes. You can be fast at writes (LSM) by paying on reads or compaction. You can be fast at both for *small* datasets by living in memory. There is no design that's free in all dimensions.
+
+**5. The query plan is a treasure map; the storage layout is the terrain.**
+A "good" plan on bad terrain is still slow. Indexes turn bad terrain into navigable roads — selectively, where it matters.
+
+---
+
+## Deep Technical Explanation
 
 ### B+ trees in detail
 
@@ -80,7 +85,7 @@ A B+ tree of order k:
 - Height is log_k(N). For k ≈ 200 and N = 1 billion, height ≈ 4.
 
 Critical implications:
-- Point lookup: ~4 disk reads (I/O = Input/Output). With caching, often 1–2.
+- Point lookup: ~4 disk reads. With caching, often 1–2.
 - Range scan: walk the leaf-level linked list, almost free per row after the first.
 - Insert: descend, possibly split nodes upward. Splits are O(log N) amortized but can cause cascading writes.
 - Delete: similar, with possible merges. Most engines defer merges (they don't actually shrink the tree) — leading to *tree bloat* over time.
@@ -93,7 +98,7 @@ Critical implications:
 
 **Write path:**
 1. Find the leaf.
-2. WAL (Write-Ahead Log) the change.
+2. WAL the change.
 3. Modify the in-memory page.
 4. Page is eventually flushed by the background writer.
 5. Other indexes also updated, each with their own WAL entry.
@@ -129,8 +134,8 @@ Old versions of the same key linger across multiple SSTables until compaction re
 - **Clustered (index-organized) tables** (InnoDB primary, SQL Server): the table *is* a B+ tree on the primary key. Secondary indexes hold primary key values, not row pointers — so secondary index lookups become two lookups (the index, then the primary key tree).
 
 This single architectural choice determines:
-- Whether range scans on the PK (Primary Key) are blazing fast (clustered) or just normal (heap).
-- Whether secondary indexes are cheap to maintain (heap with TID (Tuple Identifier) pointers) or relatively expensive (clustered, two trees per lookup).
+- Whether range scans on the PK are blazing fast (clustered) or just normal (heap).
+- Whether secondary indexes are cheap to maintain (heap with TID pointers) or relatively expensive (clustered, two trees per lookup).
 - Whether `UPDATE` of indexed columns causes cascading rewrites (yes, in different ways for both).
 
 ### Specialized indexes worth knowing
@@ -140,7 +145,7 @@ This single architectural choice determines:
 | Hash | Equality only, in-memory | No range, hash collisions |
 | B-tree (B+) | General purpose, ranges | Updates expensive on hot rows |
 | BRIN | Massive sequentially-correlated data | Useless for random data |
-| GIN | Full-text, JSONB (JSON Binary), arrays | Slow updates, large size |
+| GIN | Full-text, JSONB, arrays | Slow updates, large size |
 | GiST | Geospatial, custom types | Complex tuning |
 | Bitmap | Low-cardinality, OLAP | Bad under writes |
 | Columnstore | Analytical aggregates | Bad for OLTP point lookups |
@@ -149,7 +154,7 @@ The right question is never "should I add an index?" — it's "which index *type
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The library card catalog.**
 A B+ tree is a card catalog: cards alphabetized in drawers, drawers labeled with ranges, drawers grouped by floor. To find a book, you walk down the hierarchy. The cards (leaves) are linked alphabetically so you can browse "all books starting with 'P'." Adding a new book means inserting a card — possibly splitting a drawer if it overflows. Periodically, librarians rebalance the catalog.
@@ -161,7 +166,7 @@ That mailroom is RocksDB.
 
 ---
 
-## Production Engineering Perspective 🔴
+## Production Engineering Perspective
 
 Things that actually matter at 3am:
 
@@ -169,7 +174,7 @@ Things that actually matter at 3am:
 - **The covering index trick.** Adding extra columns to an index so the query can be answered from the index alone (`INCLUDE` in Postgres, "covering index" in SQL Server). Eliminates the heap fetch entirely. Massive win for hot read paths.
 - **Index selectivity is everything.** An index on `gender` with two values is useless. An index on `email` with 50M unique values is golden. Cardinality matters more than column "importance."
 - **Composite index column order.** `(a, b)` is not the same as `(b, a)`. The first column must appear in the WHERE clause for the index to be useful. Junior engineers index every permutation; seniors think about query patterns and index once.
-- **Compaction storms in LSM systems.** A tier-2 → tier-3 compaction that touches 100GB can saturate disk I/O for 20 minutes. If you don't rate-limit it, your p99 (99th-percentile) latency goes through the roof during compaction.
+- **Compaction storms in LSM systems.** A tier-2 → tier-3 compaction that touches 100GB can saturate disk I/O for 20 minutes. If you don't rate-limit it, your p99 latency goes through the roof during compaction.
 - **Write stalls in RocksDB.** When the memtable fills faster than it can flush, writes block. When L0 has too many files, writes block. Cascading backpressure that looks like "the database froze."
 - **Vacuum and B-tree interaction (Postgres).** Vacuum can reclaim space inside index pages but can't shrink the index. `REINDEX CONCURRENTLY` is the heavy artillery.
 
@@ -177,7 +182,7 @@ The senior engineer's habit: **periodically audit indexes**. `pg_stat_user_index
 
 ---
 
-## Failure Scenarios 🔴
+## Failure Scenarios
 
 **Scenario 1 — The 100-index table.**
 A reporting database accreted indexes over years. Every analyst added "just one more" for their dashboard. Now the table has 47 indexes. INSERTs take 800ms. Bulk loads time out. Migration to a slimmer index set takes a week of coordination because nobody knows which indexes are still used.
@@ -189,14 +194,14 @@ A timeseries application launched on Postgres for "transactional safety." Six mo
 A Cassandra cluster operating fine for months suddenly sees write latency spikes. Investigation: leveled compaction can't keep up because data ingestion grew 3× without re-tuning. Pending compactions queue up, L0 fills, writes stall, replicas timeout, gossip drops nodes, cluster goes into split-brain.
 
 **Scenario 4 — Index page split storms.**
-A primary key is a UUIDv4 (Universally Unique Identifier, version 4) — random by design. Every insert lands in a different leaf page, causing splits across the entire tree. Sequential UUIDs (UUIDv7, ULIDs (Universally Unique Lexicographically Sortable Identifiers)) would have inserted into the rightmost leaf and avoided 90% of the splits. Migration: hours of rebuilding indexes during a maintenance window.
+A primary key is a UUIDv4 — random by design. Every insert lands in a different leaf page, causing splits across the entire tree. Sequential UUIDs (UUIDv7, ULIDs) would have inserted into the rightmost leaf and avoided 90% of the splits. Migration: hours of rebuilding indexes during a maintenance window.
 
 **Scenario 5 — Bloom filter false positive cascade.**
 An LSM cluster's bloom filters were sized for an older dataset. Data grew 10×. False positive rate climbed from 1% to 12%. Read amplification doubled. Hot key reads now check 5 SSTables instead of 1. Latency: 2ms → 18ms. Root cause is invisible without checking bloom filter metrics.
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
 - **Cache locality wins everything.** A 10GB index that fits in RAM is *thousands of times* faster than a 10GB index that doesn't. Whatever you do, fight for the working set to fit in cache.
 - **Sequential vs random I/O still matters on SSDs.** Less than on HDDs, but enough that LSM's append-only writes still beat B-tree's random updates for write-heavy workloads.
@@ -205,7 +210,7 @@ An LSM cluster's bloom filters were sized for an older dataset. Data grew 10×. 
 
 ---
 
-## Scaling Perspective 🟡
+## Scaling Perspective
 
 - **Vertical:** B-trees scale beautifully on a single machine into the multi-TB range as long as RAM keeps pace with the working set.
 - **Horizontal reads:** straightforward via replication. Indexes are replicated alongside data.
@@ -215,22 +220,22 @@ An LSM cluster's bloom filters were sized for an older dataset. Data grew 10×. 
 
 ---
 
-## Cross-Domain Connections 🔴
+## Cross-Domain Connections
 
-- **MVCC (Multi-Version Concurrency Control)**: every index entry needs visibility info; bloated indexes from MVCC churn are the silent killer of B-tree performance. (See [mvcc-and-isolation-levels.md](mvcc-and-isolation-levels.md).)
+- **MVCC**: every index entry needs visibility info; bloated indexes from MVCC churn are the silent killer of B-tree performance. (See [mvcc-and-isolation-levels.md](mvcc-and-isolation-levels.md).)
 - **Distributed systems:** consistent hashing in distributed caches and partitioning is, structurally, a hash index across machines. Range partitioning is a B-tree at the cluster level.
 - **Filesystems:** ext4 uses B-trees for inodes. ZFS and Btrfs are copy-on-write trees. The same data structures recur at every layer of the stack.
 - **JavaScript runtime:** V8's hidden classes (shape transitions) function similarly to indexes — they cache "where is the field with name X?" so property access doesn't have to scan. Same instinct, different domain.
 - **Networking:** routing tables in routers are tries (radix trees), which are conceptually a B-tree variant optimized for prefix matching.
-- **Operating systems:** page tables are tree structures with caching (TLBs (Translation Lookaside Buffers)) — exactly the same architecture as databases with buffer pools.
+- **Operating systems:** page tables are tree structures with caching (TLBs) — exactly the same architecture as databases with buffer pools.
 
 The unifying insight: **fast lookup over large data is always a tree, and fast updates over a tree are always a battle with random I/O.**
 
 ---
 
-## Real Production Scenarios 🟡
+## Real Production Scenarios
 
-- **Discord's switch from MongoDB to Cassandra (2017)**, and later to ScyllaDB. Driven entirely by storage engine fit: write-skewed workload, MMAP (Memory-Mapped) based MongoDB hitting working-set limits, LSM-based Cassandra winning until coordinator overhead became the bottleneck.
+- **Discord's switch from MongoDB to Cassandra (2017)**, and later to ScyllaDB. Driven entirely by storage engine fit: write-skewed workload, MMAP-based MongoDB hitting working-set limits, LSM-based Cassandra winning until coordinator overhead became the bottleneck.
 - **GitHub's MySQL operations**: famous engineering posts on how they manage online schema migrations and index rebuilds at scale, with `gh-ost` orchestrating the InnoDB realities.
 - **CockroachDB on RocksDB → Pebble**: rewrote the storage engine in Go to gain control over compaction behavior. The tuning of compaction is a first-class engineering concern, not a footnote.
 - **Uber's migration from Postgres to MySQL (2016)** — controversial, but their stated reason was index maintenance overhead in Postgres' heap-organized tables under their workload.
@@ -238,7 +243,49 @@ The unifying insight: **fast lookup over large data is always a tree, and fast u
 
 ---
 
-## Worked Example — Choosing Indexes for a Real Schema 🟡
+## What Junior Engineers Usually Miss
+
+- That **adding indexes makes writes slower**, full stop. Every index is a parallel structure to maintain.
+- That **column order in composite indexes matters** and `(a, b)` ≠ `(b, a)`.
+- That **a query using an index is not automatically fast** — index scans on a large match set can be slower than a sequential scan.
+- That **`SELECT *` defeats covering index optimizations**.
+- That **reindexing is sometimes the right answer** for performance regression in a long-running database.
+- That **storage engine choice constrains what's achievable** — no amount of query tuning fixes a B-tree handling a write-skewed workload.
+
+---
+
+## What Senior Engineers Instinctively Notice
+
+- They check the **explain plan** before tuning, not after.
+- They ask "what does this table's working set look like in RAM?" before reaching for indexes.
+- They recognize that **`UUID` primary keys cause B-tree page split storms** and reach for sortable alternatives.
+- They **monitor unused indexes** and drop them as part of routine hygiene.
+- They know which **bloom filter false positive rate** their LSM is configured for.
+- They don't pick "Postgres vs MySQL vs Cassandra" by feature checklist — they pick by *workload shape*.
+- They treat the **buffer pool hit rate** as a north-star metric.
+
+---
+
+## Interview Perspective
+
+What interviewers are testing:
+
+1. **Do you know why a B-tree is shaped like a B-tree?** Specifically, that fanout × depth = log scaling, and that fanout is dictated by page size. The candidate who says "log N" without saying "because page size limits fanout" is reciting, not reasoning.
+2. **Can you explain LSM vs B-tree as a tradeoff?** Not "LSM is faster for writes" — *why* it's faster, what it costs in reads and space, and when each is the right call.
+3. **Composite index column order question.** Almost guaranteed to come up. The candidate who knows `(status, created_at)` is great for "filter by status, sort by date" but not for "filter by date, sort by status" is showing real understanding.
+4. **Covering indexes.** Bonus points for mentioning them unprompted on a hot read path question.
+5. **Indexed UUID primary keys.** A trap question. The right answer involves random vs sequential UUIDs and B-tree page split behavior.
+6. **The "should I add an index" reflex test.** The right answer is *"it depends on the read/write ratio, the cardinality, and what's already indexed."*
+
+Common traps:
+- Thinking more indexes = faster.
+- Confusing clustered and non-clustered indexes.
+- Missing the difference between LSM read amplification and write amplification.
+- Forgetting that indexes need to fit (mostly) in RAM to actually help.
+
+---
+
+## Worked Example — Choosing Indexes for a Real Schema
 
 A `tickets` table in a multi-tenant ticketing system. ~100M rows. Several common queries.
 
@@ -406,7 +453,7 @@ Indexes with `idx_scan = 0` after a week have no usage. Drop them. Each drop acc
 
 ---
 
-## Recent Production References (2023-2024) 🔴
+## Recent Production References (2023-2024)
 
 - **Postgres 16's improvements to parallel index builds**: faster CREATE INDEX CONCURRENTLY.
 - **MySQL 8's invisible indexes**: test index removal without dropping. Operational discipline tool.
@@ -418,33 +465,27 @@ Indexes with `idx_scan = 0` after a week have no usage. Drop them. Each drop acc
 
 ---
 
-## Key Takeaways
+## 20% Knowledge Giving 80% Understanding
 
-- **An index is a deal: pay extra on writes, pay less on reads.** The art is making that deal *exactly* where it pays off, and nowhere else. Every index is a parallel structure maintained in lockstep — taxed in I/O, CPU, WAL volume, and lock contention. The right number is the *minimum* that makes hot read paths fast.
-- **B-tree = keep everything sorted, pay on every write; random updates expensive. LSM = append cheaply, sort in the background, pay on reads/compaction; reads check multiple files.** They are different bets about workload shape, not interchangeable implementations — picking wrong is a six-month rewrite.
-- **Reads and writes are zero-sum at some layer.** Fast reads (B-tree) cost writes; fast writes (LSM) cost reads or compaction; fast at both only for small in-memory datasets. No design is free in all dimensions.
-- **Random vs sequential I/O is the hidden ruler.** ~100× gap on HDDs, ~10× on SSDs, ~3× on NVMe — never zero, and random small writes still cause write amplification that wears flash. Storage engine design is downstream of this ratio.
-- **Cardinality and selectivity matter more than which column is "important."** An index on `gender` (2 values) is useless; one on `email` (50M unique) is golden.
-- **Composite index `(a, b)` only helps when `a` appears in the WHERE clause** — `(a, b)` ≠ `(b, a)`. Think about query patterns and index once, rather than indexing every permutation.
-- **The buffer pool / page cache is your real database; disk is cold storage.** The working set must fit in RAM — an index that fits is thousands of times faster than one that doesn't. Treat buffer pool hit rate as a north-star metric.
-- **Heap vs clustered tables changes the cost model of secondary indexes.** (Clustered means secondary lookups become two lookups; heap means row moves require index updates.)
-- **LSM trees are write-optimized; their pain shows up in compaction and read amplification.** Know which bloom filter false positive rate yours is configured for.
-- **Random PKs (UUIDv4) destroy B-tree insert performance via page-split storms.** Use sortable IDs (UUIDv7, ULIDs).
-- **A query using an index is not automatically fast** — index scans over a large match set can lose to a sequential scan. And `SELECT *` defeats covering-index optimizations.
-- **Drop unused indexes ruthlessly** (`idx_scan = 0`). Each drop accelerates every write to that table; treat index hygiene as continuous. `REINDEX CONCURRENTLY` is the right answer for a regressed long-running index.
-- **The query plan is downstream of the storage layout — look at terrain first.** When something is slow, walk the chain (hardware → data structure → plan → perceived latency); the answer is usually at the storage layer, not the SQL. Check the explain plan and the working set *before* tuning, and instinctively *subtract* indexes that aren't earning their keep rather than adding more. Storage engine choice constrains what's achievable — no query tuning fixes a B-tree on a write-skewed workload, and you pick "Postgres vs MySQL vs Cassandra" by workload shape, not feature checklist.
+1. **B-tree = sorted, random updates expensive. LSM = appended, sorted in background, reads check multiple files.**
+2. **Every index taxes writes.** The right number is the minimum that makes hot reads fast.
+3. **Cardinality and selectivity matter more than which column is "important."**
+4. **Composite index `(a, b)` only helps when `a` is in the WHERE clause.**
+5. **The buffer pool / page cache is your real database. Working set must fit.**
+6. **Heap vs clustered tables changes the cost model of secondary indexes.**
+7. **LSM trees are write-optimized; their pain shows up in compaction and read amplification.**
+8. **Random PKs (UUIDv4) destroy B-tree insert performance. Use sortable IDs.**
+9. **Drop unused indexes ruthlessly. They tax every write for no benefit.**
+10. **The query plan is downstream of the storage layout. Look at terrain first.**
 
 ---
 
-## Interview angle 🟡
+## Final Mental Model
 
-What interviewers are testing:
+> **An index is a deal: pay extra on writes, pay less on reads. The art of database engineering is making that deal *exactly* where it pays off, and nowhere else.**
 
-1. **Why is a B-tree shaped like a B-tree?** Fanout × depth = log scaling, and fanout is dictated by page size. Saying "log N" without "because page size limits fanout" is reciting, not reasoning.
-2. **Explain LSM vs B-tree as a tradeoff** — not "LSM is faster for writes" but *why* it's faster, what it costs in reads and space, and when each is right.
-3. **Composite index column order** (almost guaranteed): `(status, created_at)` is great for "filter by status, sort by date" but not for "filter by date, sort by status."
-4. **Covering indexes** — bonus points for raising them unprompted on a hot read path.
-5. **Indexed UUID primary keys** — a trap; the answer involves random vs sequential UUIDs and B-tree page split behavior.
-6. **The "should I add an index" reflex test** — correct answer: *"it depends on the read/write ratio, the cardinality, and what's already indexed."*
+The hardware shapes the data structure. The data structure shapes the query plan. The query plan shapes user-perceived performance. When something is slow, walk the chain — almost always, the answer is at the storage layer, not the SQL.
 
-Common traps: thinking more indexes = faster; confusing clustered and non-clustered indexes; missing the difference between LSM read amplification and write amplification; forgetting indexes must fit (mostly) in RAM to help.
+A senior engineer's instinct, tuning a database, isn't to add indexes. It's to look at the working set, the cache hit rate, the index list, the row width, and the access pattern — and to *subtract* whatever isn't earning its keep.
+
+That's storage engineering. That's the disk you're standing on, every time you write a query.

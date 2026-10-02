@@ -2,19 +2,9 @@
 
 > *"Events are statements about the past. Commands are requests about the future. Architecting around events instead of commands is a way of saying: 'I trust the past more than I trust the request that just arrived.' Done right, this produces systems with looser coupling, better history, and more reliability. Done wrong, it produces a distributed mess where nobody knows what's happening."*
 
-## 🎯 Start Here — Intuition
-
-> **In one line:** instead of services phoning each other and waiting on the line, they announce "this just happened" and anyone who cares reacts on their own time.
->
-> **Analogy:** a community bulletin board. You pin a notice — "Garage sale Saturday" — and walk away. You don't know or care who reads it. Interested neighbors see it whenever they pass by and act on it; uninterested ones ignore it. The board (the broker) decouples the person posting from the people reading.
->
-> **New to this?** Build the basics first in [`learn/architecture/event-driven-architecture.md`](../../learn/architecture/event-driven-architecture.md) — *then* come back for the depth.
->
-> **Level:** this file is 🟡 overall, climbing to 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
-
 ---
 
-## Topic Overview 🟢
+## Topic Overview
 
 Event-driven architecture (EDA) is the pattern where services communicate by emitting and consuming *events* — facts about things that happened — rather than calling each other directly. "Order placed." "Payment received." "Inventory reserved." Each event is a message published to a broker; interested services consume it asynchronously.
 
@@ -22,11 +12,11 @@ The pattern decouples producers from consumers. The order service doesn't know w
 
 The cost is operational complexity. Eventual consistency is the norm. Debugging "why did this happen?" requires distributed tracing across many services. Schema evolution is harder. Order-of-events matters but is hard to enforce. Many teams adopt EDA expecting simplicity and find a different kind of complexity.
 
-This is the topic where Kafka, queues, sagas, CQRS (Command Query Responsibility Segregation), and event sourcing meet. Done well, EDA is the substrate for resilient, scalable distributed systems. Done badly, it's a mass of moving parts nobody understands.
+This is the topic where Kafka, queues, sagas, CQRS, and event sourcing meet. Done well, EDA is the substrate for resilient, scalable distributed systems. Done badly, it's a mass of moving parts nobody understands.
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Imagine running a magazine subscription service.
 
@@ -40,16 +30,16 @@ That's event-driven architecture. The flow is the same; the coupling is differen
 
 ---
 
-## Historical Evolution 🟢
+## Historical Evolution
 
 **Era 1 — Pub/sub on message brokers.**
-1990s, 2000s. JMS (Java Message Service), MQ (Message Queue), RabbitMQ. Publisher-subscriber decoupling. Used in enterprise; less in web.
+1990s, 2000s. JMS, MQ, RabbitMQ. Publisher-subscriber decoupling. Used in enterprise; less in web.
 
-**Era 2 — SOA (Service-Oriented Architecture) and message buses.**
+**Era 2 — SOA and message buses.**
 2000s. Enterprise Service Bus pattern. Heavy, often centralized. Mixed track record.
 
 **Era 3 — Microservices + simple queues.**
-~2014. Microservices boom; many used simple queues (RabbitMQ, SQS (Simple Queue Service)) for async work.
+~2014. Microservices boom; many used simple queues (RabbitMQ, SQS) for async work.
 
 **Era 4 — Kafka and event streaming.**
 ~2015. Kafka's adoption transformed thinking. Events as durable, replayable streams. Confluent, enterprise adoption.
@@ -64,9 +54,26 @@ The pattern: each generation made event-driven easier and more reliable. The fun
 
 ---
 
-## Deep Technical Explanation 🔴
+## Core Mental Models
 
-> ⚠️ The rest assumes the basics above are solid.
+**1. Events are facts about the past.**
+"OrderPlaced" — this happened. Immutable. Other services react. Events are *not* commands; nobody is being told what to do.
+
+**2. Producers and consumers are decoupled.**
+Producer doesn't know who's listening. Consumers don't know who emitted. They share a contract: the event schema.
+
+**3. Temporal decoupling.**
+Producer can be down; events queue. Consumer can be down; producer keeps emitting. Eventually they sync.
+
+**4. Eventual consistency is the default.**
+"OrderPlaced" emitted; consumers process at their own pace. The state across the system is briefly inconsistent. Designs must accommodate this.
+
+**5. Order of events matters but is hard.**
+Events from one producer to one partition are typically ordered. Events across producers, across partitions, across consumers are not. Reasoning about ordering is real work.
+
+---
+
+## Deep Technical Explanation
 
 ### Events vs commands vs messages
 
@@ -171,7 +178,7 @@ Events from one producer to one partition arrive in order. Across partitions: no
 Implications:
 - **Per-key ordering**: hash by key (e.g., user_id) so all events for one user are in the same partition.
 - **Cross-key ordering**: not maintained; designs must not assume.
-- **Causal ordering**: track explicitly with sequence numbers or HLCs (Hybrid Logical Clocks).
+- **Causal ordering**: track explicitly with sequence numbers or HLCs.
 
 A common bug: assuming global order. Real systems rarely have it.
 
@@ -199,7 +206,7 @@ Operational metric: **consumer lag**. Lag is the canonical signal for "consumer 
 - **Broker down**: catastrophic; producers and consumers blocked.
 - **Consumer down**: lag grows; if down too long, retention may purge unconsumed events.
 - **Slow consumer**: lag grows; same as down at limit.
-- **Bad event**: poison pill; consumer fails repeatedly. Mitigation: dead-letter queue (DLQ).
+- **Bad event**: poison pill; consumer fails repeatedly. Mitigation: dead-letter queue.
 
 Each failure has different mitigations. Production-ready EDA has thoughtful answers for all.
 
@@ -218,7 +225,7 @@ The discipline: events are a contract with downstream services. Treat schema cha
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The newspaper subscription.**
 Newspapers publish; subscribers read at their own pace. Publishers don't know individual readers; readers don't talk back. New publications start; subscribers add them. Old publications cease; subscribers unsubscribe. The decoupling is total.
@@ -232,7 +239,7 @@ A radio dispatcher (event-driven): events broadcast on the radio. Maintenance he
 
 ---
 
-## Production Engineering Perspective 🔴
+## Production Engineering Perspective
 
 What goes wrong:
 
@@ -256,7 +263,7 @@ The senior engineer's habits:
 
 ---
 
-## Failure Scenarios 🔴
+## Failure Scenarios
 
 **Scenario 1 — The poison pill cascade.**
 Producer ships malformed events. Consumer fails on each. Retries; no progress. Lag grows. Other (valid) events also blocked because they're behind the poison pill in the queue. Mitigation: skip-on-failure with DLQ.
@@ -265,7 +272,7 @@ Producer ships malformed events. Consumer fails on each. Retries; no progress. L
 Producer adds a required field. Old consumers can't parse. Errors flood logs. Mitigation: schema registry with backward compatibility checks; field made optional with default.
 
 **Scenario 3 — The dual-write inconsistency.**
-Service writes order to DB (Database); emits event to Kafka separately; DB succeeds; Kafka fails. Order in DB but no event published. Other services don't know. Mitigation: outbox pattern.
+Service writes order to DB; emits event to Kafka separately; DB succeeds; Kafka fails. Order in DB but no event published. Other services don't know. Mitigation: outbox pattern.
 
 **Scenario 4 — The replay disaster.**
 Engineer "replays" Kafka topic to rebuild a state. Consumer is non-idempotent. Side effects (emails sent again, payments re-processed). Mitigation: idempotent consumers; or test replays in staging only.
@@ -275,7 +282,7 @@ Consumer down for maintenance. Topic retention is 7 days. Maintenance takes 8 da
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
 - **Producer latency**: ~milliseconds for Kafka; ~tens of microseconds for in-memory brokers.
 - **End-to-end latency** in event flows: dominated by consumer processing time + lag.
@@ -285,7 +292,7 @@ Consumer down for maintenance. Topic retention is 7 days. Maintenance takes 8 da
 
 ---
 
-## Scaling Perspective 🟡
+## Scaling Perspective
 
 - **Vertical**: bigger brokers; more partitions per broker.
 - **Horizontal**: more brokers; more partitions; more consumers.
@@ -294,7 +301,7 @@ Consumer down for maintenance. Topic retention is 7 days. Maintenance takes 8 da
 
 ---
 
-## Cross-Domain Connections 🟡
+## Cross-Domain Connections
 
 - **Sagas**: sagas built on events. (See [saga-pattern-and-distributed-transactions.md](./saga-pattern-and-distributed-transactions.md).)
 - **CQRS / event sourcing**: event-driven naturally. (See [cqrs-and-event-sourcing.md](./cqrs-and-event-sourcing.md).)
@@ -307,7 +314,7 @@ The unifying observation: **event-driven architecture is loose coupling realized
 
 ---
 
-## Real Production Scenarios 🟡
+## Real Production Scenarios
 
 - **LinkedIn's Kafka origin**: built for activity stream events; spawned the company.
 - **Netflix's event-driven architecture**: extensive public engineering.
@@ -318,28 +325,72 @@ The unifying observation: **event-driven architecture is loose coupling realized
 
 ---
 
-## Key Takeaways
+## What Junior Engineers Usually Miss
 
-- **Events are facts about the past, not commands.** "OrderPlaced" happened and is immutable; consumers react. Nobody is being told what to do. Confusing events with commands is the most common conceptual error.
-- **Producers and consumers are decoupled.** The producer doesn't know who's listening; consumers don't know who emitted. They share one contract: the event schema. This is loose coupling realized through asynchronous facts.
-- **Temporal decoupling.** Producer can be down while events queue; consumer can be down while the producer keeps emitting. Eventually they sync.
-- **Eventual consistency is the default.** State across the system is briefly inconsistent; designs must accommodate it.
-- **Ordering is per-partition, not global.** Events from one producer to one partition are ordered; across producers/partitions/consumers they are not. Use per-key partitioning (hash by user_id) or explicit sequence numbers; never assume global order.
-- **At-least-once delivery requires idempotent consumers.** Don't assume exactly-once; redelivery happens. Build idempotency in by default.
-- **Outbox pattern** is the standard for atomic dual writes (DB state + event emission in one transaction, published by a separate poller).
-- **Schema registry and additive-only evolution.** Manage schemas with a registry and compatibility checks; treat events as forever-contracts like APIs — add fields, never change semantics.
-- **DLQs** quarantine poison pills so one bad event can't block the queue.
-- **Consumer lag is the canonical health metric** — the primary signal that a consumer is overloaded, stuck, or risking retention-driven data loss.
-- **Choreography for simple reactions; orchestration for complex business flows.** Many systems use both.
-- **Distributed tracing is essential** for debugging "where's my order?" — answering requires aggregating events across services.
-- EDA makes every other distributed-systems concept — eventual consistency, idempotency, sagas, observability — essential rather than optional. Teams that succeed treat events as a discipline (registry, outbox, idempotency, DLQs, lag monitoring, tracing) built deliberately; teams that fail discover after outages that they should have.
+- That **events are facts, not commands**.
+- That **producers and consumers are decoupled** (don't know each other).
+- That **eventual consistency is the default**.
+- That **ordering is per-partition**, not global.
+- That **at-least-once requires idempotent consumers**.
+- That **schemas need management** at scale.
+- That **debugging is harder** without tracing.
+- That **outbox pattern** for atomic dual writes.
 
-## Interview angle
+---
 
-- **"What's event-driven architecture?"** / **"Pub/sub vs request/response?"** — decoupled async facts vs coupled synchronous calls.
-- **"What's the outbox pattern?"** — atomic DB write + event emission.
-- **"Choreography vs orchestration?"** — decentralized reactions vs a central coordinator.
-- **"How do you handle schema evolution?"** — registry, backward compatibility, additive changes.
-- **"What's a dead-letter queue?"** — quarantine for repeatedly-failing events.
-- **"How do you debug event flows?"** — distributed tracing; aggregated cross-service state.
-- Common traps: confusing events with commands; believing global ordering exists; assuming exactly-once delivery.
+## What Senior Engineers Instinctively Notice
+
+- They **use schema registry** by default.
+- They **build idempotent consumers**.
+- They **use outbox pattern** for reliability.
+- They **monitor consumer lag** as primary signal.
+- They **set up DLQs** for poison pills.
+- They **distribute trace** across event flows.
+- They **document events as forever-contracts**.
+- They **distinguish choreography from orchestration**.
+
+---
+
+## Interview Perspective
+
+What gets tested:
+
+1. **"What's event-driven architecture?"** Tests fundamentals.
+2. **"Pub/sub vs request/response?"** Decoupled vs coupled.
+3. **"What's the outbox pattern?"** Atomic DB write + event emission.
+4. **"Choreography vs orchestration?"** Decentralized vs central.
+5. **"How do you handle schema evolution?"** Registry, backward compatibility.
+6. **"What's a dead-letter queue?"** Quarantine for failed events.
+7. **"How do you debug event flows?"** Distributed tracing; aggregated state.
+
+Common traps:
+- Confusing events with commands.
+- Believing global ordering exists.
+- Assuming exactly-once delivery.
+
+---
+
+## 20% Knowledge Giving 80% Understanding
+
+1. **Events = past facts**; loose coupling.
+2. **At-least-once + idempotent consumers** = reliable.
+3. **Outbox pattern** for atomic dual writes.
+4. **Schema registry** for evolution.
+5. **DLQ** for poison pills.
+6. **Per-key ordering**, not global.
+7. **Consumer lag** is the canonical metric.
+8. **Choreography** for simple flows; **orchestration** for complex.
+9. **Distributed tracing** for debugging.
+10. **Events are forever**: additive only.
+
+---
+
+## Final Mental Model
+
+> **Event-driven architecture is the choice to decouple producers from consumers via durable facts. Every other distributed-systems concept — eventual consistency, idempotency, sagas, observability — becomes essential, not optional. The systems that thrive in EDA are the ones whose teams treat events as a contract; the systems that struggle are the ones that thought "we'll figure out the contract later."**
+
+The senior architect designing EDA treats it as discipline, not just technology. Schema registry. Outbox pattern. Idempotent consumers. DLQs. Lag monitoring. Distributed tracing. Each is a small piece; together they form a foundation that scales to billions of events without losing comprehension.
+
+Teams that succeed with EDA build these pieces deliberately. Teams that fail with EDA discover, after three years and two outages, that they should have. The pattern is powerful; the engineering investment is real.
+
+That's event-driven architecture. That's the substrate of modern reactive systems. That's the design that lets services evolve independently — when you've done the work to make it actually evolvable.

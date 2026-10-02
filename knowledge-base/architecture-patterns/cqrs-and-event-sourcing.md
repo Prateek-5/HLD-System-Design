@@ -4,19 +4,7 @@
 
 ---
 
-## 🎯 Start Here — Intuition
-
-> **In one line:** Instead of storing only *where things are now* (overwriting the old value each time), store the *full list of things that happened* — and use separate, purpose-built models for writing changes vs. reading answers.
->
-> **Analogy:** A bank statement. The bank never stores just "your balance is $1,000" and erases the rest — it keeps every deposit and withdrawal, and your balance is just the running total. You can always ask "what was my balance on March 15th?" because the whole story is still there. CQRS adds a second twist: the teller window that *accepts* your deposit is run separately from the printed statement you *read* — same money, two purpose-built views.
->
-> **New to this?** Build the basics first in [`learn/architecture/event-sourcing.md`](../../learn/architecture/event-sourcing.md) (and its companion [`learn/architecture/cqrs.md`](../../learn/architecture/cqrs.md)) — *then* come back for the depth.
->
-> **Level:** this file is 🟡 overall, leaning 🔴 in the internals. Sections below are tagged. If the basics feel shaky, that tag is your signal to slow down — **you are not behind.**
-
----
-
-## Topic Overview 🟢
+## Topic Overview
 
 CQRS (Command Query Responsibility Segregation) and Event Sourcing are usually mentioned together — sometimes as if they're the same thing — but they're separate ideas that compose. CQRS says: *"the model you use for writing should not be the same as the model you use for reading."* Event Sourcing says: *"don't store the current state of things; store the sequence of events that produced it, and derive state by replaying the events."*
 
@@ -24,11 +12,11 @@ Each is useful alone. Together, they form an architectural style that addresses 
 
 The catch — and it's a serious one — is operational complexity. Event Sourcing in particular trades a familiar problem (mutable state, well-understood) for an unfamiliar one (immutable event logs, schema evolution of events, replay performance, projections that lag, read models out of sync). Most teams that adopt event sourcing because of a blog post regret it. Teams that adopt it for the *right* reasons — financial systems, audit-heavy domains, collaborative editing, business processes with complex state evolution — sometimes can't imagine going back.
 
-This is the topic where MVCC (Multi-Version Concurrency Control)'s "log of versions" idea, distributed systems' "consistency models," and software architecture's "separation of concerns" converge. It's also the topic where "good idea badly applied" is most expensive.
+This is the topic where MVCC's "log of versions" idea, distributed systems' "consistency models," and software architecture's "separation of concerns" converge. It's also the topic where "good idea badly applied" is most expensive.
 
 ---
 
-## Intuition Before Definitions 🟢
+## Intuition Before Definitions
 
 Picture two ways to keep a bank account balance.
 
@@ -48,19 +36,19 @@ That's the entire idea. The interesting parts are everything that happens when y
 
 ---
 
-## Historical Evolution 🟢
+## Historical Evolution
 
 **Era 1 — Banking and finance, forever.**
 Double-entry bookkeeping is event sourcing in disguise. You don't erase a debit; you record a corresponding credit. The ledger *is* the audit log. This pattern is centuries old.
 
-**Era 2 — CRUD (Create, Read, Update, Delete) becomes the default.**
-Relational databases and OO (Object-Oriented) design produced a generation of "current state in a table" applications. Easy to start, easy to query, easy to lose history. Most enterprise software still works this way.
+**Era 2 — CRUD becomes the default.**
+Relational databases and OO design produced a generation of "current state in a table" applications. Easy to start, easy to query, easy to lose history. Most enterprise software still works this way.
 
-**Era 3 — DDD (Domain-Driven Design) and Greg Young (mid-2000s).**
+**Era 3 — DDD and Greg Young (mid-2000s).**
 Greg Young popularizes CQRS and event sourcing in the Domain-Driven Design community. The arguments: complex domains have complex state transitions; CRUD forces shoe-horning these into "update X, set Y." Events are the natural language of domain experts.
 
 **Era 4 — Microservices and event-driven architecture.**
-The pattern of services communicating via events — Kafka, EventBridge, NATS (Neural Autonomic Transport System) — makes "events as a first-class citizen" mainstream. Many teams now use events for inter-service communication without doing event sourcing within a service. The terminology blurs.
+The pattern of services communicating via events — Kafka, EventBridge, NATS — makes "events as a first-class citizen" mainstream. Many teams now use events for inter-service communication without doing event sourcing within a service. The terminology blurs.
 
 **Era 5 — Specialized event stores.**
 EventStoreDB, Axon Server, Marten (Postgres-backed). Tools designed specifically for event-sourced systems with optimistic concurrency, projections, and replays as first-class operations. Adoption remains niche but committed.
@@ -72,9 +60,26 @@ The pattern: *event sourcing is finance's pattern, periodically rediscovered by 
 
 ---
 
-## Deep Technical Explanation 🔴
+## Core Mental Models
 
-> ⚠️ The rest assumes the basics above are solid.
+**1. State is a function of events.**
+`state = fold(events, initial)`. Once you accept this, the question "where is the source of truth?" answers itself: the events. Everything else is derivable.
+
+**2. Commands ≠ events.**
+A command is a *request* — "Place this order." It can be rejected, validated, or transformed. An event is a *fact* — "Order placed." Events are immutable; they happened. This distinction is fundamental and often violated by teams new to the pattern.
+
+**3. Reads and writes have different shapes.**
+Writes are about *invariants*: "this order can only be cancelled if it's not yet shipped." Reads are about *projections*: "show me all of my orders this year, sorted by date." Forcing both into the same data model is what makes complex systems painful. CQRS separates them by design.
+
+**4. Eventual consistency between command and query.**
+The read side updates from events. There's a delay — usually milliseconds, sometimes seconds. After a successful command, the user might not immediately see the effect in the query side. This is a UX and engineering problem you must explicitly handle.
+
+**5. Events are forever.**
+Once written, an event is immutable. You don't update events. You don't delete events (mostly — see GDPR concerns). New requirements produce *new events*, not edits to old ones. This is a contract with the future.
+
+---
+
+## Deep Technical Explanation
 
 ### CQRS without event sourcing
 
@@ -82,7 +87,7 @@ You can have CQRS without event sourcing. Many teams do.
 
 - **Write model**: a normalized relational database optimized for transactional integrity.
 - **Read model**: a separate database (Elasticsearch, a denormalized SQL view, Redis cache, materialized views) optimized for query patterns.
-- **Synchronization**: Change Data Capture (CDC) like Debezium, or application-level dual writes, or batch ETL (Extract, Transform, Load).
+- **Synchronization**: Change Data Capture (CDC) like Debezium, or application-level dual writes, or batch ETL.
 
 Benefits without event sourcing:
 - Read scaling independent of write scaling.
@@ -182,12 +187,12 @@ The discipline: **never change the meaning of an event**. Add new event types fo
 
 This is the part where teams struggle. The "events forever" property is the source of both event sourcing's power and its operational difficulty.
 
-### GDPR (General Data Protection Regulation) and the immutable log
+### GDPR and the immutable log
 
 What about deletion? "Right to be forgotten" requires deleting personal data. But events are immutable.
 
 Patterns:
-- **Crypto-shredding**: encrypt PII (Personally Identifiable Information) in events with per-user keys. Delete the key on a delete request. The event remains, but the PII is unrecoverable.
+- **Crypto-shredding**: encrypt PII in events with per-user keys. Delete the key on a delete request. The event remains, but the PII is unrecoverable.
 - **Compaction with safe metadata**: replace deleted user's identifiers with anonymous tokens, retain the *shape* of the events for accounting.
 - **Tombstone events**: explicit `UserAnonymized` events that projections honor.
 
@@ -227,7 +232,7 @@ The system has two paths:
 
 ---
 
-## Real Engineering Analogies 🟢
+## Real Engineering Analogies
 
 **The accountant's ledger.**
 A traditional ledger (event sourcing): every transaction is a new line; corrections are *new* lines (a credit to reverse a debit); the current balance is computed by summing. You can audit any moment in history. You can produce any view (annual statement, by-account, by-payee) by reading the same ledger differently. You don't *update* old lines — that would be falsifying records.
@@ -243,7 +248,7 @@ If software state were git, you'd never lose data, you'd always know who changed
 
 ---
 
-## Production Engineering Perspective 🔴
+## Production Engineering Perspective
 
 What event-sourced systems look like at 3am:
 
@@ -255,9 +260,17 @@ What event-sourced systems look like at 3am:
 - **The dual-write inconsistency** (in non-event-sourced CQRS): write to the database succeeded; write to the message bus failed. Database has the new state; downstream read models don't. The "outbox pattern" exists to solve exactly this.
 - **The over-eager event design.** Early team designed events at too low a level (`FieldXChanged`, `FieldYChanged`). Now adding a feature requires understanding the entire event log to compose an aggregate's state. Domain-level events (`OrderShipped`, `RefundIssued`) age much better.
 
+The senior engineer's habits:
+- **Design events around domain language**, not technical state changes.
+- **Version events from day one** — `OrderShipped.v1`, `OrderShipped.v2`. Every event includes a version.
+- **Have a replay tool** before going live.
+- **Monitor projection lag** as a primary metric.
+- **Build the upcast layer before you need it** — not after.
+- **Treat the event store as a forever-immutable contract**.
+
 ---
 
-## Failure Scenarios 🔴
+## Failure Scenarios
 
 **Scenario 1 — The projection that ate the database.**
 A projection emits 1 row to the read model per event. After 6 months and 100M events, the read model has 100M rows, half of which are obsolete states overridden by later events. Disk full. Realization: projections must produce *current state*, not historical state — that's what the event log is for.
@@ -276,7 +289,7 @@ Early decision: emit events for every "atomic" state change at the field level. 
 
 ---
 
-## Performance Perspective 🟡
+## Performance Perspective
 
 - **Append-only writes are fast.** Event stores are essentially log-structured. Throughput is high.
 - **Replays are linear.** O(events). Projections must be efficient, idempotent, and parallelizable when possible.
@@ -287,7 +300,7 @@ Early decision: emit events for every "atomic" state change at the field level. 
 
 ---
 
-## Scaling Perspective 🔴
+## Scaling Perspective
 
 - **Vertical:** event store throughput is bounded by the disk's append rate. Tens of thousands of events per second on a single node easily.
 - **Horizontal:** partition the event log by aggregate ID. Each partition is an ordered log; cross-partition is unordered.
@@ -297,20 +310,20 @@ Early decision: emit events for every "atomic" state change at the field level. 
 
 ---
 
-## Cross-Domain Connections 🟡
+## Cross-Domain Connections
 
 - **MVCC**: event sourcing is MVCC promoted to the application layer. Both keep history; both derive state from versions. The vacuum/compaction problem is the snapshot problem. (See [mvcc-and-isolation-levels.md](../database-internals/mvcc-and-isolation-levels.md).)
 - **Distributed systems**: cross-aggregate consistency is the same as distributed consistency. Sagas, event-driven microservices, eventual consistency — all the same theory. (See [cap-consistency-and-replication.md](../distributed-systems/cap-consistency-and-replication.md).)
 - **Caching**: read models are caches. Projection lag is cache staleness. Same patterns, same anti-patterns. (See [caching-hierarchy.md](../caching/caching-hierarchy.md).)
 - **Backpressure**: projection workers are consumers of an event stream; they need backpressure handling like any stream consumer. (See [backpressure-and-queues.md](../concurrency/backpressure-and-queues.md).)
 - **Functional programming**: `state = fold(events, initial)` is a pure function. Event sourcing is what happens when you take immutability seriously at the architecture level.
-- **Filesystems**: log-structured filesystems (F2FS (Flash-Friendly File System), ZFS (Zettabyte File System)) are filesystem-level event sourcing. Same insight — append is fast, in-place mutation is slow, derive current state on read.
+- **Filesystems**: log-structured filesystems (F2FS, ZFS) are filesystem-level event sourcing. Same insight — append is fast, in-place mutation is slow, derive current state on read.
 
 The deep insight: **event sourcing is the architectural expression of "state is dangerous; history is data"**. The pattern recurs at every layer where mutability becomes operationally expensive.
 
 ---
 
-## Real Production Scenarios 🟡
+## Real Production Scenarios
 
 - **Stripe's ledger.** Stripe's internal financial ledger is event-sourced (publicly described in their engineering blog). The motivations are obvious: regulatory compliance, audit, correctness across currencies and time zones. They have an entire team building tools for projection management.
 - **Walmart's order management.** Public talks describe an event-sourced approach to order state machines, with explicit events for each transition. The audit and history requirements made it obvious.
@@ -320,49 +333,76 @@ The deep insight: **event sourcing is the architectural expression of "state is 
 
 ---
 
-## Key Takeaways
+## What Junior Engineers Usually Miss
 
-**Core mental models**
-- **State is a function of events:** `state = fold(events, initial)`. The events are the source of truth; everything else is derivable.
-- **Commands ≠ events.** A command is a *request* ("Place this order") that can be rejected, validated, or transformed. An event is an immutable *fact* ("Order placed"). Conflating the two is a classic beginner mistake.
-- **Reads and writes have different shapes.** Writes enforce *invariants* ("cancel only if not yet shipped"); reads serve *projections* ("my orders this year, sorted by date"). CQRS separates them by design.
-- **Events are forever.** Once written they are immutable — never updated, never deleted (mostly — see GDPR). New requirements produce *new events*, and schema evolution is additive-only.
-
-**What's easy to miss**
-- **CQRS doesn't require event sourcing**, and event sourcing without CQRS is rarely useful. CQRS is the lighter, more broadly useful pattern; most teams should reach for it first.
-- **Schema evolution of events is the hardest part** and ages worst if not designed up front. Never change the meaning of an event; deprecate and introduce a new event type. Build the upcast layer *before* you need it.
-- **Projections are eventually consistent** and lag the log; the UI must explicitly handle command-query latency.
-- **Snapshots are caches** of the fold, with all the cache-invalidation problems (regenerate when the fold logic changes).
-- **Debugging is unfamiliar** — "show me the events that produced this state" tooling is essential.
-- **Event sourcing for CRUD-shaped problems is over-engineering.** The dominant cost is operational, not technical.
-
-**Senior instincts**
-- Ask "do you actually need history as a feature?" before recommending event sourcing.
-- Design events at the **domain level** (`OrderShipped`, `RefundIssued`), not the technical field-change level.
-- **Version events from day one** (`OrderShipped.v1`); plan schema evolution before the first event ships.
-- **Measure projection lag** as a primary system metric; have a **replay tool** ready before going live.
-- Treat **GDPR / data deletion** as a design problem (crypto-shredding, anonymization), not an afterthought.
-
-**The high-leverage essentials**
-- Optimistic concurrency handles write conflicts; hot aggregates suffer retry thrash.
-- Cross-aggregate consistency *is* distributed consistency — sagas are the pattern.
-- **Replay is the superpower:** build new read models without re-migrating data.
-- Use it when history is a feature (audit, finance, collaboration); skip it otherwise.
-
-> **Event sourcing is what you do when you take seriously that state is a story, not a snapshot. The story is the data; the snapshot is a convenience.** The architect's question is: *do we need to know how we got here, or only where we are?* For most CRUD apps "where we are" is enough. For financial systems, audit-heavy domains, complex workflows, and collaborative editing — the snapshot is the lie, and the story is the truth. The judgment call must be made *before* the system is built, not after.
+- That **CQRS doesn't require event sourcing**, and event sourcing without CQRS is rarely useful.
+- That **events are immutable** — never edited, never deleted (mostly).
+- That **schema evolution of events** is the hardest part and the one that ages the worst if not designed up front.
+- That **projections are eventually consistent** and the UI must handle this explicitly.
+- That **snapshots are caches** with all the cache invalidation problems.
+- That **commands and events are different things**.
+- That **debugging event-sourced systems is unfamiliar** and requires tools.
+- That **event sourcing for CRUD problems is over-engineering**.
 
 ---
 
-## Interview angle 🟡
+## What Senior Engineers Instinctively Notice
+
+- They **ask "do you actually need history as a feature?"** before recommending event sourcing.
+- They **design events at the domain level**, not the technical state-change level.
+- They **version events from day one**.
+- They **plan for schema evolution** before the first event ships.
+- They **measure projection lag** as a primary system metric.
+- They **distinguish CQRS from event sourcing** clearly.
+- They **prepare replay tooling** before going live.
+- They **see GDPR / data deletion** as a design problem, not an afterthought.
+- They **know that the dominant cost is operational, not technical**.
+
+---
+
+## Interview Perspective
 
 What gets tested:
 
-1. **"Explain CQRS."** That it's a separation of read and write models, *separately* from event sourcing.
-2. **"Explain event sourcing."** Events as the source of truth; state as a derived projection.
-3. **"When would you NOT use event sourcing?"** Senior candidates volunteer that simple CRUD apps don't benefit — the operational burden isn't worth it.
-4. **"How do you handle schema evolution of events?"** Versioning, upcasting, additive-only discipline.
-5. **"How do you handle command-query latency?"** Optimistic UI, polling for confirmation, sticky read-from-write.
-6. **"What about GDPR?"** A trap — name crypto-shredding or anonymization patterns.
-7. **"How do you design event boundaries?"** Aggregate-level, domain language, business-meaningful state transitions. Bonus for naming Domain-Driven Design.
+1. **"Explain CQRS."** Tests whether the candidate understands it's a separation of read and write models, *separately* from event sourcing.
+2. **"Explain event sourcing."** Tests whether the candidate understands events as the source of truth and state as a derived projection.
+3. **"When would you NOT use event sourcing?"** Critical question. Senior candidates volunteer that simple CRUD apps don't benefit; the operational burden isn't worth it.
+4. **"How do you handle schema evolution of events?"** Tests practical experience. Junior candidates haven't thought about it; senior candidates discuss versioning, upcasting, and the discipline of additive-only changes.
+5. **"How do you handle command-query latency?"** UX patterns: optimistic UI, polling for confirmation, sticky read-from-write. Tests practical knowledge.
+6. **"What about GDPR?"** A trap. Senior candidates name crypto-shredding or anonymization patterns.
+7. **"How do you design event boundaries?"** Aggregate-level events, domain language, business-meaningful state transitions. Bonus for naming Domain-Driven Design.
 
-Common traps: conflating CQRS and event sourcing; treating events as technical state changes (`FieldXChanged`); not knowing projections are eventually consistent; believing event sourcing is a default architectural choice.
+Common traps:
+- Conflating CQRS and event sourcing.
+- Treating events as technical state changes ("FieldXChanged").
+- Not knowing that projections are eventually consistent.
+- Believing event sourcing is a default architectural choice.
+
+---
+
+## 20% Knowledge Giving 80% Understanding
+
+1. **CQRS = separate read and write models.** Optional event sourcing.
+2. **Event Sourcing = state is a fold over events.** Events are the source of truth.
+3. **Events are immutable, forever.** Schema evolution is additive.
+4. **Projections are eventually consistent.** UI must handle this.
+5. **Snapshots cache the fold.** Same cache invalidation rules.
+6. **Optimistic concurrency** for write conflicts; hot aggregates suffer.
+7. **Cross-aggregate consistency is distributed consistency.** Sagas are the pattern.
+8. **Event design at domain level**, not field-change level.
+9. **Replay is the superpower.** Build new read models without re-migration.
+10. **Use it when history is a feature.** Audit, finance, collaboration. Skip otherwise.
+
+---
+
+## Final Mental Model
+
+> **Event sourcing is what you do when you take seriously that state is a story, not a snapshot. The story is the data. The snapshot is a convenience.**
+
+A senior architect, looking at a problem, asks: *do we need to know how we got here, or only where we are?* For most CRUD applications, "where we are" is enough — and event sourcing's operational cost isn't worth it. For financial systems, audit-heavy domains, complex business workflows, collaborative editing, and any system where regulatory or trust requirements demand history — *the snapshot is the lie, and the story is the truth*.
+
+CQRS is the lighter, more broadly useful pattern. Most teams should reach for it before they reach for event sourcing. The separation of read and write models is a generally good idea; making the events themselves the source of truth is a specific architectural commitment with specific costs.
+
+The promise of event sourcing is reverse engineering the present from the past, perpetually. The cost is operational complexity that pays off only when the past is genuinely valuable. Engineering judgment is in distinguishing the two — *before* the system is built, not after.
+
+That's CQRS. That's event sourcing. That's what happens when MVCC's idea — keep history, derive state — is promoted from a database trick to an architectural style.

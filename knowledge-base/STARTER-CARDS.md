@@ -104,20 +104,6 @@
 
 ---
 
-### Postgres Internals
-**Mental models:**
-1. Process per connection (~10-20MB each); a pooler (PgBouncer) is mandatory past ~100 connections.
-2. MVCC with vacuum — versions accumulate; long-running transactions block vacuum and let bloat grow.
-3. WAL is the truth; `synchronous_commit` is the durability boundary.
-4. Cost-based planner is statistics-driven; run `ANALYZE` after bulk loads or plans flip.
-5. Wraparound is real — 32-bit XIDs require freezing; never disable autovacuum.
-
-**Final:** *Postgres is what an open-source database looks like after thirty years of disciplined engineering — internally coherent, well-documented trade-offs, well-known pitfalls. It rewards discipline and punishes its absence.*
-
-**Why it matters:** Operating Postgres at scale; the difference between "I use Postgres" and "I operate Postgres" (vacuum, wraparound, planner, replication).
-
----
-
 ## Distributed Systems
 
 ### CAP, Consistency Models & Replication
@@ -648,20 +634,6 @@
 
 ---
 
-### GPU & Accelerator Computing
-**Mental models:**
-1. CPU optimizes latency; GPU optimizes throughput.
-2. Data parallelism is the sweet spot; branching/sequential code is hostile.
-3. Memory bandwidth (not compute) is usually the limit.
-4. The host-device boundary (PCIe ~32-64 GB/sec vs GPU ~3 TB/sec) is expensive — keep data on GPU.
-5. SIMT — a warp of 32 threads runs in lockstep; divergent branches serialize.
-
-**Final:** *AI exists at the scale it does because GPUs made the necessary computation economically feasible — plan for data movement, optimize for throughput, bound costs, use frameworks.*
-
-**Why it matters:** ML training/inference cost dominates; utilization discipline; CUDA's ecosystem moat and vendor lock-in.
-
----
-
 ## System Failures
 
 ### Cascading Failures & Circuit Breakers
@@ -817,34 +789,6 @@
 **Final:** *Pick the protocol for the boundary, not for the company. Public APIs need discoverability; internal services need efficiency.*
 
 **Why it matters:** Protocol choice; versioning; idempotency.
-
----
-
-### gRPC Internals & Streaming
-**Mental models:**
-1. gRPC = HTTP/2 + Protocol Buffers + code generation.
-2. Four call types: unary, server, client, bidirectional streaming.
-3. Deadlines propagate and are mandatory; default is wait-forever.
-4. Schema is the contract; tag numbers are forever.
-5. Client-side load balancing is the norm (headless services in K8s).
-
-**Final:** *gRPC is what happens when you take the cost of inter-service communication seriously and build the framework that minimizes it — the opinions (binary, schema, code-gen, HTTP/2, deadlines) are the value.*
-
-**Why it matters:** The "gRPC for internal, REST for external" default; deadline propagation; schema evolution discipline.
-
----
-
-### GraphQL Deep Dive
-**Mental models:**
-1. Schema is the contract; resolvers are the runtime where complexity lives.
-2. Client-driven shape — one endpoint, the client asks for exactly the fields it needs.
-3. N+1 isn't eliminated; it moves server-side and must be batched with DataLoader.
-4. Query complexity must be bounded (depth limits, cost scoring, persisted queries).
-5. APQ optimizes transmission; allowlisting controls which queries can exist.
-
-**Final:** *GraphQL pushes complexity from network round-trips to server resolvers. The trade is worth it for many diverse clients with shifting needs; less so when you don't.*
-
-**Why it matters:** Mobile/BFF aggregation; per-field auth surface; DoS via unbounded queries.
 
 ---
 
